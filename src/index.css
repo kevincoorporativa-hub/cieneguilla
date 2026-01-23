@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* POS System Design - Optimized for accessibility and touch interfaces */
+
+@layer base {
+  :root {
+    /* Backgrounds */
+    --background: 220 20% 97%;
+    --foreground: 220 20% 10%;
+
+    /* Cards and surfaces */
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    /* Primary - Warm Orange (Pizzeria theme) */
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Slate blue */
+    --secondary: 215 25% 27%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Muted elements */
+    --muted: 220 15% 91%;
+    --muted-foreground: 220 10% 40%;
+
+    /* Accent - Warm gold */
+    --accent: 38 92% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Success - Green */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning - Amber */
+    --warning: 45 93% 47%;
+    --warning-foreground: 0 0% 10%;
+
+    /* Destructive - Red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Stock indicators */
+    --stock-high: 142 76% 36%;
+    --stock-medium: 45 93% 47%;
+    --stock-low: 0 84% 60%;
+    --stock-empty: 220 10% 60%;
+
+    /* Borders and inputs */
+    --border: 220 15% 85%;
+    --input: 220 15% 85%;
+    --ring: 24 95% 53%;
+
+    --radius: 0.75rem;
+
+    /* Sidebar */
+    --sidebar-background: 220 20% 14%;
+    --sidebar-foreground: 220 10% 90%;
+    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 20%;
+    --sidebar-accent-foreground: 220 10% 90%;
+    --sidebar-border: 220 15% 25%;
+    --sidebar-ring: 24 95% 53%;
+
+    /* POS specific */
+    --pos-header: 220 20% 14%;
+    --pos-category: 215 25% 27%;
+    --pos-product: 0 0% 100%;
+    --pos-cart: 220 15% 96%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-size: 18px;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Large touch-friendly buttons */
+  .btn-pos {
+    @apply min-h-[56px] px-6 text-lg font-semibold rounded-xl transition-all duration-150 active:scale-95;
+  }
+
+  .btn-pos-xl {
+    @apply min-h-[72px] px-8 text-xl font-bold rounded-2xl transition-all duration-150 active:scale-95;
+  }
+
+  /* Product grid cards */
+  .product-card {
+    @apply bg-card rounded-2xl p-4 shadow-sm border-2 border-transparent 
+           hover:border-primary hover:shadow-lg transition-all duration-150 
+           cursor-pointer active:scale-95 min-h-[140px];
+  }
+
+  /* Category buttons - Larger and more prominent */
+  .category-btn {
+    @apply min-h-[72px] px-6 text-lg font-bold rounded-xl transition-all duration-150 
+           active:scale-95 flex items-center justify-center gap-3;
+  }
+
+  /* Stock color indicators */
+  .stock-high { @apply bg-[hsl(var(--stock-high))] text-white; }
+  .stock-medium { @apply bg-[hsl(var(--stock-medium))] text-black; }
+  .stock-low { @apply bg-[hsl(var(--stock-low))] text-white; }
+  .stock-empty { @apply bg-[hsl(var(--stock-empty))] text-white; }
+
+  /* Online/Offline indicator */
+  .status-online {
+    @apply bg-[hsl(var(--success))] text-white;
+  }
+  .status-offline {
+    @apply bg-[hsl(var(--warning))] text-black;
+  }
+
+  /* Number pad buttons */
+  .numpad-btn {
+    @apply min-h-[64px] min-w-[64px] text-2xl font-bold rounded-xl 
+           bg-secondary text-secondary-foreground hover:bg-secondary/90 
+           active:scale-95 transition-all duration-100;
+  }
+
+  /* Cart item */
+  .cart-item {
+    @apply flex items-center justify-between p-3 bg-card rounded-xl 
+           border border-border hover:bg-muted/50 transition-colors;
+  }
+}
