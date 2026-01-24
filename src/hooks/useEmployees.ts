@@ -100,6 +100,7 @@ export function useCreateEmployee() {
       phone?: string;
       role?: string;
       store_id?: string;
+      user_id?: string;
     }) => {
       // Create employee record
       const { data: employee, error: empError } = await supabase
@@ -110,6 +111,7 @@ export function useCreateEmployee() {
           email: data.email,
           phone: data.phone,
           store_id: data.store_id,
+          user_id: data.user_id,
           active: true,
         })
         .select()
