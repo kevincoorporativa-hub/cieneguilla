@@ -3,6 +3,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import DashboardPage from "./pages/DashboardPage";
 import ProductosPage from "./pages/ProductosPage";
@@ -22,25 +24,27 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/productos" element={<ProductosPage />} />
-          <Route path="/combos" element={<CombosPage />} />
-          <Route path="/inventario" element={<InventarioPage />} />
-          <Route path="/delivery" element={<DeliveryPage />} />
-          <Route path="/caja" element={<CajaPage />} />
-          <Route path="/tickets" element={<TicketsPage />} />
-          <Route path="/reportes" element={<ReportesPage />} />
-          <Route path="/usuarios" element={<UsuariosPage />} />
-          <Route path="/configuracion" element={<ConfiguracionPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+            <Route path="/productos" element={<ProtectedRoute><ProductosPage /></ProtectedRoute>} />
+            <Route path="/combos" element={<ProtectedRoute><CombosPage /></ProtectedRoute>} />
+            <Route path="/inventario" element={<ProtectedRoute><InventarioPage /></ProtectedRoute>} />
+            <Route path="/delivery" element={<ProtectedRoute><DeliveryPage /></ProtectedRoute>} />
+            <Route path="/caja" element={<ProtectedRoute><CajaPage /></ProtectedRoute>} />
+            <Route path="/tickets" element={<ProtectedRoute><TicketsPage /></ProtectedRoute>} />
+            <Route path="/reportes" element={<ProtectedRoute><ReportesPage /></ProtectedRoute>} />
+            <Route path="/usuarios" element={<ProtectedRoute requireAdmin><UsuariosPage /></ProtectedRoute>} />
+            <Route path="/configuracion" element={<ProtectedRoute><ConfiguracionPage /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -1,26 +1,46 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Pizza, Lock, User } from 'lucide-react';
+import { Eye, EyeOff, Pizza, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
+  const { signIn, signUp } = useAuth();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login - will be replaced with Supabase auth
-    setTimeout(() => {
+
+    try {
+      if (isSignUp) {
+        const { error } = await signUp(email, password);
+        if (error) {
+          toast.error(error.message);
+        } else {
+          toast.success('¡Cuenta creada! Revisa tu correo para confirmar.');
+        }
+      } else {
+        const { error } = await signIn(email, password);
+        if (error) {
+          toast.error('Credenciales incorrectas');
+        } else {
+          navigate('/');
+        }
+      }
+    } catch (err) {
+      toast.error('Error al procesar la solicitud');
+    } finally {
       setIsLoading(false);
-      navigate('/');
-    }, 1000);
+    }
   };
 
   return (
@@ -36,17 +56,17 @@ export default function LoginPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
-            {/* Username */}
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email */}
             <div className="space-y-2">
-              <label className="text-pos-base font-semibold">Usuario</label>
+              <label className="text-pos-base font-semibold">Correo electrónico</label>
               <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground" />
                 <Input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Ingresa tu usuario"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@email.com"
                   className="pl-14 h-14 text-pos-lg rounded-xl"
                   required
                 />
@@ -65,6 +85,7 @@ export default function LoginPage() {
                   placeholder="Ingresa tu contraseña"
                   className="pl-14 pr-14 h-14 text-pos-lg rounded-xl"
                   required
+                  minLength={6}
                 />
                 <button
                   type="button"
@@ -82,15 +103,23 @@ export default function LoginPage() {
               className="w-full btn-pos-xl bg-primary hover:bg-primary/90"
               disabled={isLoading}
             >
-              {isLoading ? 'Iniciando sesión...' : 'Ingresar al Sistema'}
+              {isLoading 
+                ? (isSignUp ? 'Creando cuenta...' : 'Iniciando sesión...') 
+                : (isSignUp ? 'Crear cuenta' : 'Ingresar al Sistema')}
             </Button>
           </form>
 
-          {/* Demo info */}
-          <div className="mt-8 p-4 bg-muted rounded-xl text-center">
-            <p className="text-sm text-muted-foreground">
-              <strong>Demo:</strong> Ingresa cualquier usuario y contraseña
-            </p>
+          {/* Toggle sign up / sign in */}
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-primary hover:underline text-sm"
+            >
+              {isSignUp 
+                ? '¿Ya tienes cuenta? Inicia sesión' 
+                : '¿No tienes cuenta? Regístrate'}
+            </button>
           </div>
         </CardContent>
       </Card>
