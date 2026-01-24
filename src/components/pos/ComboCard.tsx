@@ -1,13 +1,23 @@
-import { Plus, Package } from 'lucide-react';
+import { Plus, Package, TrendingDown } from 'lucide-react';
 import { ComboCompleto } from '@/types/pos';
 import { Button } from '@/components/ui/button';
 
 interface ComboCardProps {
   combo: ComboCompleto;
   onAdd: (combo: ComboCompleto) => void;
+  products?: { id: string; base_price: number }[];
 }
 
-export function ComboCard({ combo, onAdd }: ComboCardProps) {
+export function ComboCard({ combo, onAdd, products = [] }: ComboCardProps) {
+  // Calculate original price from components
+  const precioOriginal = combo.componentes.reduce((sum, comp) => {
+    const producto = products.find(p => p.id === comp.productoId);
+    return sum + (Number(producto?.base_price) || 0) * comp.cantidad;
+  }, 0);
+  
+  const ahorro = precioOriginal - combo.precio;
+  const porcentajeAhorro = precioOriginal > 0 ? Math.round((ahorro / precioOriginal) * 100) : 0;
+
   return (
     <div className="relative bg-card border-2 rounded-xl p-4 hover:shadow-lg transition-all duration-200 hover:border-primary/50 group">
       {/* Combo badge */}
@@ -42,6 +52,16 @@ export function ComboCard({ combo, onAdd }: ComboCardProps) {
           )}
         </div>
 
+        {/* Savings badge */}
+        {ahorro > 0 && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-success/10 w-fit">
+            <TrendingDown className="h-3 w-3 text-success" />
+            <span className="text-xs font-bold text-success">
+              Ahorras S/ {ahorro.toFixed(2)} ({porcentajeAhorro}%)
+            </span>
+          </div>
+        )}
+
         {/* Temporal badge */}
         {combo.temporal && (
           <span className="inline-block px-2 py-0.5 text-xs font-semibold rounded-full bg-warning/10 text-warning">
@@ -52,9 +72,16 @@ export function ComboCard({ combo, onAdd }: ComboCardProps) {
 
       {/* Price and add button */}
       <div className="flex items-center justify-between mt-3 pt-3 border-t">
-        <span className="font-bold text-lg text-primary">
-          S/ {combo.precio.toFixed(2)}
-        </span>
+        <div className="flex flex-col">
+          {precioOriginal > combo.precio && (
+            <span className="text-xs text-muted-foreground line-through">
+              S/ {precioOriginal.toFixed(2)}
+            </span>
+          )}
+          <span className="font-bold text-lg text-primary">
+            S/ {combo.precio.toFixed(2)}
+          </span>
+        </div>
         <Button
           size="icon"
           className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 shadow-lg"
