@@ -25,162 +25,193 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { User as UserType, UserRole, DeliveryDriver } from '@/types/pos';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  useEmployees,
+  useCreateEmployee,
+  useUpdateEmployee,
+  useToggleEmployeeActive,
+  Employee,
+} from '@/hooks/useEmployees';
 
-interface UserData {
-  id: string;
-  nombre: string;
-  email: string;
-  rol: UserRole;
-  activo: boolean;
-  ultimoAcceso?: Date;
-  createdAt: Date;
-}
+type RoleType = 'admin' | 'manager' | 'cashier' | 'kitchen' | 'delivery';
 
-const demoUsers: UserData[] = [
-  { id: '1', nombre: 'Carlos García', email: 'carlos@pizzapos.com', rol: 'admin', activo: true, ultimoAcceso: new Date(), createdAt: new Date() },
-  { id: '2', nombre: 'Ana Torres', email: 'ana@pizzapos.com', rol: 'vendedor', activo: true, ultimoAcceso: new Date(Date.now() - 3600000), createdAt: new Date() },
-  { id: '3', nombre: 'Luis Mendoza', email: 'luis@pizzapos.com', rol: 'vendedor', activo: true, ultimoAcceso: new Date(Date.now() - 86400000), createdAt: new Date() },
-  { id: '4', nombre: 'María López', email: 'maria@pizzapos.com', rol: 'vendedor', activo: false, createdAt: new Date() },
-];
-
-const demoDrivers: DeliveryDriver[] = [
-  { id: '1', nombre: 'Pedro Ruiz', telefono: '987654321', activo: true },
-  { id: '2', nombre: 'Luis Gómez', telefono: '912345678', activo: true },
-  { id: '3', nombre: 'Miguel Torres', telefono: '965432187', activo: false },
-  { id: '4', nombre: 'Juan Pérez', telefono: '954321876', activo: true },
-];
-
-function getRoleBadge(rol: UserRole) {
-  switch (rol) {
+function getRoleBadge(role: string) {
+  switch (role) {
     case 'admin':
       return (
         <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">
           <Shield className="h-4 w-4" /> Administrador
         </span>
       );
-    case 'vendedor':
+    case 'manager':
+      return (
+        <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-accent/20 text-accent-foreground">
+          <UserCheck className="h-4 w-4" /> Gerente
+        </span>
+      );
+    case 'cashier':
       return (
         <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-success/10 text-success">
           <UserCheck className="h-4 w-4" /> Vendedor
         </span>
       );
-    case 'repartidor':
+    case 'kitchen':
+      return (
+        <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-warning/10 text-warning">
+          <User className="h-4 w-4" /> Cocina
+        </span>
+      );
+    case 'delivery':
       return (
         <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-secondary text-secondary-foreground">
           <Truck className="h-4 w-4" /> Repartidor
+        </span>
+      );
+    default:
+      return (
+        <span className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-semibold bg-muted text-muted-foreground">
+          <User className="h-4 w-4" /> Usuario
         </span>
       );
   }
 }
 
 export default function UsuariosPage() {
-  const [users, setUsers] = useState<UserData[]>(demoUsers);
-  const [drivers, setDrivers] = useState<DeliveryDriver[]>(demoDrivers);
   const [searchTerm, setSearchTerm] = useState('');
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserData | null>(null);
-  const [editingDriver, setEditingDriver] = useState<DeliveryDriver | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
 
-  // User form state
+  // Form state
   const [formNombre, setFormNombre] = useState('');
+  const [formApellido, setFormApellido] = useState('');
   const [formEmail, setFormEmail] = useState('');
-  const [formRol, setFormRol] = useState<UserRole>('vendedor');
-  const [formPassword, setFormPassword] = useState('');
+  const [formTelefono, setFormTelefono] = useState('');
+  const [formRol, setFormRol] = useState<RoleType>('cashier');
 
-  // Driver form state
-  const [driverNombre, setDriverNombre] = useState('');
-  const [driverTelefono, setDriverTelefono] = useState('');
+  // Hooks
+  const { data: employees = [], isLoading } = useEmployees();
+  const createEmployee = useCreateEmployee();
+  const updateEmployee = useUpdateEmployee();
+  const toggleActive = useToggleEmployeeActive();
 
-  const filteredUsers = users.filter((u) =>
-    u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filter employees
+  const systemUsers = employees.filter(e => e.role !== 'delivery');
+  const drivers = employees.filter(e => e.role === 'delivery');
+
+  const filteredUsers = systemUsers.filter(
+    (e) =>
+      e.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      e.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      e.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleOpenUserModal = (user?: UserData) => {
-    if (user) {
-      setEditingUser(user);
-      setFormNombre(user.nombre);
-      setFormEmail(user.email);
-      setFormRol(user.rol);
+  const handleOpenUserModal = (employee?: Employee) => {
+    if (employee) {
+      setEditingEmployee(employee);
+      setFormNombre(employee.first_name);
+      setFormApellido(employee.last_name);
+      setFormEmail(employee.email || '');
+      setFormTelefono(employee.phone || '');
+      setFormRol((employee.role as RoleType) || 'cashier');
     } else {
-      setEditingUser(null);
+      setEditingEmployee(null);
       setFormNombre('');
+      setFormApellido('');
       setFormEmail('');
-      setFormRol('vendedor');
-      setFormPassword('');
+      setFormTelefono('');
+      setFormRol('cashier');
     }
     setIsUserModalOpen(true);
   };
 
-  const handleOpenDriverModal = (driver?: DeliveryDriver) => {
-    if (driver) {
-      setEditingDriver(driver);
-      setDriverNombre(driver.nombre);
-      setDriverTelefono(driver.telefono || '');
+  const handleOpenDriverModal = (employee?: Employee) => {
+    if (employee) {
+      setEditingEmployee(employee);
+      setFormNombre(employee.first_name);
+      setFormApellido(employee.last_name);
+      setFormTelefono(employee.phone || '');
     } else {
-      setEditingDriver(null);
-      setDriverNombre('');
-      setDriverTelefono('');
+      setEditingEmployee(null);
+      setFormNombre('');
+      setFormApellido('');
+      setFormTelefono('');
     }
     setIsDriverModalOpen(true);
   };
 
-  const handleSaveUser = () => {
-    if (editingUser) {
-      setUsers(users.map(u => 
-        u.id === editingUser.id 
-          ? { ...u, nombre: formNombre, email: formEmail, rol: formRol }
-          : u
-      ));
-      toast.success('Usuario actualizado');
-    } else {
-      const newUser: UserData = {
-        id: crypto.randomUUID(),
-        nombre: formNombre,
-        email: formEmail,
-        rol: formRol,
-        activo: true,
-        createdAt: new Date()
-      };
-      setUsers([...users, newUser]);
-      toast.success('Usuario creado');
+  const handleSaveUser = async () => {
+    if (!formNombre || !formApellido) {
+      toast.error('Complete los campos requeridos');
+      return;
     }
-    setIsUserModalOpen(false);
-  };
 
-  const handleSaveDriver = () => {
-    if (editingDriver) {
-      setDrivers(drivers.map(d => 
-        d.id === editingDriver.id 
-          ? { ...d, nombre: driverNombre, telefono: driverTelefono }
-          : d
-      ));
-      toast.success('Repartidor actualizado');
-    } else {
-      const newDriver: DeliveryDriver = {
-        id: crypto.randomUUID(),
-        nombre: driverNombre,
-        telefono: driverTelefono,
-        activo: true
-      };
-      setDrivers([...drivers, newDriver]);
-      toast.success('Repartidor creado');
+    try {
+      if (editingEmployee) {
+        await updateEmployee.mutateAsync({
+          id: editingEmployee.id,
+          first_name: formNombre,
+          last_name: formApellido,
+          email: formEmail,
+          phone: formTelefono,
+        });
+        toast.success('Usuario actualizado');
+      } else {
+        await createEmployee.mutateAsync({
+          first_name: formNombre,
+          last_name: formApellido,
+          email: formEmail,
+          phone: formTelefono,
+          role: formRol,
+        });
+        toast.success('Usuario creado');
+      }
+      setIsUserModalOpen(false);
+    } catch (error: any) {
+      toast.error('Error al guardar', { description: error.message });
     }
-    setIsDriverModalOpen(false);
   };
 
-  const handleToggleUserActive = (user: UserData) => {
-    setUsers(users.map(u => u.id === user.id ? { ...u, activo: !u.activo } : u));
-    toast.success(user.activo ? 'Usuario desactivado' : 'Usuario activado');
+  const handleSaveDriver = async () => {
+    if (!formNombre || !formApellido) {
+      toast.error('Complete los campos requeridos');
+      return;
+    }
+
+    try {
+      if (editingEmployee) {
+        await updateEmployee.mutateAsync({
+          id: editingEmployee.id,
+          first_name: formNombre,
+          last_name: formApellido,
+          phone: formTelefono,
+        });
+        toast.success('Repartidor actualizado');
+      } else {
+        await createEmployee.mutateAsync({
+          first_name: formNombre,
+          last_name: formApellido,
+          phone: formTelefono,
+          role: 'delivery',
+        });
+        toast.success('Repartidor creado');
+      }
+      setIsDriverModalOpen(false);
+    } catch (error: any) {
+      toast.error('Error al guardar', { description: error.message });
+    }
   };
 
-  const handleToggleDriverActive = (driver: DeliveryDriver) => {
-    setDrivers(drivers.map(d => d.id === driver.id ? { ...d, activo: !d.activo } : d));
-    toast.success(driver.activo ? 'Repartidor desactivado' : 'Repartidor activado');
+  const handleToggleActive = async (employee: Employee) => {
+    try {
+      await toggleActive.mutateAsync({ id: employee.id, active: !employee.active });
+      toast.success(employee.active ? 'Usuario desactivado' : 'Usuario activado');
+    } catch (error: any) {
+      toast.error('Error al actualizar estado', { description: error.message });
+    }
   };
 
   return (
@@ -198,13 +229,13 @@ export default function UsuariosPage() {
         <div className="grid grid-cols-4 gap-4">
           <Card className="border-2 p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-primary">{users.length}</p>
+              <p className="text-2xl font-bold text-primary">{employees.length}</p>
               <p className="text-sm text-muted-foreground">Total usuarios</p>
             </div>
           </Card>
           <Card className="border-2 p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-success">{users.filter(u => u.activo).length}</p>
+              <p className="text-2xl font-bold text-success">{employees.filter(e => e.active).length}</p>
               <p className="text-sm text-muted-foreground">Usuarios activos</p>
             </div>
           </Card>
@@ -216,7 +247,7 @@ export default function UsuariosPage() {
           </Card>
           <Card className="border-2 p-4">
             <div className="text-center">
-              <p className="text-2xl font-bold text-success">{drivers.filter(d => d.activo).length}</p>
+              <p className="text-2xl font-bold text-success">{drivers.filter(d => d.active).length}</p>
               <p className="text-sm text-muted-foreground">Repartidores activos</p>
             </div>
           </Card>
@@ -265,61 +296,77 @@ export default function UsuariosPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-pos-base font-bold">Nombre</TableHead>
-                      <TableHead className="text-pos-base font-bold">Email</TableHead>
-                      <TableHead className="text-pos-base font-bold">Rol</TableHead>
-                      <TableHead className="text-pos-base font-bold">Último acceso</TableHead>
-                      <TableHead className="text-pos-base font-bold">Estado</TableHead>
-                      <TableHead className="text-pos-base font-bold text-right">Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id} className="hover:bg-muted/50">
-                        <TableCell className="font-semibold text-pos-base">{user.nombre}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{getRoleBadge(user.rol)}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {user.ultimoAcceso 
-                            ? user.ultimoAcceso.toLocaleDateString('es-PE') 
-                            : 'Nunca'}
-                        </TableCell>
-                        <TableCell>
-                          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                            user.activo 
-                              ? 'bg-success/10 text-success' 
-                              : 'bg-muted text-muted-foreground'
-                          }`}>
-                            {user.activo ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-10 w-10"
-                              onClick={() => handleOpenUserModal(user)}
-                            >
-                              <Edit className="h-5 w-5" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className={`h-10 w-10 ${user.activo ? 'text-destructive' : 'text-success'}`}
-                              onClick={() => handleToggleUserActive(user)}
-                            >
-                              {user.activo ? <Trash2 className="h-5 w-5" /> : <UserCheck className="h-5 w-5" />}
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                {isLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(4)].map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-pos-base font-bold">Nombre</TableHead>
+                        <TableHead className="text-pos-base font-bold">Email</TableHead>
+                        <TableHead className="text-pos-base font-bold">Rol</TableHead>
+                        <TableHead className="text-pos-base font-bold">Teléfono</TableHead>
+                        <TableHead className="text-pos-base font-bold">Estado</TableHead>
+                        <TableHead className="text-pos-base font-bold text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((employee) => (
+                        <TableRow key={employee.id} className="hover:bg-muted/50">
+                          <TableCell className="font-semibold text-pos-base">
+                            {employee.first_name} {employee.last_name}
+                          </TableCell>
+                          <TableCell>{employee.email || '—'}</TableCell>
+                          <TableCell>{getRoleBadge(employee.role || 'cashier')}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {employee.phone || '—'}
+                          </TableCell>
+                          <TableCell>
+                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                              employee.active 
+                                ? 'bg-success/10 text-success' 
+                                : 'bg-muted text-muted-foreground'
+                            }`}>
+                              {employee.active ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-10 w-10"
+                                onClick={() => handleOpenUserModal(employee)}
+                              >
+                                <Edit className="h-5 w-5" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={`h-10 w-10 ${employee.active ? 'text-destructive' : 'text-success'}`}
+                                onClick={() => handleToggleActive(employee)}
+                                disabled={toggleActive.isPending}
+                              >
+                                {employee.active ? <Trash2 className="h-5 w-5" /> : <UserCheck className="h-5 w-5" />}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {filteredUsers.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                            No se encontraron usuarios
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -333,49 +380,65 @@ export default function UsuariosPage() {
             </div>
 
             {/* Drivers Grid */}
-            <div className="grid grid-cols-4 gap-4">
-              {drivers.map((driver) => (
-                <Card key={driver.id} className={`border-2 ${!driver.activo && 'opacity-60'}`}>
-                  <CardContent className="p-6 text-center">
-                    <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
-                      driver.activo ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      <Truck className="h-8 w-8" />
-                    </div>
-                    <h3 className="font-bold text-pos-lg">{driver.nombre}</h3>
-                    <p className="text-muted-foreground">{driver.telefono}</p>
-                    <div className="mt-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        driver.activo 
-                          ? 'bg-success/10 text-success' 
-                          : 'bg-muted text-muted-foreground'
+            {isLoading ? (
+              <div className="grid grid-cols-4 gap-4">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-48 rounded-xl" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-4">
+                {drivers.map((driver) => (
+                  <Card key={driver.id} className={`border-2 ${!driver.active && 'opacity-60'}`}>
+                    <CardContent className="p-6 text-center">
+                      <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${
+                        driver.active ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                       }`}>
-                        {driver.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="flex-1"
-                        onClick={() => handleOpenDriverModal(driver)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Editar
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className={`flex-1 ${driver.activo ? 'text-destructive' : 'text-success'}`}
-                        onClick={() => handleToggleDriverActive(driver)}
-                      >
-                        {driver.activo ? 'Desactivar' : 'Activar'}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                        <Truck className="h-8 w-8" />
+                      </div>
+                      <h3 className="font-bold text-pos-lg">{driver.first_name} {driver.last_name}</h3>
+                      <p className="text-muted-foreground">{driver.phone || 'Sin teléfono'}</p>
+                      <div className="mt-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                          driver.active 
+                            ? 'bg-success/10 text-success' 
+                            : 'bg-muted text-muted-foreground'
+                        }`}>
+                          {driver.active ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex-1"
+                          onClick={() => handleOpenDriverModal(driver)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className={`flex-1 ${driver.active ? 'text-destructive' : 'text-success'}`}
+                          onClick={() => handleToggleActive(driver)}
+                          disabled={toggleActive.isPending}
+                        >
+                          {driver.active ? 'Desactivar' : 'Activar'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {drivers.length === 0 && (
+                  <div className="col-span-4 text-center py-12 text-muted-foreground">
+                    <Truck className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-pos-lg font-medium">No hay repartidores</p>
+                    <p className="text-sm mt-2">Crea un nuevo repartidor para empezar</p>
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 
@@ -385,18 +448,29 @@ export default function UsuariosPage() {
             <DialogHeader>
               <DialogTitle className="text-pos-xl flex items-center gap-2">
                 <User className="h-6 w-6" />
-                {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+                {editingEmployee ? 'Editar Usuario' : 'Nuevo Usuario'}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-pos-base font-semibold">Nombre completo</label>
-                <Input
-                  value={formNombre}
-                  onChange={(e) => setFormNombre(e.target.value)}
-                  placeholder="Nombre del usuario"
-                  className="h-12 text-pos-base rounded-xl"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Nombre</label>
+                  <Input
+                    value={formNombre}
+                    onChange={(e) => setFormNombre(e.target.value)}
+                    placeholder="Nombre"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Apellido</label>
+                  <Input
+                    value={formApellido}
+                    onChange={(e) => setFormApellido(e.target.value)}
+                    placeholder="Apellido"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -411,42 +485,44 @@ export default function UsuariosPage() {
               </div>
 
               <div className="space-y-2">
+                <label className="text-pos-base font-semibold">Teléfono</label>
+                <Input
+                  value={formTelefono}
+                  onChange={(e) => setFormTelefono(e.target.value)}
+                  placeholder="987654321"
+                  className="h-12 text-pos-base rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <label className="text-pos-base font-semibold">Rol</label>
-                <Select value={formRol} onValueChange={(v) => setFormRol(v as UserRole)}>
+                <Select value={formRol} onValueChange={(v) => setFormRol(v as RoleType)}>
                   <SelectTrigger className="h-12 text-pos-base rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="vendedor">Vendedor</SelectItem>
-                    <SelectItem value="repartidor">Repartidor</SelectItem>
+                    <SelectItem value="manager">Gerente</SelectItem>
+                    <SelectItem value="cashier">Vendedor</SelectItem>
+                    <SelectItem value="kitchen">Cocina</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {!editingUser && (
-                <div className="space-y-2">
-                  <label className="text-pos-base font-semibold">Contraseña</label>
-                  <Input
-                    type="password"
-                    value={formPassword}
-                    onChange={(e) => setFormPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="h-12 text-pos-base rounded-xl"
-                  />
-                </div>
-              )}
-
               <div className="flex gap-3 pt-4">
-                <Button variant="outline" className="flex-1 btn-pos" onClick={() => setIsUserModalOpen(false)}>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 h-12 rounded-xl"
+                  onClick={() => setIsUserModalOpen(false)}
+                >
                   Cancelar
                 </Button>
                 <Button 
-                  className="flex-1 btn-pos bg-primary"
+                  className="flex-1 h-12 rounded-xl bg-primary"
                   onClick={handleSaveUser}
-                  disabled={!formNombre || !formEmail}
+                  disabled={createEmployee.isPending || updateEmployee.isPending}
                 >
-                  {editingUser ? 'Guardar Cambios' : 'Crear Usuario'}
+                  {createEmployee.isPending || updateEmployee.isPending ? 'Guardando...' : 'Guardar'}
                 </Button>
               </div>
             </div>
@@ -459,40 +535,55 @@ export default function UsuariosPage() {
             <DialogHeader>
               <DialogTitle className="text-pos-xl flex items-center gap-2">
                 <Truck className="h-6 w-6" />
-                {editingDriver ? 'Editar Repartidor' : 'Nuevo Repartidor'}
+                {editingEmployee ? 'Editar Repartidor' : 'Nuevo Repartidor'}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-pos-base font-semibold">Nombre completo</label>
-                <Input
-                  value={driverNombre}
-                  onChange={(e) => setDriverNombre(e.target.value)}
-                  placeholder="Nombre del repartidor"
-                  className="h-12 text-pos-base rounded-xl"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Nombre</label>
+                  <Input
+                    value={formNombre}
+                    onChange={(e) => setFormNombre(e.target.value)}
+                    placeholder="Nombre"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Apellido</label>
+                  <Input
+                    value={formApellido}
+                    onChange={(e) => setFormApellido(e.target.value)}
+                    placeholder="Apellido"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
                 <label className="text-pos-base font-semibold">Teléfono</label>
                 <Input
-                  value={driverTelefono}
-                  onChange={(e) => setDriverTelefono(e.target.value)}
+                  value={formTelefono}
+                  onChange={(e) => setFormTelefono(e.target.value)}
                   placeholder="987654321"
                   className="h-12 text-pos-base rounded-xl"
                 />
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button variant="outline" className="flex-1 btn-pos" onClick={() => setIsDriverModalOpen(false)}>
+                <Button 
+                  variant="outline" 
+                  className="flex-1 h-12 rounded-xl"
+                  onClick={() => setIsDriverModalOpen(false)}
+                >
                   Cancelar
                 </Button>
                 <Button 
-                  className="flex-1 btn-pos bg-primary"
+                  className="flex-1 h-12 rounded-xl bg-primary"
                   onClick={handleSaveDriver}
-                  disabled={!driverNombre}
+                  disabled={createEmployee.isPending || updateEmployee.isPending}
                 >
-                  {editingDriver ? 'Guardar Cambios' : 'Crear Repartidor'}
+                  {createEmployee.isPending || updateEmployee.isPending ? 'Guardando...' : 'Guardar'}
                 </Button>
               </div>
             </div>
