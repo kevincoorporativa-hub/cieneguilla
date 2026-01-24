@@ -1,20 +1,39 @@
-import { User, Calendar } from 'lucide-react';
+import { User, Calendar, Shield, UserCheck } from 'lucide-react';
 import { OperationMode } from '@/types/pos';
 import { NotificationsDropdown } from '@/components/notifications/NotificationsDropdown';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   mode: OperationMode;
   onModeChange: (mode: OperationMode) => void;
-  userName: string;
 }
 
-export function Header({ mode, onModeChange, userName }: HeaderProps) {
+export function Header({ mode, onModeChange }: HeaderProps) {
+  const { user, role } = useAuth();
+  
   const today = new Date().toLocaleDateString('es-PE', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
+
+  // Get display name from user email
+  const displayName = user?.email?.split('@')[0] || 'Usuario';
+  
+  // Get role display
+  const getRoleDisplay = () => {
+    switch (role) {
+      case 'admin': return { label: 'Administrador', icon: Shield, color: 'text-primary' };
+      case 'manager': return { label: 'Gerente', icon: Shield, color: 'text-primary' };
+      case 'cashier': return { label: 'Cajero', icon: UserCheck, color: 'text-success' };
+      case 'kitchen': return { label: 'Cocina', icon: User, color: 'text-warning' };
+      case 'delivery': return { label: 'Repartidor', icon: User, color: 'text-secondary' };
+      default: return { label: 'Usuario', icon: User, color: 'text-muted-foreground' };
+    }
+  };
+  
+  const roleInfo = getRoleDisplay();
 
   return (
     <header className="h-20 bg-card border-b border-border px-6 flex items-center justify-between">
@@ -58,8 +77,11 @@ export function Header({ mode, onModeChange, userName }: HeaderProps) {
             <User className="h-6 w-6 text-primary-foreground" />
           </div>
           <div>
-            <p className="font-bold text-pos-base">{userName}</p>
-            <p className="text-sm text-muted-foreground">Vendedor</p>
+            <p className="font-bold text-pos-base capitalize">{displayName}</p>
+            <p className={`text-sm flex items-center gap-1 ${roleInfo.color}`}>
+              <roleInfo.icon className="h-3 w-3" />
+              {roleInfo.label}
+            </p>
           </div>
         </div>
       </div>

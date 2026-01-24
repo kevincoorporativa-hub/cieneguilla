@@ -14,7 +14,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header mode={mode} onModeChange={setMode} userName="Carlos García" />
+        <Header mode={mode} onModeChange={setMode} />
         <main className="flex-1 overflow-auto p-6">
           {children}
         </main>

@@ -84,6 +84,7 @@ export default function POSPage() {
   const { user } = useAuth();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showCombos, setShowCombos] = useState(false);
+  const [comboFilter, setComboFilter] = useState<'all' | 'permanent' | 'temporary'>('all');
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState<Discount | undefined>();
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -120,6 +121,13 @@ export default function POSPage() {
       return dbProduct?.category_id === selectedCategoryId;
     });
   }, [products, dbProducts, selectedCategoryId, showCombos]);
+
+  // Filter combos by type
+  const filteredCombos = useMemo(() => {
+    if (comboFilter === 'all') return combos;
+    if (comboFilter === 'permanent') return combos.filter(c => !c.temporal);
+    return combos.filter(c => c.temporal);
+  }, [combos, comboFilter]);
 
   const handleSelectCategory = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
@@ -350,22 +358,59 @@ export default function POSPage() {
                 ))}
               </div>
             ) : showCombos ? (
-              /* Combos grid */
-              <div className="grid grid-cols-4 gap-4 pb-4">
-                {combos.map((combo) => (
-                  <ComboCard
-                    key={combo.id}
-                    combo={combo}
-                    onAdd={handleAddCombo}
-                    products={dbProducts}
-                  />
-                ))}
-                {combos.length === 0 && (
-                  <div className="col-span-4 flex flex-col items-center justify-center h-64 text-muted-foreground">
-                    <Layers className="h-16 w-16 mb-4 opacity-50" />
-                    <p className="text-pos-lg font-medium">No hay combos disponibles</p>
-                  </div>
-                )}
+              /* Combos section with filter */
+              <div className="space-y-4">
+                {/* Combo filter buttons */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setComboFilter('all')}
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                      comboFilter === 'all'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    Todos ({combos.length})
+                  </button>
+                  <button
+                    onClick={() => setComboFilter('permanent')}
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                      comboFilter === 'permanent'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    Permanentes ({combos.filter(c => !c.temporal).length})
+                  </button>
+                  <button
+                    onClick={() => setComboFilter('temporary')}
+                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                      comboFilter === 'temporary'
+                        ? 'bg-warning text-warning-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    Temporales ({combos.filter(c => c.temporal).length})
+                  </button>
+                </div>
+                
+                {/* Combos grid */}
+                <div className="grid grid-cols-4 gap-4 pb-4">
+                  {filteredCombos.map((combo) => (
+                    <ComboCard
+                      key={combo.id}
+                      combo={combo}
+                      onAdd={handleAddCombo}
+                      products={dbProducts}
+                    />
+                  ))}
+                  {filteredCombos.length === 0 && (
+                    <div className="col-span-4 flex flex-col items-center justify-center h-64 text-muted-foreground">
+                      <Layers className="h-16 w-16 mb-4 opacity-50" />
+                      <p className="text-pos-lg font-medium">No hay combos disponibles</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               /* Products grid */
