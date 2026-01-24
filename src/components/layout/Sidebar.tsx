@@ -15,10 +15,12 @@ import {
   Boxes,
   Layers
 } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { OnlineIndicator } from '@/components/pos/OnlineIndicator';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const navItems = [
   { to: '/', icon: ShoppingCart, label: 'Punto de Venta' },
@@ -36,7 +38,19 @@ const navItems = [
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut, user } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success('Sesión cerrada');
+      navigate('/login');
+    } catch (error) {
+      toast.error('Error al cerrar sesión');
+    }
+  };
 
   return (
     <aside className={cn(
@@ -100,10 +114,13 @@ export function Sidebar() {
       {/* Footer */}
       <div className="p-3 border-t border-sidebar-border space-y-2">
         {!isCollapsed && <OnlineIndicator />}
-        <button className={cn(
-          "flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sidebar-foreground hover:bg-sidebar-accent transition-all",
-          isCollapsed && "justify-center"
-        )}>
+        <button 
+          onClick={handleLogout}
+          className={cn(
+            "flex items-center gap-3 w-full px-3 py-3 rounded-xl text-sidebar-foreground hover:bg-destructive/10 hover:text-destructive transition-all",
+            isCollapsed && "justify-center"
+          )}
+        >
           <LogOut className="h-6 w-6 shrink-0" />
           {!isCollapsed && <span className="font-medium">Cerrar sesión</span>}
         </button>
