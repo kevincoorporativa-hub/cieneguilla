@@ -357,6 +357,7 @@ export default function POSPage() {
                     key={combo.id}
                     combo={combo}
                     onAdd={handleAddCombo}
+                    products={dbProducts}
                   />
                 ))}
                 {combos.length === 0 && (
