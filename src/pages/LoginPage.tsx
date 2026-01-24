@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -13,12 +14,33 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      toast.error('Ingresa tu correo para reenviar la confirmación');
+      return;
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    toast.success('Te enviamos nuevamente el correo de confirmación');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setNeedsEmailConfirmation(false);
 
     try {
       if (isSignUp) {
@@ -31,7 +53,17 @@ export default function LoginPage() {
       } else {
         const { error } = await signIn(email, password);
         if (error) {
-          toast.error('Credenciales incorrectas');
+          const maybeCode = (error as unknown as { code?: string }).code;
+          const isNotConfirmed =
+            maybeCode === 'email_not_confirmed' ||
+            (typeof error.message === 'string' && error.message.toLowerCase().includes('not confirmed'));
+
+          if (isNotConfirmed) {
+            setNeedsEmailConfirmation(true);
+            toast.error('Tu correo aún no está confirmado. Confírmalo para poder ingresar.');
+          } else {
+            toast.error('Credenciales incorrectas');
+          }
         } else {
           navigate('/');
         }
@@ -107,6 +139,23 @@ export default function LoginPage() {
                 ? (isSignUp ? 'Creando cuenta...' : 'Iniciando sesión...') 
                 : (isSignUp ? 'Crear cuenta' : 'Ingresar al Sistema')}
             </Button>
+
+            {!isSignUp && needsEmailConfirmation && (
+              <div className="rounded-xl border p-4 text-center space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  No podrás iniciar sesión hasta confirmar tu correo.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleResendConfirmation}
+                  disabled={isLoading}
+                >
+                  Reenviar correo de confirmación
+                </Button>
+              </div>
+            )}
           </form>
 
           {/* Toggle sign up / sign in */}
