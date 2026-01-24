@@ -21,6 +21,7 @@ export interface Product {
   active: boolean;
   track_stock: boolean;
   created_at: string;
+  updated_at?: string;
   category?: Category;
 }
 
@@ -32,37 +33,45 @@ export interface ProductVariant {
   active: boolean;
 }
 
-// Fetch categories
-export function useCategories() {
+// Fetch categories (including inactive for admin)
+export function useCategories(includeInactive = false) {
   return useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories', includeInactive],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('categories')
         .select('*')
-        .eq('active', true)
         .order('sort_order', { ascending: true });
 
+      if (!includeInactive) {
+        query = query.eq('active', true);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as Category[];
     },
   });
 }
 
-// Fetch all products with categories
-export function useProducts() {
+// Fetch all products with categories (including inactive for admin)
+export function useProducts(includeInactive = false) {
   return useQuery({
-    queryKey: ['products'],
+    queryKey: ['products', includeInactive],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('products')
         .select(`
           *,
           category:categories(*)
         `)
-        .eq('active', true)
         .order('name');
 
+      if (!includeInactive) {
+        query = query.eq('active', true);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as (Product & { category: Category | null })[];
     },
@@ -117,10 +126,26 @@ export function useCreateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (product: Omit<Product, 'id' | 'created_at'>) => {
+    mutationFn: async (product: {
+      name: string;
+      category_id: string | null;
+      description?: string | null;
+      base_price: number;
+      image_url?: string | null;
+      active?: boolean;
+      track_stock?: boolean;
+    }) => {
       const { data, error } = await supabase
         .from('products')
-        .insert(product)
+        .insert({
+          name: product.name,
+          category_id: product.category_id,
+          description: product.description || null,
+          base_price: product.base_price,
+          image_url: product.image_url || null,
+          active: product.active ?? true,
+          track_stock: product.track_stock ?? false,
+        })
         .select()
         .single();
 
@@ -138,10 +163,19 @@ export function useUpdateProduct() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, ...product }: Partial<Product> & { id: string }) => {
+    mutationFn: async ({ id, ...updates }: {
+      id: string;
+      name?: string;
+      category_id?: string | null;
+      description?: string | null;
+      base_price?: number;
+      image_url?: string | null;
+      active?: boolean;
+      track_stock?: boolean;
+    }) => {
       const { data, error } = await supabase
         .from('products')
-        .update(product)
+        .update(updates)
         .eq('id', id)
         .select()
         .single();
@@ -155,20 +189,102 @@ export function useUpdateProduct() {
   });
 }
 
+// Delete product (soft delete by setting active = false)
+export function useDeleteProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('products')
+        .update({ active: false })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+  });
+}
+
 // Create category
 export function useCreateCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (category: Omit<Category, 'id'>) => {
+    mutationFn: async (category: {
+      name: string;
+      description?: string | null;
+      icon?: string | null;
+      color?: string;
+      sort_order?: number;
+      active?: boolean;
+    }) => {
       const { data, error } = await supabase
         .from('categories')
-        .insert(category)
+        .insert({
+          name: category.name,
+          description: category.description || null,
+          icon: category.icon || null,
+          color: category.color || '#3b82f6',
+          sort_order: category.sort_order || 0,
+          active: category.active ?? true,
+        })
         .select()
         .single();
 
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+
+// Update category
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: {
+      id: string;
+      name?: string;
+      description?: string | null;
+      icon?: string | null;
+      color?: string;
+      sort_order?: number;
+      active?: boolean;
+    }) => {
+      const { data, error } = await supabase
+        .from('categories')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+
+// Delete category (soft delete)
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('categories')
+        .update({ active: false })
+        .eq('id', id);
+
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
