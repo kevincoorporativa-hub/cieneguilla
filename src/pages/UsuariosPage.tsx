@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Eye, EyeOff, Lock } from 'lucide-react';
 import { Plus, Search, Edit, Trash2, Users, Shield, UserCheck, Truck, User } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,9 +91,11 @@ export default function UsuariosPage() {
   const [formNombre, setFormNombre] = useState('');
   const [formApellido, setFormApellido] = useState('');
   const [formEmail, setFormEmail] = useState('');
+  const [formPassword, setFormPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [formTelefono, setFormTelefono] = useState('');
   const [formRol, setFormRol] = useState<RoleType>('cashier');
-
+  const [isCreating, setIsCreating] = useState(false);
   // Hooks
   const { data: employees = [], isLoading } = useEmployees();
   const createEmployee = useCreateEmployee();
@@ -115,6 +119,7 @@ export default function UsuariosPage() {
       setFormNombre(employee.first_name);
       setFormApellido(employee.last_name);
       setFormEmail(employee.email || '');
+      setFormPassword('');
       setFormTelefono(employee.phone || '');
       setFormRol((employee.role as RoleType) || 'cashier');
     } else {
@@ -122,9 +127,11 @@ export default function UsuariosPage() {
       setFormNombre('');
       setFormApellido('');
       setFormEmail('');
+      setFormPassword('');
       setFormTelefono('');
       setFormRol('cashier');
     }
+    setShowPassword(false);
     setIsUserModalOpen(true);
   };
 
@@ -149,6 +156,20 @@ export default function UsuariosPage() {
       return;
     }
 
+    // Validaciones para nuevo usuario
+    if (!editingEmployee) {
+      if (!formEmail) {
+        toast.error('El email es requerido para nuevos usuarios');
+        return;
+      }
+      if (!formPassword || formPassword.length < 6) {
+        toast.error('La contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+    }
+
+    setIsCreating(true);
+
     try {
       if (editingEmployee) {
         await updateEmployee.mutateAsync({
@@ -160,18 +181,54 @@ export default function UsuariosPage() {
         });
         toast.success('Usuario actualizado');
       } else {
+        // 1. Crear usuario en Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formEmail,
+          password: formPassword,
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: {
+              first_name: formNombre,
+              last_name: formApellido,
+            }
+          }
+        });
+
+        if (authError) throw authError;
+        
+        if (!authData.user) {
+          throw new Error('No se pudo crear el usuario');
+        }
+
+        // 2. Crear empleado vinculado al user_id
         await createEmployee.mutateAsync({
           first_name: formNombre,
           last_name: formApellido,
           email: formEmail,
           phone: formTelefono,
           role: formRol,
+          user_id: authData.user.id,
         });
-        toast.success('Usuario creado');
+
+        // 3. Asignar rol en user_roles
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: authData.user.id, role: formRol });
+
+        if (roleError) {
+          console.error('Error assigning role:', roleError);
+        }
+
+        toast.success('Usuario creado exitosamente', {
+          description: `${formEmail} puede iniciar sesión con la contraseña asignada`,
+        });
       }
       setIsUserModalOpen(false);
     } catch (error: any) {
+      console.error('Error creating user:', error);
       toast.error('Error al guardar', { description: error.message });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -474,15 +531,48 @@ export default function UsuariosPage() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-pos-base font-semibold">Email</label>
+                <label className="text-pos-base font-semibold">Email *</label>
                 <Input
                   type="email"
                   value={formEmail}
                   onChange={(e) => setFormEmail(e.target.value)}
                   placeholder="email@ejemplo.com"
                   className="h-12 text-pos-base rounded-xl"
+                  disabled={!!editingEmployee}
                 />
+                {editingEmployee && (
+                  <p className="text-xs text-muted-foreground">El email no se puede cambiar</p>
+                )}
               </div>
+
+              {/* Campo de contraseña solo para nuevos usuarios */}
+              {!editingEmployee && (
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Contraseña *
+                  </label>
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formPassword}
+                      onChange={(e) => setFormPassword(e.target.value)}
+                      placeholder="Mínimo 6 caracteres"
+                      className="h-12 text-pos-base rounded-xl pr-12"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Esta contraseña permitirá al usuario iniciar sesión en el sistema
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-pos-base font-semibold">Teléfono</label>
@@ -520,9 +610,9 @@ export default function UsuariosPage() {
                 <Button 
                   className="flex-1 h-12 rounded-xl bg-primary"
                   onClick={handleSaveUser}
-                  disabled={createEmployee.isPending || updateEmployee.isPending}
+                  disabled={isCreating || createEmployee.isPending || updateEmployee.isPending}
                 >
-                  {createEmployee.isPending || updateEmployee.isPending ? 'Guardando...' : 'Guardar'}
+                  {isCreating || createEmployee.isPending || updateEmployee.isPending ? 'Guardando...' : 'Guardar'}
                 </Button>
               </div>
             </div>
