@@ -14,7 +14,9 @@ import {
   Banknote,
   Smartphone,
   PlayCircle,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Store
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -37,8 +39,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { exportToExcel, exportToPDF, ExportData } from '@/utils/exportUtils';
 import { 
@@ -50,6 +59,7 @@ import {
   useTerminals
 } from '@/hooks/useCashSession';
 import { usePaymentsBySession } from '@/hooks/useOrders';
+import { useStores, useCreateStore, useCreateTerminal } from '@/hooks/useStores';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -59,16 +69,27 @@ export default function CajaPage() {
   const [observaciones, setObservaciones] = useState('');
   const [selectedTerminal, setSelectedTerminal] = useState<string>('');
 
+  // Modal states
+  const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
+  const [isTerminalModalOpen, setIsTerminalModalOpen] = useState(false);
+  const [newStoreName, setNewStoreName] = useState('');
+  const [newStoreAddress, setNewStoreAddress] = useState('');
+  const [newTerminalName, setNewTerminalName] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+
   // Fetch data
   const { data: currentSession, isLoading: loadingSession } = useCurrentCashSession();
   const { data: sessionSummary, isLoading: loadingSummary } = useCashSessionSummary(currentSession?.id || null);
   const { data: sessionHistory = [], isLoading: loadingHistory } = useCashSessionHistory();
   const { data: payments = [], isLoading: loadingPayments } = usePaymentsBySession(currentSession?.id || null);
   const { data: terminals = [] } = useTerminals();
+  const { data: stores = [] } = useStores();
 
   // Mutations
   const openSession = useOpenCashSession();
   const closeSession = useCloseCashSession();
+  const createStore = useCreateStore();
+  const createTerminal = useCreateTerminal();
 
   // Set default terminal
   useEffect(() => {
@@ -76,6 +97,56 @@ export default function CajaPage() {
       setSelectedTerminal(terminals[0].id);
     }
   }, [terminals, selectedTerminal]);
+
+  // Set default store for terminal creation
+  useEffect(() => {
+    if (stores.length > 0 && !selectedStoreId) {
+      setSelectedStoreId(stores[0].id);
+    }
+  }, [stores, selectedStoreId]);
+
+  const handleCreateStore = async () => {
+    if (!newStoreName.trim()) {
+      toast.error('Ingrese un nombre para la tienda');
+      return;
+    }
+    try {
+      const store = await createStore.mutateAsync({
+        name: newStoreName,
+        address: newStoreAddress || undefined,
+      });
+      toast.success('Tienda creada correctamente');
+      setNewStoreName('');
+      setNewStoreAddress('');
+      setIsStoreModalOpen(false);
+      setSelectedStoreId(store.id);
+    } catch (error: any) {
+      toast.error('Error al crear tienda', { description: error.message });
+    }
+  };
+
+  const handleCreateTerminal = async () => {
+    if (!newTerminalName.trim()) {
+      toast.error('Ingrese un nombre para el terminal');
+      return;
+    }
+    if (!selectedStoreId) {
+      toast.error('Seleccione una tienda');
+      return;
+    }
+    try {
+      const terminal = await createTerminal.mutateAsync({
+        store_id: selectedStoreId,
+        name: newTerminalName,
+      });
+      toast.success('Terminal creado correctamente');
+      setNewTerminalName('');
+      setIsTerminalModalOpen(false);
+      setSelectedTerminal(terminal.id);
+    } catch (error: any) {
+      toast.error('Error al crear terminal', { description: error.message });
+    }
+  };
 
   const isCajaOpen = !!currentSession;
 
@@ -244,11 +315,42 @@ export default function CajaPage() {
                     </AlertDescription>
                   </Alert>
 
+                  {/* No terminals message */}
+                  {terminals.length === 0 && (
+                    <Alert variant="destructive">
+                      <Store className="h-4 w-4" />
+                      <AlertDescription>
+                        No hay terminales configurados. Primero cree una tienda y luego un terminal.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Store and Terminal creation buttons */}
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setIsStoreModalOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nueva Tienda
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setIsTerminalModalOpen(true)}
+                      disabled={stores.length === 0}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Nuevo Terminal
+                    </Button>
+                  </div>
+
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Terminal</label>
                     <Select value={selectedTerminal} onValueChange={setSelectedTerminal}>
                       <SelectTrigger className="h-14 text-pos-lg">
-                        <SelectValue placeholder="Seleccionar terminal" />
+                        <SelectValue placeholder={terminals.length === 0 ? "No hay terminales - Cree uno primero" : "Seleccionar terminal"} />
                       </SelectTrigger>
                       <SelectContent>
                         {terminals.map((t: any) => (
@@ -646,6 +748,108 @@ export default function CajaPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Store Modal */}
+      <Dialog open={isStoreModalOpen} onOpenChange={setIsStoreModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Store className="h-5 w-5" />
+              Nueva Tienda
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Nombre de la tienda *</Label>
+              <Input
+                value={newStoreName}
+                onChange={(e) => setNewStoreName(e.target.value)}
+                placeholder="Ej: PizzaPOS Central"
+                className="h-12"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Dirección</Label>
+              <Input
+                value={newStoreAddress}
+                onChange={(e) => setNewStoreAddress(e.target.value)}
+                placeholder="Ej: Av. Principal 123, Lima"
+                className="h-12"
+              />
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setIsStoreModalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 bg-primary"
+                onClick={handleCreateStore}
+                disabled={createStore.isPending}
+              >
+                {createStore.isPending ? 'Creando...' : 'Crear Tienda'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Terminal Modal */}
+      <Dialog open={isTerminalModalOpen} onOpenChange={setIsTerminalModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              Nuevo Terminal
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Tienda *</Label>
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Seleccionar tienda" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Nombre del terminal *</Label>
+              <Input
+                value={newTerminalName}
+                onChange={(e) => setNewTerminalName(e.target.value)}
+                placeholder="Ej: Caja 1, Caja Principal"
+                className="h-12"
+              />
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setIsTerminalModalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 bg-primary"
+                onClick={handleCreateTerminal}
+                disabled={createTerminal.isPending || !selectedStoreId}
+              >
+                {createTerminal.isPending ? 'Creando...' : 'Crear Terminal'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }
