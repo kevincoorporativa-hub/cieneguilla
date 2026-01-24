@@ -19,120 +19,44 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { Skeleton } from '@/components/ui/skeleton';
 import { exportToExcel, exportToPDF, ExportData } from '@/utils/exportUtils';
-
-interface Ticket {
-  id: string;
-  numero: string;
-  fecha: Date;
-  cliente?: string;
-  total: number;
-  metodoPago: string;
-  usuario: string;
-  tipo: 'local' | 'delivery' | 'para_llevar';
-  items: { nombre: string; cantidad: number; precio: number }[];
-}
-
-// Helper to generate demo tickets across different dates
-const generateDemoTickets = (): Ticket[] => {
-  const now = new Date();
-  const tickets: Ticket[] = [];
-  
-  // Today's tickets
-  for (let i = 0; i < 8; i++) {
-    tickets.push({
-      id: `today-${i}`,
-      numero: `T-${String(100 + i).padStart(3, '0')}`,
-      fecha: new Date(now.getTime() - i * 3600000),
-      cliente: i % 2 === 0 ? `Cliente ${i}` : undefined,
-      total: 25 + Math.random() * 100,
-      metodoPago: ['Efectivo', 'Yape', 'Plin', 'Transferencia'][i % 4],
-      usuario: ['Carlos García', 'Ana Torres'][i % 2],
-      tipo: ['local', 'delivery', 'para_llevar'][i % 3] as Ticket['tipo'],
-      items: [
-        { nombre: 'Pizza Pepperoni', cantidad: 1, precio: 32 },
-        { nombre: 'Coca Cola 1L', cantidad: 2, precio: 7 },
-      ],
-    });
-  }
-  
-  // Yesterday's tickets
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  for (let i = 0; i < 6; i++) {
-    tickets.push({
-      id: `yesterday-${i}`,
-      numero: `T-${String(90 + i).padStart(3, '0')}`,
-      fecha: new Date(yesterday.getTime() - i * 3600000),
-      cliente: i % 3 === 0 ? `Cliente Y${i}` : undefined,
-      total: 30 + Math.random() * 80,
-      metodoPago: ['Efectivo', 'Yape'][i % 2],
-      usuario: 'Carlos García',
-      tipo: ['local', 'para_llevar'][i % 2] as Ticket['tipo'],
-      items: [{ nombre: 'Pizza Hawaiana', cantidad: 1, precio: 35 }],
-    });
-  }
-  
-  // Last week tickets
-  for (let d = 2; d <= 7; d++) {
-    const pastDate = new Date(now);
-    pastDate.setDate(pastDate.getDate() - d);
-    for (let i = 0; i < 3; i++) {
-      tickets.push({
-        id: `week-${d}-${i}`,
-        numero: `T-${String(50 + d * 3 + i).padStart(3, '0')}`,
-        fecha: new Date(pastDate.getTime() - i * 3600000),
-        total: 40 + Math.random() * 60,
-        metodoPago: 'Efectivo',
-        usuario: 'Ana Torres',
-        tipo: 'local',
-        items: [{ nombre: 'Parrilla Mixta', cantidad: 1, precio: 65 }],
-      });
-    }
-  }
-  
-  // Last month tickets
-  for (let d = 8; d <= 30; d++) {
-    const pastDate = new Date(now);
-    pastDate.setDate(pastDate.getDate() - d);
-    tickets.push({
-      id: `month-${d}`,
-      numero: `T-${String(d).padStart(3, '0')}`,
-      fecha: pastDate,
-      total: 50 + Math.random() * 100,
-      metodoPago: 'Efectivo',
-      usuario: 'Carlos García',
-      tipo: 'local',
-      items: [{ nombre: 'Pizza Suprema', cantidad: 1, precio: 42 }],
-    });
-  }
-  
-  return tickets.sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
-};
-
-const demoTickets = generateDemoTickets();
+import { useTickets, Ticket } from '@/hooks/useTickets';
 
 type FilterPeriod = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
-function getTipoBadge(tipo: Ticket['tipo']) {
+function getTipoBadge(tipo: Ticket['order_type']) {
   switch (tipo) {
     case 'local':
       return <span className="px-3 py-1 rounded-full text-sm font-semibold bg-primary/10 text-primary">Local</span>;
     case 'delivery':
       return <span className="px-3 py-1 rounded-full text-sm font-semibold bg-secondary text-secondary-foreground">Delivery</span>;
-    case 'para_llevar':
+    case 'takeaway':
       return <span className="px-3 py-1 rounded-full text-sm font-semibold bg-accent text-accent-foreground">Para llevar</span>;
   }
 }
 
+function getPaymentMethodLabel(method: string | null) {
+  if (!method) return '—';
+  const labels: Record<string, string> = {
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    yape: 'Yape',
+    plin: 'Plin',
+    transfer: 'Transferencia',
+  };
+  return labels[method] || method;
+}
+
 // Helper to trigger browser print
 const handlePrintTicket = (ticket: Ticket) => {
+  const fecha = new Date(ticket.created_at);
   const printWindow = window.open('', '_blank', 'width=400,height=600');
   if (printWindow) {
     printWindow.document.write(`
       <html>
         <head>
-          <title>Ticket ${ticket.numero}</title>
+          <title>Ticket T-${ticket.order_number}</title>
           <style>
             body { font-family: monospace; padding: 20px; font-size: 12px; }
             .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; }
@@ -144,15 +68,15 @@ const handlePrintTicket = (ticket: Ticket) => {
         <body>
           <div class="header">
             <h2>🍕 PIZZAPOS</h2>
-            <p>Ticket: ${ticket.numero}</p>
-            <p>${ticket.fecha.toLocaleDateString('es-PE')} ${ticket.fecha.toLocaleTimeString('es-PE')}</p>
+            <p>Ticket: T-${ticket.order_number}</p>
+            <p>${fecha.toLocaleDateString('es-PE')} ${fecha.toLocaleTimeString('es-PE')}</p>
           </div>
           <div class="items">
-            ${ticket.items.map(item => `<p>${item.cantidad}x ${item.nombre} - S/ ${(item.cantidad * item.precio).toFixed(2)}</p>`).join('')}
+            ${ticket.items.map(item => `<p>${item.quantity}x ${item.product_name} - S/ ${item.total.toFixed(2)}</p>`).join('')}
           </div>
           <div class="total">
             <p>TOTAL: S/ ${ticket.total.toFixed(2)}</p>
-            <p>Pago: ${ticket.metodoPago}</p>
+            <p>Pago: ${getPaymentMethodLabel(ticket.payment_method)}</p>
           </div>
           <div class="footer">
             <p>¡Gracias por su preferencia!</p>
@@ -173,47 +97,52 @@ export default function TicketsPage() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  const filteredTickets = useMemo(() => {
+  // Calculate date range based on filter period
+  const dateRange = useMemo(() => {
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startOfYesterday = new Date(startOfToday);
-    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
-    const startOfWeek = new Date(startOfToday);
-    startOfWeek.setDate(startOfWeek.getDate() - 7);
-    const startOfMonth = new Date(startOfToday);
-    startOfMonth.setDate(startOfMonth.getDate() - 30);
-
-    let dateFiltered = demoTickets;
-
+    
     switch (filterPeriod) {
       case 'today':
-        dateFiltered = demoTickets.filter(t => t.fecha >= startOfToday);
-        break;
-      case 'yesterday':
-        dateFiltered = demoTickets.filter(t => t.fecha >= startOfYesterday && t.fecha < startOfToday);
-        break;
-      case 'week':
-        dateFiltered = demoTickets.filter(t => t.fecha >= startOfWeek);
-        break;
-      case 'month':
-        dateFiltered = demoTickets.filter(t => t.fecha >= startOfMonth);
-        break;
+        return { start: startOfToday.toISOString(), end: now.toISOString() };
+      case 'yesterday': {
+        const startOfYesterday = new Date(startOfToday);
+        startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+        return { start: startOfYesterday.toISOString(), end: startOfToday.toISOString() };
+      }
+      case 'week': {
+        const startOfWeek = new Date(startOfToday);
+        startOfWeek.setDate(startOfWeek.getDate() - 7);
+        return { start: startOfWeek.toISOString(), end: now.toISOString() };
+      }
+      case 'month': {
+        const startOfMonth = new Date(startOfToday);
+        startOfMonth.setDate(startOfMonth.getDate() - 30);
+        return { start: startOfMonth.toISOString(), end: now.toISOString() };
+      }
       case 'custom':
         if (customStartDate && customEndDate) {
-          const start = new Date(customStartDate);
           const end = new Date(customEndDate);
           end.setHours(23, 59, 59, 999);
-          dateFiltered = demoTickets.filter(t => t.fecha >= start && t.fecha <= end);
+          return { start: new Date(customStartDate).toISOString(), end: end.toISOString() };
         }
-        break;
+        return { start: startOfToday.toISOString(), end: now.toISOString() };
+      default:
+        return { start: startOfToday.toISOString(), end: now.toISOString() };
     }
+  }, [filterPeriod, customStartDate, customEndDate]);
 
-    return dateFiltered.filter(
+  // Fetch tickets
+  const { data: tickets = [], isLoading, refetch } = useTickets(dateRange.start, dateRange.end);
+
+  // Filter by search
+  const filteredTickets = useMemo(() => {
+    return tickets.filter(
       (t) =>
-        t.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        t.cliente?.toLowerCase().includes(searchTerm.toLowerCase())
+        `T-${t.order_number}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        t.customer_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [searchTerm, filterPeriod, customStartDate, customEndDate]);
+  }, [tickets, searchTerm]);
 
   const totalVentas = filteredTickets.reduce((sum, t) => sum + t.total, 0);
 
@@ -232,16 +161,19 @@ export default function TicketsPage() {
       title: 'Reporte de Tickets',
       subtitle: `Período: ${getPeriodLabel()} | Total: S/ ${totalVentas.toFixed(2)}`,
       headers: ['Ticket', 'Fecha', 'Hora', 'Cliente', 'Tipo', 'Método Pago', 'Total', 'Usuario'],
-      rows: filteredTickets.map(t => [
-        t.numero,
-        t.fecha.toLocaleDateString('es-PE'),
-        t.fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
-        t.cliente || '-',
-        t.tipo === 'local' ? 'Local' : t.tipo === 'delivery' ? 'Delivery' : 'Para llevar',
-        t.metodoPago,
-        `S/ ${t.total.toFixed(2)}`,
-        t.usuario
-      ])
+      rows: filteredTickets.map(t => {
+        const fecha = new Date(t.created_at);
+        return [
+          `T-${t.order_number}`,
+          fecha.toLocaleDateString('es-PE'),
+          fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+          t.customer_name || '-',
+          t.order_type === 'local' ? 'Local' : t.order_type === 'delivery' ? 'Delivery' : 'Para llevar',
+          getPaymentMethodLabel(t.payment_method),
+          `S/ ${t.total.toFixed(2)}`,
+          t.user_email || '-'
+        ];
+      })
     };
   };
 
@@ -275,7 +207,7 @@ export default function TicketsPage() {
               <Download className="h-5 w-5 mr-2" />
               PDF
             </Button>
-            <Button variant="outline" className="btn-pos">
+            <Button variant="outline" className="btn-pos" onClick={() => refetch()}>
               <RefreshCw className="h-5 w-5 mr-2" />
               Actualizar
             </Button>
@@ -388,57 +320,75 @@ export default function TicketsPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-pos-base font-bold">Ticket</TableHead>
-                  <TableHead className="text-pos-base font-bold">Fecha</TableHead>
-                  <TableHead className="text-pos-base font-bold">Hora</TableHead>
-                  <TableHead className="text-pos-base font-bold">Cliente</TableHead>
-                  <TableHead className="text-pos-base font-bold">Tipo</TableHead>
-                  <TableHead className="text-pos-base font-bold">Pago</TableHead>
-                  <TableHead className="text-pos-base font-bold">Total</TableHead>
-                  <TableHead className="text-pos-base font-bold">Usuario</TableHead>
-                  <TableHead className="text-pos-base font-bold text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTickets.map((ticket) => (
-                  <TableRow key={ticket.id} className="hover:bg-muted/50">
-                    <TableCell className="font-bold text-pos-lg text-primary">{ticket.numero}</TableCell>
-                    <TableCell>{ticket.fecha.toLocaleDateString('es-PE')}</TableCell>
-                    <TableCell>
-                      {ticket.fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                    </TableCell>
-                    <TableCell className="font-medium">{ticket.cliente || '—'}</TableCell>
-                    <TableCell>{getTipoBadge(ticket.tipo)}</TableCell>
-                    <TableCell>{ticket.metodoPago}</TableCell>
-                    <TableCell className="font-bold text-pos-lg">S/ {ticket.total.toFixed(2)}</TableCell>
-                    <TableCell className="text-muted-foreground">{ticket.usuario}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-10 w-10"
-                          onClick={() => setSelectedTicket(ticket)}
-                        >
-                          <Eye className="h-5 w-5" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-10 w-10 text-primary"
-                          onClick={() => handlePrintTicket(ticket)}
-                        >
-                          <Printer className="h-5 w-5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+            {isLoading ? (
+              <div className="space-y-4">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-pos-base font-bold">Ticket</TableHead>
+                    <TableHead className="text-pos-base font-bold">Fecha</TableHead>
+                    <TableHead className="text-pos-base font-bold">Hora</TableHead>
+                    <TableHead className="text-pos-base font-bold">Cliente</TableHead>
+                    <TableHead className="text-pos-base font-bold">Tipo</TableHead>
+                    <TableHead className="text-pos-base font-bold">Pago</TableHead>
+                    <TableHead className="text-pos-base font-bold">Total</TableHead>
+                    <TableHead className="text-pos-base font-bold">Usuario</TableHead>
+                    <TableHead className="text-pos-base font-bold text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTickets.map((ticket) => {
+                    const fecha = new Date(ticket.created_at);
+                    return (
+                      <TableRow key={ticket.id} className="hover:bg-muted/50">
+                        <TableCell className="font-bold text-pos-lg text-primary">T-{ticket.order_number}</TableCell>
+                        <TableCell>{fecha.toLocaleDateString('es-PE')}</TableCell>
+                        <TableCell>
+                          {fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                        </TableCell>
+                        <TableCell className="font-medium">{ticket.customer_name || '—'}</TableCell>
+                        <TableCell>{getTipoBadge(ticket.order_type)}</TableCell>
+                        <TableCell>{getPaymentMethodLabel(ticket.payment_method)}</TableCell>
+                        <TableCell className="font-bold text-pos-lg">S/ {ticket.total.toFixed(2)}</TableCell>
+                        <TableCell className="text-muted-foreground">{ticket.user_email || '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-10 w-10"
+                              onClick={() => setSelectedTicket(ticket)}
+                            >
+                              <Eye className="h-5 w-5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-10 w-10 text-primary"
+                              onClick={() => handlePrintTicket(ticket)}
+                            >
+                              <Printer className="h-5 w-5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {filteredTickets.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        No se encontraron tickets en este período
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -447,63 +397,55 @@ export default function TicketsPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-center text-pos-xl">
-                Ticket {selectedTicket?.numero}
+                Ticket T-{selectedTicket?.order_number}
               </DialogTitle>
             </DialogHeader>
             {selectedTicket && (
               <div className="space-y-4 p-4 bg-muted rounded-xl font-mono text-sm">
                 <div className="text-center border-b border-dashed border-border pb-4">
                   <h3 className="text-lg font-bold">🍕 PIZZAPOS</h3>
-                  <p>Sistema de Ventas</p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {selectedTicket.fecha.toLocaleDateString('es-PE')} - {selectedTicket.fecha.toLocaleTimeString('es-PE')}
-                  </p>
+                  <p>{new Date(selectedTicket.created_at).toLocaleDateString('es-PE')}</p>
+                  <p>{new Date(selectedTicket.created_at).toLocaleTimeString('es-PE')}</p>
                 </div>
                 
-                <div className="space-y-2 border-b border-dashed border-border pb-4">
-                  <p><strong>Ticket:</strong> {selectedTicket.numero}</p>
-                  <p><strong>Tipo:</strong> {selectedTicket.tipo}</p>
-                  {selectedTicket.cliente && <p><strong>Cliente:</strong> {selectedTicket.cliente}</p>}
-                  <p><strong>Atendido por:</strong> {selectedTicket.usuario}</p>
-                </div>
-
-                <div className="border-b border-dashed border-border pb-4">
-                  <p className="font-bold mb-2">Detalle:</p>
+                <div className="space-y-2">
                   {selectedTicket.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between">
-                      <span>{item.cantidad}x {item.nombre}</span>
-                      <span>S/ {(item.cantidad * item.precio).toFixed(2)}</span>
+                      <span>{item.quantity}x {item.product_name}</span>
+                      <span>S/ {item.total.toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Método de pago:</span>
-                    <span>{selectedTicket.metodoPago}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold">
+                
+                <div className="border-t border-dashed border-border pt-4 space-y-1">
+                  <div className="flex justify-between font-bold text-lg">
                     <span>TOTAL:</span>
                     <span>S/ {selectedTicket.total.toFixed(2)}</span>
                   </div>
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Pago:</span>
+                    <span>{getPaymentMethodLabel(selectedTicket.payment_method)}</span>
+                  </div>
                 </div>
-
-                <div className="text-center text-xs text-muted-foreground pt-4 border-t border-dashed border-border">
+                
+                <div className="text-center text-muted-foreground text-xs pt-4 border-t border-dashed border-border">
                   <p>¡Gracias por su preferencia!</p>
                 </div>
               </div>
             )}
-            <div className="flex gap-3 mt-4">
-              <Button variant="outline" className="flex-1 btn-pos" onClick={() => setSelectedTicket(null)}>
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setSelectedTicket(null)}
+              >
                 Cerrar
               </Button>
               <Button 
-                className="flex-1 btn-pos bg-primary"
-                onClick={() => {
-                  if (selectedTicket) handlePrintTicket(selectedTicket);
-                }}
+                className="flex-1 bg-primary"
+                onClick={() => selectedTicket && handlePrintTicket(selectedTicket)}
               >
-                <Printer className="h-5 w-5 mr-2" />
+                <Printer className="h-4 w-4 mr-2" />
                 Reimprimir
               </Button>
             </div>
