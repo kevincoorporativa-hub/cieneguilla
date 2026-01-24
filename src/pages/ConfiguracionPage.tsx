@@ -14,9 +14,11 @@ import {
   X,
   Eye,
   Palette,
-  Check
+  Check,
+  Rocket
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { SetupWizard } from '@/components/setup/SetupWizard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -131,8 +133,12 @@ export default function ConfiguracionPage() {
           </Button>
         </div>
 
-        <Tabs defaultValue="negocio" className="space-y-6">
+        <Tabs defaultValue="setup" className="space-y-6">
           <TabsList className="h-14 p-1 bg-muted rounded-xl flex-wrap">
+            <TabsTrigger value="setup" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Rocket className="h-5 w-5 mr-2" />
+              Setup Inicial
+            </TabsTrigger>
             <TabsTrigger value="negocio" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Store className="h-5 w-5 mr-2" />
               Negocio
@@ -158,6 +164,10 @@ export default function ConfiguracionPage() {
               Seguridad
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="setup">
+            <SetupWizard />
+          </TabsContent>
 
           <TabsContent value="negocio">
             <div className="grid grid-cols-2 gap-6">
