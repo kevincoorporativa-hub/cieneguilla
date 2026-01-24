@@ -11,11 +11,13 @@ import {
   IceCream2,
   Package,
   MoreHorizontal,
-  AlertCircle
+  AlertCircle,
+  Layers
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CategoryButton } from '@/components/pos/CategoryButton';
 import { ProductCard } from '@/components/pos/ProductCard';
+import { ComboCard } from '@/components/pos/ComboCard';
 import { Cart } from '@/components/pos/Cart';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
 import { DiscountModal } from '@/components/pos/DiscountModal';
@@ -24,6 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { TicketConfig } from '@/components/pos/TicketPrint';
 import { useCategories, useProducts, Category } from '@/hooks/useProducts';
+import { useCombos } from '@/hooks/useCombos';
 import { useCreateOrder, useCreatePayment } from '@/hooks/useOrders';
 import { useCurrentCashSession } from '@/hooks/useCashSession';
 import { useAuth } from '@/contexts/AuthContext';
@@ -80,6 +83,7 @@ function transformProduct(dbProduct: any): POSProduct {
 export default function POSPage() {
   const { user } = useAuth();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [showCombos, setShowCombos] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState<Discount | undefined>();
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
@@ -88,6 +92,7 @@ export default function POSPage() {
   // Fetch data from Supabase
   const { data: categories = [], isLoading: loadingCategories } = useCategories();
   const { data: dbProducts = [], isLoading: loadingProducts } = useProducts();
+  const { data: combos = [], isLoading: loadingCombos } = useCombos();
   const { data: cashSession } = useCurrentCashSession();
 
   // Mutations
@@ -102,19 +107,29 @@ export default function POSPage() {
 
   // Set first category as selected when categories load
   useMemo(() => {
-    if (categories.length > 0 && !selectedCategoryId) {
+    if (categories.length > 0 && !selectedCategoryId && !showCombos) {
       setSelectedCategoryId(categories[0].id);
     }
-  }, [categories, selectedCategoryId]);
+  }, [categories, selectedCategoryId, showCombos]);
 
   // Filter products by selected category
   const filteredProducts = useMemo(() => {
-    if (!selectedCategoryId) return products;
+    if (!selectedCategoryId || showCombos) return [];
     return products.filter(p => {
       const dbProduct = dbProducts.find(dp => dp.id === p.id);
       return dbProduct?.category_id === selectedCategoryId;
     });
-  }, [products, dbProducts, selectedCategoryId]);
+  }, [products, dbProducts, selectedCategoryId, showCombos]);
+
+  const handleSelectCategory = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+    setShowCombos(false);
+  };
+
+  const handleSelectCombos = () => {
+    setShowCombos(true);
+    setSelectedCategoryId(null);
+  };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
   const total = subtotal - (discount?.monto || 0);
@@ -264,7 +279,7 @@ export default function POSPage() {
     }
   }, [cashSession, cartItems, subtotal, discount, total, user, createOrder, createPayment]);
 
-  const isLoading = loadingCategories || loadingProducts;
+  const isLoading = loadingCategories || loadingProducts || loadingCombos;
 
   return (
     <MainLayout>
@@ -291,25 +306,34 @@ export default function POSPage() {
           ) : (
             <>
               <div className="grid grid-cols-6 gap-3">
-                {categories.slice(0, 6).map((cat) => (
+                {categories.slice(0, 5).map((cat) => (
                   <CategoryButton
                     key={cat.id}
                     nombre={cat.name}
                     icon={getCategoryIcon(cat.name)}
-                    isActive={selectedCategoryId === cat.id}
-                    onClick={() => setSelectedCategoryId(cat.id)}
+                    isActive={selectedCategoryId === cat.id && !showCombos}
+                    onClick={() => handleSelectCategory(cat.id)}
                   />
                 ))}
+                {/* Combos button */}
+                {combos.length > 0 && (
+                  <CategoryButton
+                    nombre="Combos"
+                    icon={Layers}
+                    isActive={showCombos}
+                    onClick={handleSelectCombos}
+                  />
+                )}
               </div>
-              {categories.length > 6 && (
+              {categories.length > 5 && (
                 <div className="grid grid-cols-5 gap-3">
-                  {categories.slice(6).map((cat) => (
+                  {categories.slice(5).map((cat) => (
                     <CategoryButton
                       key={cat.id}
                       nombre={cat.name}
                       icon={getCategoryIcon(cat.name)}
-                      isActive={selectedCategoryId === cat.id}
-                      onClick={() => setSelectedCategoryId(cat.id)}
+                      isActive={selectedCategoryId === cat.id && !showCombos}
+                      onClick={() => handleSelectCategory(cat.id)}
                     />
                   ))}
                 </div>
@@ -317,7 +341,7 @@ export default function POSPage() {
             </>
           )}
 
-          {/* Products grid */}
+          {/* Products/Combos grid */}
           <ScrollArea className="flex-1">
             {isLoading ? (
               <div className="grid grid-cols-4 gap-4 pb-4">
@@ -325,7 +349,25 @@ export default function POSPage() {
                   <Skeleton key={i} className="h-40 rounded-xl" />
                 ))}
               </div>
+            ) : showCombos ? (
+              /* Combos grid */
+              <div className="grid grid-cols-4 gap-4 pb-4">
+                {combos.map((combo) => (
+                  <ComboCard
+                    key={combo.id}
+                    combo={combo}
+                    onAdd={handleAddCombo}
+                  />
+                ))}
+                {combos.length === 0 && (
+                  <div className="col-span-4 flex flex-col items-center justify-center h-64 text-muted-foreground">
+                    <Layers className="h-16 w-16 mb-4 opacity-50" />
+                    <p className="text-pos-lg font-medium">No hay combos disponibles</p>
+                  </div>
+                )}
+              </div>
             ) : (
+              /* Products grid */
               <div className="grid grid-cols-4 gap-4 pb-4">
                 {filteredProducts.map((product) => (
                   <ProductCard
@@ -368,7 +410,7 @@ export default function POSPage() {
         subtotal={subtotal}
         discount={discount}
         products={products}
-        combos={[]}
+        combos={combos}
         ticketConfig={defaultTicketConfig}
         onConfirm={handleCheckoutConfirm}
       />
