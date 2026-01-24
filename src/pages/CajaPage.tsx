@@ -325,26 +325,6 @@ export default function CajaPage() {
                     </Alert>
                   )}
 
-                  {/* Store and Terminal creation buttons */}
-                  <div className="flex gap-3">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1"
-                      onClick={() => setIsStoreModalOpen(true)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nueva Tienda
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      className="flex-1"
-                      onClick={() => setIsTerminalModalOpen(true)}
-                      disabled={stores.length === 0}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nuevo Terminal
-                    </Button>
-                  </div>
 
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Terminal</label>
