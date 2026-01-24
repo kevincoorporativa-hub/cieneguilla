@@ -23,23 +23,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 const navItems = [
-  { to: '/', icon: ShoppingCart, label: 'Punto de Venta' },
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/productos', icon: Package, label: 'Productos' },
-  { to: '/combos', icon: Layers, label: 'Combos' },
-  { to: '/inventario', icon: Boxes, label: 'Inventario' },
-  { to: '/delivery', icon: Truck, label: 'Delivery' },
-  { to: '/caja', icon: Receipt, label: 'Caja' },
-  { to: '/tickets', icon: FileText, label: 'Tickets' },
-  { to: '/reportes', icon: FileText, label: 'Reportes' },
-  { to: '/usuarios', icon: Users, label: 'Usuarios' },
-  { to: '/configuracion', icon: Settings, label: 'Configuración' },
+  { to: '/', icon: ShoppingCart, label: 'Punto de Venta', adminOnly: false },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', adminOnly: false },
+  { to: '/productos', icon: Package, label: 'Productos', adminOnly: false },
+  { to: '/combos', icon: Layers, label: 'Combos', adminOnly: false },
+  { to: '/inventario', icon: Boxes, label: 'Inventario', adminOnly: false },
+  { to: '/delivery', icon: Truck, label: 'Delivery', adminOnly: false },
+  { to: '/caja', icon: Receipt, label: 'Caja', adminOnly: false },
+  { to: '/tickets', icon: FileText, label: 'Tickets', adminOnly: false },
+  { to: '/reportes', icon: FileText, label: 'Reportes', adminOnly: false },
+  { to: '/usuarios', icon: Users, label: 'Usuarios', adminOnly: true },
+  { to: '/configuracion', icon: Settings, label: 'Configuración', adminOnly: true },
 ];
 
 export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
+  const { signOut, user, isAdmin } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = async () => {
@@ -89,26 +89,28 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.to;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={cn(
-                'flex items-center gap-3 px-3 py-3 rounded-xl font-medium transition-all',
-                isCollapsed ? 'justify-center' : '',
-                isActive
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent'
-              )}
-              title={isCollapsed ? item.label : undefined}
-            >
-              <item.icon className="h-6 w-6 shrink-0" />
-              {!isCollapsed && <span className="truncate">{item.label}</span>}
-            </NavLink>
-          );
-        })}
+        {navItems
+          .filter((item) => !item.adminOnly || isAdmin)
+          .map((item) => {
+            const isActive = location.pathname === item.to;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-3 rounded-xl font-medium transition-all',
+                  isCollapsed ? 'justify-center' : '',
+                  isActive
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                )}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <item.icon className="h-6 w-6 shrink-0" />
+                {!isCollapsed && <span className="truncate">{item.label}</span>}
+              </NavLink>
+            );
+          })}
       </nav>
 
       {/* Footer */}
