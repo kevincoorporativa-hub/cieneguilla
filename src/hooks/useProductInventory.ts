@@ -32,6 +32,7 @@ export interface ProductStockMove {
   reference_id: string | null;
   notes: string | null;
   user_id: string | null;
+  expiration_date: string | null;
   created_at: string;
   product?: {
     name: string;
@@ -105,6 +106,7 @@ export function useCreateProductStockMove() {
       unit_cost?: number;
       notes?: string;
       user_id?: string;
+      expiration_date?: string;
     }) => {
       // Create movement
       const { data: moveData, error: moveError } = await supabase
@@ -117,6 +119,7 @@ export function useCreateProductStockMove() {
           unit_cost: move.unit_cost || null,
           notes: move.notes || null,
           user_id: move.user_id || null,
+          expiration_date: move.expiration_date || null,
         })
         .select()
         .single();
