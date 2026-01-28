@@ -4,53 +4,7 @@
 -- =====================================================
 
 -- =====================================================
--- PARTE 1: ENUMS NECESARIOS
--- =====================================================
-
--- Roles de la aplicación (incluye delivery)
-DO $$ BEGIN
-    CREATE TYPE public.app_role AS ENUM ('admin', 'manager', 'cashier', 'kitchen', 'delivery');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Estados de órdenes
-DO $$ BEGIN
-    CREATE TYPE public.order_status AS ENUM ('open', 'preparing', 'ready', 'paid', 'cancelled');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Tipos de orden (incluye delivery)
-DO $$ BEGIN
-    CREATE TYPE public.order_type AS ENUM ('local', 'takeaway', 'delivery');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Métodos de pago
-DO $$ BEGIN
-    CREATE TYPE public.payment_method AS ENUM ('cash', 'card', 'yape', 'plin', 'transfer');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Tipos de movimiento de stock (ingredientes)
-DO $$ BEGIN
-    CREATE TYPE public.stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Tipos de movimiento de stock (productos)
-DO $$ BEGIN
-    CREATE TYPE public.product_stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste', 'return');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- Estado de sesión de caja
-DO $$ BEGIN
-    CREATE TYPE public.cash_session_status AS ENUM ('open', 'closed');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
--- =====================================================
--- PARTE 2: TABLAS BASE
+-- PARTE 1: TABLAS BASE
 -- =====================================================
 
 -- Sucursales/Tiendas
@@ -74,7 +28,7 @@ CREATE TABLE IF NOT EXISTS public.terminals (
 );
 
 -- =====================================================
--- PARTE 3: TABLAS DE CLIENTES Y DIRECCIONES (DELIVERY)
+-- PARTE 2: TABLAS DE CLIENTES Y DIRECCIONES (DELIVERY)
 -- =====================================================
 
 -- Clientes
@@ -102,14 +56,14 @@ CREATE TABLE IF NOT EXISTS public.customer_addresses (
 );
 
 -- =====================================================
--- PARTE 4: USUARIOS Y ROLES
+-- PARTE 3: USUARIOS Y ROLES (TEXT, no ENUM)
 -- =====================================================
 
--- Roles de usuario (vinculado a auth.users)
+-- Roles de usuario (vinculado a auth.users) - USA TEXT
 CREATE TABLE IF NOT EXISTS public.user_roles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    role app_role NOT NULL DEFAULT 'cashier',
+    role TEXT NOT NULL DEFAULT 'cashier',
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE (user_id, role)
 );
@@ -129,14 +83,20 @@ CREATE TABLE IF NOT EXISTS public.employees (
 );
 
 -- =====================================================
--- PARTE 5: SESIONES DE CAJA
+-- PARTE 4: SESIONES DE CAJA
 -- =====================================================
+
+-- Estados de sesión de caja
+DO $$ BEGIN
+    CREATE TYPE public.cash_session_status AS ENUM ('open', 'closed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.cash_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     terminal_id UUID REFERENCES public.terminals(id) ON DELETE CASCADE NOT NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL NOT NULL,
-    status cash_session_status DEFAULT 'open',
+    status TEXT DEFAULT 'open',
     opening_amount DECIMAL(10,2) DEFAULT 0,
     closing_amount DECIMAL(10,2),
     opened_at TIMESTAMPTZ DEFAULT now(),
@@ -146,7 +106,7 @@ CREATE TABLE IF NOT EXISTS public.cash_sessions (
 );
 
 -- =====================================================
--- PARTE 6: ÓRDENES Y PAGOS
+-- PARTE 5: ÓRDENES Y PAGOS
 -- =====================================================
 
 -- Órdenes (con soporte para delivery)
@@ -160,8 +120,8 @@ CREATE TABLE IF NOT EXISTS public.orders (
     customer_address_id UUID REFERENCES public.customer_addresses(id) ON DELETE SET NULL,
     cash_session_id UUID REFERENCES public.cash_sessions(id) ON DELETE SET NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    order_type order_type DEFAULT 'local',
-    status order_status DEFAULT 'open',
+    order_type TEXT DEFAULT 'local',
+    status TEXT DEFAULT 'open',
     subtotal DECIMAL(10,2) DEFAULT 0,
     discount_percent DECIMAL(5,2) DEFAULT 0,
     discount_amount DECIMAL(10,2) DEFAULT 0,
@@ -194,14 +154,14 @@ CREATE TABLE IF NOT EXISTS public.payments (
     order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE NOT NULL,
     cash_session_id UUID REFERENCES public.cash_sessions(id) ON DELETE SET NULL,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    method payment_method NOT NULL,
+    method TEXT NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
     reference TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- =====================================================
--- PARTE 7: ASIGNACIONES DE DELIVERY (TABLA PRINCIPAL)
+-- PARTE 6: ASIGNACIONES DE DELIVERY (TABLA PRINCIPAL)
 -- =====================================================
 
 -- Asignaciones de delivery (repartidor a orden)
@@ -217,7 +177,7 @@ CREATE TABLE IF NOT EXISTS public.delivery_assignments (
 );
 
 -- =====================================================
--- PARTE 8: INDEXES PARA DELIVERY
+-- PARTE 7: INDEXES PARA DELIVERY
 -- =====================================================
 
 CREATE INDEX IF NOT EXISTS idx_orders_order_type ON public.orders(order_type);
@@ -230,11 +190,11 @@ CREATE INDEX IF NOT EXISTS idx_delivery_assignments_driver ON public.delivery_as
 CREATE INDEX IF NOT EXISTS idx_delivery_assignments_status ON public.delivery_assignments(delivered_at);
 
 -- =====================================================
--- PARTE 9: FUNCIONES HELPER
+-- PARTE 8: FUNCIONES HELPER (USAN TEXT, no ENUM)
 -- =====================================================
 
--- Función para verificar si un usuario tiene un rol específico
-CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role app_role)
+-- Función para verificar si un usuario tiene un rol específico (TEXT)
+CREATE OR REPLACE FUNCTION public.has_role(_user_id UUID, _role TEXT)
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
@@ -297,8 +257,22 @@ AS $$
     )
 $$;
 
+-- Función para obtener el rol del usuario actual
+CREATE OR REPLACE FUNCTION public.get_my_role()
+RETURNS TEXT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT role
+    FROM public.user_roles
+    WHERE user_id = auth.uid()
+    LIMIT 1
+$$;
+
 -- =====================================================
--- PARTE 10: VISTAS PARA DELIVERY
+-- PARTE 9: VISTAS PARA DELIVERY
 -- =====================================================
 
 -- Vista: Órdenes de delivery con información completa
@@ -372,13 +346,21 @@ WHERE ur.role = 'delivery'
 ORDER BY active_deliveries ASC, e.first_name;
 
 -- =====================================================
--- PARTE 11: RLS POLICIES PARA DELIVERY
+-- PARTE 10: RLS POLICIES PARA DELIVERY
 -- =====================================================
 
 -- Habilitar RLS en tablas de delivery
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_addresses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.delivery_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.terminals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.cash_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para clientes
 DROP POLICY IF EXISTS "Authenticated users can read customers" ON public.customers;
@@ -424,8 +406,96 @@ TO authenticated USING (
     AND public.is_delivery_driver(auth.uid())
 );
 
+-- Políticas para órdenes
+DROP POLICY IF EXISTS "Authenticated can read orders" ON public.orders;
+CREATE POLICY "Authenticated can read orders" 
+ON public.orders FOR SELECT 
+TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "POS users can manage orders" ON public.orders;
+CREATE POLICY "POS users can manage orders" 
+ON public.orders FOR ALL 
+TO authenticated USING (public.can_operate_pos(auth.uid()));
+
+-- Políticas para order_items
+DROP POLICY IF EXISTS "Authenticated can read order_items" ON public.order_items;
+CREATE POLICY "Authenticated can read order_items" 
+ON public.order_items FOR SELECT 
+TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "POS users can manage order_items" ON public.order_items;
+CREATE POLICY "POS users can manage order_items" 
+ON public.order_items FOR ALL 
+TO authenticated USING (public.can_operate_pos(auth.uid()));
+
+-- Políticas para payments
+DROP POLICY IF EXISTS "Authenticated can read payments" ON public.payments;
+CREATE POLICY "Authenticated can read payments" 
+ON public.payments FOR SELECT 
+TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "POS users can manage payments" ON public.payments;
+CREATE POLICY "POS users can manage payments" 
+ON public.payments FOR ALL 
+TO authenticated USING (public.can_operate_pos(auth.uid()));
+
+-- Políticas para user_roles
+DROP POLICY IF EXISTS "Users can read own roles" ON public.user_roles;
+CREATE POLICY "Users can read own roles" 
+ON public.user_roles FOR SELECT 
+TO authenticated USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can manage roles" ON public.user_roles;
+CREATE POLICY "Admins can manage roles" 
+ON public.user_roles FOR ALL 
+TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para employees
+DROP POLICY IF EXISTS "Authenticated can read employees" ON public.employees;
+CREATE POLICY "Authenticated can read employees" 
+ON public.employees FOR SELECT 
+TO authenticated USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
+
+DROP POLICY IF EXISTS "Admins can manage employees" ON public.employees;
+CREATE POLICY "Admins can manage employees" 
+ON public.employees FOR ALL 
+TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para stores
+DROP POLICY IF EXISTS "Authenticated can read stores" ON public.stores;
+CREATE POLICY "Authenticated can read stores" 
+ON public.stores FOR SELECT 
+TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage stores" ON public.stores;
+CREATE POLICY "Admins can manage stores" 
+ON public.stores FOR ALL 
+TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para terminals
+DROP POLICY IF EXISTS "Authenticated can read terminals" ON public.terminals;
+CREATE POLICY "Authenticated can read terminals" 
+ON public.terminals FOR SELECT 
+TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage terminals" ON public.terminals;
+CREATE POLICY "Admins can manage terminals" 
+ON public.terminals FOR ALL 
+TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para cash_sessions
+DROP POLICY IF EXISTS "Authenticated can read cash_sessions" ON public.cash_sessions;
+CREATE POLICY "Authenticated can read cash_sessions" 
+ON public.cash_sessions FOR SELECT 
+TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "POS users can manage cash_sessions" ON public.cash_sessions;
+CREATE POLICY "POS users can manage cash_sessions" 
+ON public.cash_sessions FOR ALL 
+TO authenticated USING (public.can_operate_pos(auth.uid()));
+
 -- =====================================================
--- PARTE 12: TRIGGER PARA CREAR ASIGNACIÓN AUTOMÁTICA
+-- PARTE 11: TRIGGER PARA CREAR ASIGNACIÓN AUTOMÁTICA
 -- =====================================================
 
 -- Función para crear asignación de delivery automáticamente
@@ -453,7 +523,7 @@ WHEN (NEW.order_type = 'delivery')
 EXECUTE FUNCTION public.create_delivery_assignment();
 
 -- =====================================================
--- PARTE 13: DATOS INICIALES
+-- PARTE 12: DATOS INICIALES
 -- =====================================================
 
 -- Insertar tienda por defecto si no existe
@@ -474,13 +544,9 @@ SELECT 'Cliente Genérico', NULL, 'Cliente por defecto para ventas rápidas'
 WHERE NOT EXISTS (SELECT 1 FROM public.customers WHERE name = 'Cliente Genérico');
 
 -- =====================================================
--- VERIFICACIÓN
+-- VERIFICACIÓN - Ejecutar después para confirmar
 -- =====================================================
-
--- Ejecutar esta consulta para verificar que todo está correcto:
 -- SELECT 
 --     (SELECT COUNT(*) FROM public.stores) as stores,
 --     (SELECT COUNT(*) FROM public.terminals) as terminals,
---     (SELECT COUNT(*) FROM public.customers) as customers,
---     (SELECT EXISTS(SELECT 1 FROM pg_type WHERE typname = 'app_role')) as app_role_exists,
---     (SELECT EXISTS(SELECT 1 FROM pg_type WHERE typname = 'order_type')) as order_type_exists;
+--     (SELECT COUNT(*) FROM public.customers) as customers;
