@@ -13,7 +13,9 @@ import {
   MoreHorizontal,
   AlertCircle,
   Layers,
-  ShoppingCart
+  ShoppingCart,
+  Maximize,
+  Minimize
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CategoryButton } from '@/components/pos/CategoryButton';
@@ -34,6 +36,9 @@ import { useCurrentCashSession } from '@/hooks/useCashSession';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useHapticFeedback } from '@/hooks/useHapticFeedback';
+import { useFullscreen } from '@/hooks/useFullscreen';
+import { cn } from '@/lib/utils';
 
 // Default ticket config
 const defaultTicketConfig: TicketConfig = {
@@ -92,6 +97,11 @@ export default function POSPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isDiscountOpen, setIsDiscountOpen] = useState(false);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
+  const [isKioskMode, setIsKioskMode] = useState(false);
+
+  // Hooks
+  const { lightTap, successFeedback, errorFeedback } = useHapticFeedback();
+  const { isFullscreen, toggleFullscreen } = useFullscreen();
 
   // Fetch data from Supabase
   const { data: categories = [], isLoading: loadingCategories } = useCategories();
@@ -146,6 +156,7 @@ export default function POSPage() {
   const total = subtotal - (discount?.monto || 0);
 
   const handleAddProduct = useCallback((product: POSProduct) => {
+    lightTap(); // Haptic feedback
     setCartItems((prev) => {
       const existing = prev.find((item) => item.productoId === product.id && item.type === 'product');
       if (existing) {
@@ -173,9 +184,10 @@ export default function POSPage() {
       ];
     });
     toast.success(`${product.nombre} agregado`, { position: 'top-center' });
-  }, []);
+  }, [lightTap]);
 
   const handleAddCombo = useCallback((combo: ComboCompleto) => {
+    lightTap(); // Haptic feedback
     setCartItems((prev) => {
       const existing = prev.find((item) => item.comboId === combo.id && item.type === 'combo');
       if (existing) {
@@ -203,7 +215,7 @@ export default function POSPage() {
       ];
     });
     toast.success(`${combo.nombre} agregado`, { position: 'top-center' });
-  }, []);
+  }, [lightTap]);
 
   const handleUpdateQuantity = useCallback((id: string, cantidad: number) => {
     if (cantidad <= 0) {
@@ -277,6 +289,7 @@ export default function POSPage() {
         });
       }
 
+      successFeedback(); // Haptic feedback on success
       toast.success('¡Venta completada!', {
         description: `Ticket #${newOrder.order_number}. Vuelto: S/ ${data.change?.toFixed(2) || '0.00'}`,
       });
@@ -284,13 +297,126 @@ export default function POSPage() {
       setDiscount(undefined);
       setIsCheckoutOpen(false);
     } catch (error: any) {
+      errorFeedback(); // Haptic feedback on error
       toast.error('Error al procesar la venta', {
         description: error.message,
       });
     }
-  }, [cashSession, cartItems, subtotal, discount, total, user, createOrder, createPayment]);
+  }, [cashSession, cartItems, subtotal, discount, total, user, createOrder, createPayment, successFeedback, errorFeedback]);
+
+  // Toggle kiosk mode
+  const handleToggleKioskMode = useCallback(() => {
+    setIsKioskMode(prev => !prev);
+    toggleFullscreen();
+    lightTap();
+  }, [toggleFullscreen, lightTap]);
 
   const isLoading = loadingCategories || loadingProducts || loadingCombos;
+
+  // Conditional layout based on kiosk mode
+  if (isKioskMode) {
+    return (
+      <div className="h-screen w-screen flex bg-background overflow-hidden touch-mode">
+        {/* Full screen POS content */}
+        <div className="flex-1 flex flex-col p-4 lg:p-6 min-w-0">
+          {/* Header with exit button */}
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">PizzaPOS - Modo Kiosco</h1>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleToggleKioskMode}
+              className="gap-2 touch-active h-12"
+            >
+              <Minimize className="h-5 w-5" />
+              Salir
+            </Button>
+          </div>
+
+          {/* Categories */}
+          <div className="grid grid-cols-4 lg:grid-cols-6 gap-3 lg:gap-4 mb-4">
+            {categories.map((cat) => (
+              <CategoryButton
+                key={cat.id}
+                nombre={cat.name}
+                icon={getCategoryIcon(cat.name)}
+                isActive={selectedCategoryId === cat.id && !showCombos}
+                onClick={() => handleSelectCategory(cat.id)}
+              />
+            ))}
+            {combos.length > 0 && (
+              <CategoryButton
+                nombre="Combos"
+                icon={Layers}
+                isActive={showCombos}
+                onClick={handleSelectCombos}
+              />
+            )}
+          </div>
+
+          {/* Products Grid - Larger cards for touch */}
+          <ScrollArea className="flex-1">
+            {showCombos ? (
+              <div className="grid grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6 pb-4">
+                {filteredCombos.map((combo) => (
+                  <ComboCard
+                    key={combo.id}
+                    combo={combo}
+                    onAdd={handleAddCombo}
+                    products={dbProducts}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6 pb-4">
+                {filteredProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAdd={handleAddProduct}
+                  />
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+
+        {/* Cart Panel - Always visible in kiosk mode */}
+        <div className="w-[350px] lg:w-[420px] xl:w-[480px] shrink-0 border-l border-border">
+          <SwipeableCart
+            items={cartItems}
+            descuento={discount}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemove={handleRemoveItem}
+            onClearCart={handleClearCart}
+            onApplyDiscount={() => setIsDiscountOpen(true)}
+            onCheckout={() => setIsCheckoutOpen(true)}
+          />
+        </div>
+
+        {/* Modals */}
+        <CheckoutModal
+          isOpen={isCheckoutOpen}
+          onClose={() => setIsCheckoutOpen(false)}
+          items={cartItems}
+          total={total}
+          subtotal={subtotal}
+          discount={discount}
+          products={products}
+          combos={combos}
+          ticketConfig={defaultTicketConfig}
+          onConfirm={handleCheckoutConfirm}
+        />
+
+        <DiscountModal
+          isOpen={isDiscountOpen}
+          onClose={() => setIsDiscountOpen(false)}
+          onApply={handleApplyDiscount}
+          currentTotal={subtotal}
+        />
+      </div>
+    );
+  }
 
   return (
     <MainLayout>
@@ -306,6 +432,28 @@ export default function POSPage() {
               </AlertDescription>
             </Alert>
           )}
+
+          {/* Kiosk Mode Toggle Button */}
+          <div className="flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleToggleKioskMode}
+              className="gap-2 touch-active"
+            >
+              {isKioskMode ? (
+                <>
+                  <Minimize className="h-4 w-4" />
+                  <span className="hidden sm:inline">Salir Pantalla Completa</span>
+                </>
+              ) : (
+                <>
+                  <Maximize className="h-4 w-4" />
+                  <span className="hidden sm:inline">Modo Kiosco</span>
+                </>
+              )}
+            </Button>
+          </div>
 
           {/* Categories */}
           {isLoading ? (
