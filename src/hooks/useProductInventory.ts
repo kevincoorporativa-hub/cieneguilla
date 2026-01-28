@@ -159,32 +159,88 @@ export function useCreateProductStockMove() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['product-stock'] });
       queryClient.invalidateQueries({ queryKey: ['product-stock-moves'] });
+      queryClient.invalidateQueries({ queryKey: ['product-expiration-dates'] });
+      queryClient.invalidateQueries({ queryKey: ['expiring-products'] });
     },
   });
 }
 
-// Fetch products expiring soon
+// Fetch products expiring soon (from stock moves)
 export function useExpiringProducts(daysAhead: number = 20) {
   return useQuery({
     queryKey: ['expiring-products', daysAhead],
     queryFn: async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + daysAhead);
       
+      // Get all stock moves with expiration dates
       const { data, error } = await supabase
-        .from('products')
+        .from('product_stock_moves')
         .select(`
-          *,
-          product_stock(quantity, store_id)
+          id,
+          product_id,
+          expiration_date,
+          quantity,
+          product:products(id, name, active)
         `)
-        .eq('expires', true)
         .not('expiration_date', 'is', null)
         .lte('expiration_date', futureDate.toISOString().split('T')[0])
-        .eq('active', true)
         .order('expiration_date', { ascending: true });
 
       if (error) throw error;
-      return data;
+      
+      // Group by product and get nearest expiration
+      const productMap = new Map<string, any>();
+      
+      (data || []).forEach((move: any) => {
+        if (!move.product?.active) return;
+        
+        const existing = productMap.get(move.product_id);
+        if (!existing || new Date(move.expiration_date) < new Date(existing.expiration_date)) {
+          productMap.set(move.product_id, {
+            id: move.product_id,
+            name: move.product.name,
+            expiration_date: move.expiration_date,
+            quantity: move.quantity,
+          });
+        }
+      });
+      
+      return Array.from(productMap.values());
+    },
+  });
+}
+
+// Fetch nearest expiration date per product from stock moves
+export function useProductExpirationDates() {
+  return useQuery({
+    queryKey: ['product-expiration-dates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_stock_moves')
+        .select(`
+          product_id,
+          expiration_date
+        `)
+        .not('expiration_date', 'is', null)
+        .gt('quantity', 0)
+        .order('expiration_date', { ascending: true });
+
+      if (error) throw error;
+      
+      // Group by product and get nearest expiration
+      const expirationMap = new Map<string, string>();
+      
+      (data || []).forEach((move: any) => {
+        if (!expirationMap.has(move.product_id)) {
+          expirationMap.set(move.product_id, move.expiration_date);
+        }
+      });
+      
+      return expirationMap;
     },
   });
 }
