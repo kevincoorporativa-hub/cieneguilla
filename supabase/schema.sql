@@ -4,29 +4,50 @@
 -- =====================================================
 
 -- =====================================================
--- PARTE 1: ENUMS
+-- PARTE 1: ENUMS (con DROP IF EXISTS para evitar errores)
 -- =====================================================
 
 -- Roles de la aplicación
-CREATE TYPE public.app_role AS ENUM ('admin', 'manager', 'cashier', 'kitchen', 'delivery');
+DO $$ BEGIN
+    CREATE TYPE public.app_role AS ENUM ('admin', 'manager', 'cashier', 'kitchen', 'delivery');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Estados de órdenes
-CREATE TYPE public.order_status AS ENUM ('open', 'preparing', 'ready', 'paid', 'cancelled');
+DO $$ BEGIN
+    CREATE TYPE public.order_status AS ENUM ('open', 'preparing', 'ready', 'paid', 'cancelled');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Tipos de orden
-CREATE TYPE public.order_type AS ENUM ('local', 'takeaway', 'delivery');
+DO $$ BEGIN
+    CREATE TYPE public.order_type AS ENUM ('local', 'takeaway', 'delivery');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Métodos de pago
-CREATE TYPE public.payment_method AS ENUM ('cash', 'card', 'yape', 'plin', 'transfer');
+DO $$ BEGIN
+    CREATE TYPE public.payment_method AS ENUM ('cash', 'card', 'yape', 'plin', 'transfer');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Tipos de movimiento de stock (ingredientes)
-CREATE TYPE public.stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste');
+DO $$ BEGIN
+    CREATE TYPE public.stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Tipos de movimiento de stock (productos)
-CREATE TYPE public.product_stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste', 'return');
+DO $$ BEGIN
+    CREATE TYPE public.product_stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste', 'return');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Estado de sesión de caja
-CREATE TYPE public.cash_session_status AS ENUM ('open', 'closed');
+DO $$ BEGIN
+    CREATE TYPE public.cash_session_status AS ENUM ('open', 'closed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- =====================================================
 -- PARTE 2: TABLAS BASE
