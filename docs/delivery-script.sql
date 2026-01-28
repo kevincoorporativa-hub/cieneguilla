@@ -258,6 +258,8 @@ AS $$
 $$;
 
 -- Función para obtener el rol del usuario actual
+-- IMPORTANTE: si ya existía con otro tipo de retorno, hay que dropearla primero.
+DROP FUNCTION IF EXISTS public.get_my_role();
 CREATE OR REPLACE FUNCTION public.get_my_role()
 RETURNS TEXT
 LANGUAGE sql
