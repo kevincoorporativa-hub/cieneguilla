@@ -12,14 +12,16 @@ import {
   Package,
   MoreHorizontal,
   AlertCircle,
-  Layers
+  Layers,
+  ShoppingCart
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CategoryButton } from '@/components/pos/CategoryButton';
 import { ProductCard } from '@/components/pos/ProductCard';
 import { ComboCard } from '@/components/pos/ComboCard';
-import { Cart } from '@/components/pos/Cart';
+import { SwipeableCart } from '@/components/pos/SwipeableCart';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
+import { Button } from '@/components/ui/button';
 import { DiscountModal } from '@/components/pos/DiscountModal';
 import { Product as POSProduct, CartItem, Discount, ComboCompleto } from '@/types/pos';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -89,6 +91,7 @@ export default function POSPage() {
   const [discount, setDiscount] = useState<Discount | undefined>();
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isDiscountOpen, setIsDiscountOpen] = useState(false);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   // Fetch data from Supabase
   const { data: categories = [], isLoading: loadingCategories } = useCategories();
@@ -433,9 +436,9 @@ export default function POSPage() {
           </ScrollArea>
         </div>
 
-        {/* Right panel - Cart */}
-        <div className="w-[280px] lg:w-[320px] xl:w-[380px] 2xl:w-[420px] shrink-0">
-          <Cart
+        {/* Right panel - Cart (Desktop) */}
+        <div className="hidden lg:block w-[280px] lg:w-[320px] xl:w-[380px] 2xl:w-[420px] shrink-0">
+          <SwipeableCart
             items={cartItems}
             descuento={discount}
             onUpdateQuantity={handleUpdateQuantity}
@@ -445,6 +448,41 @@ export default function POSPage() {
             onCheckout={() => setIsCheckoutOpen(true)}
           />
         </div>
+
+        {/* Mobile Cart Toggle Button */}
+        <Button
+          className="lg:hidden fixed bottom-4 right-4 z-40 h-14 w-14 rounded-full shadow-xl bg-primary hover:bg-primary/90 touch-active"
+          onClick={() => setIsMobileCartOpen(true)}
+        >
+          <ShoppingCart className="h-6 w-6" />
+          {cartItems.length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+              {cartItems.length}
+            </span>
+          )}
+        </Button>
+
+        {/* Mobile Cart Overlay */}
+        {isMobileCartOpen && (
+          <>
+            <div 
+              className="lg:hidden fixed inset-0 bg-black/50 z-40"
+              onClick={() => setIsMobileCartOpen(false)}
+            />
+            <div className="lg:hidden fixed right-0 top-0 h-full w-[85vw] max-w-[400px] z-50 animate-slide-in-right">
+              <SwipeableCart
+                items={cartItems}
+                descuento={discount}
+                onUpdateQuantity={handleUpdateQuantity}
+                onRemove={handleRemoveItem}
+                onClearCart={handleClearCart}
+                onApplyDiscount={() => setIsDiscountOpen(true)}
+                onCheckout={() => setIsCheckoutOpen(true)}
+                onClose={() => setIsMobileCartOpen(false)}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Modals */}
