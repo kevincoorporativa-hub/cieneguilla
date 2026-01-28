@@ -42,7 +42,7 @@ import {
   Category,
   Product,
 } from '@/hooks/useProducts';
-import { useProductStock, useProductStockMoves, useCreateProductStockMove } from '@/hooks/useProductInventory';
+import { useProductStock, useProductStockMoves, useCreateProductStockMove, useProductExpirationDates } from '@/hooks/useProductInventory';
 import { useStores } from '@/hooks/useStores';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -87,6 +87,12 @@ export default function ProductosPage() {
   const { data: productStock = [], isLoading: loadingStock } = useProductStock();
   const { data: stockMoves = [], isLoading: loadingMoves } = useProductStockMoves(selectedProductForStock?.id);
   const { data: stores = [] } = useStores();
+  const { data: expirationDatesMap } = useProductExpirationDates();
+
+  // Get nearest expiration date for a product from stock moves
+  const getNearestExpiration = (productId: string) => {
+    return expirationDatesMap?.get(productId) || null;
+  };
 
   // Mutations
   const createProduct = useCreateProduct();
@@ -370,10 +376,11 @@ export default function ProductosPage() {
                         const stock = getProductStock(product.id);
                         const minStock = (product as any).min_stock || 5;
                         const isLowStock = product.track_stock && stock <= minStock;
-                        const expirationDate = (product as any).expiration_date;
-                        const isExpired = expirationDate && new Date(expirationDate) < new Date();
-                        const isExpiringSoon = expirationDate && !isExpired && 
-                          new Date(expirationDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                        // Get nearest expiration from stock moves
+                        const nearestExpiration = getNearestExpiration(product.id);
+                        const isExpired = nearestExpiration && new Date(nearestExpiration) < new Date();
+                        const isExpiringSoon = nearestExpiration && !isExpired && 
+                          new Date(nearestExpiration) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
                         return (
                           <TableRow key={product.id} className={!product.active ? 'opacity-50' : ''}>
@@ -418,10 +425,10 @@ export default function ProductosPage() {
                               )}
                             </TableCell>
                             <TableCell className="text-center">
-                              {(product as any).expires && expirationDate ? (
+                              {nearestExpiration ? (
                                 <div className="flex flex-col items-center gap-1">
                                   <span className="text-sm">
-                                    {new Date(expirationDate).toLocaleDateString('es-PE')}
+                                    {new Date(nearestExpiration).toLocaleDateString('es-PE')}
                                   </span>
                                   {isExpired && (
                                     <Badge variant="destructive" className="text-xs flex items-center gap-1">
@@ -540,9 +547,12 @@ export default function ProductosPage() {
                         const stock = getProductStock(product.id);
                         const minStock = (product as any).min_stock || 5;
                         const isLowStock = stock <= minStock;
-                        const expirationDate = (product as any).expiration_date;
+                        // Get nearest expiration from stock moves
+                        const nearestExpiration = getNearestExpiration(product.id);
                         const entryDate = (product as any).entry_date;
-                        const isExpired = expirationDate && new Date(expirationDate) < new Date();
+                        const isExpired = nearestExpiration && new Date(nearestExpiration) < new Date();
+                        const isExpiringSoon = nearestExpiration && !isExpired && 
+                          new Date(nearestExpiration) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
                         return (
                           <TableRow key={product.id}>
@@ -556,10 +566,17 @@ export default function ProductosPage() {
                               {entryDate ? new Date(entryDate).toLocaleDateString('es-PE') : '-'}
                             </TableCell>
                             <TableCell className="text-center">
-                              {expirationDate ? (
-                                <span className={isExpired ? 'text-destructive font-bold' : ''}>
-                                  {new Date(expirationDate).toLocaleDateString('es-PE')}
-                                </span>
+                              {nearestExpiration ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={isExpired ? 'text-destructive font-bold' : ''}>
+                                    {new Date(nearestExpiration).toLocaleDateString('es-PE')}
+                                  </span>
+                                  {isExpiringSoon && (
+                                    <Badge className="text-xs bg-warning text-warning-foreground">
+                                      Por vencer
+                                    </Badge>
+                                  )}
+                                </div>
                               ) : '-'}
                             </TableCell>
                             <TableCell className="text-center">
