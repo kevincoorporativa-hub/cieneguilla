@@ -197,12 +197,13 @@ export function useUpdateOrderStatus() {
   });
 }
 
-// Create payment
+// Create payment and update order status to 'paid'
 export function useCreatePayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (payment: Omit<Payment, 'id' | 'created_at'>) => {
+      // Create the payment
       const { data, error } = await supabase
         .from('payments')
         .insert(payment)
@@ -210,12 +211,24 @@ export function useCreatePayment() {
         .single();
 
       if (error) throw error;
+
+      // Update order status to 'paid'
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ status: 'paid', updated_at: new Date().toISOString() })
+        .eq('id', payment.order_id);
+
+      if (updateError) {
+        console.error('Error updating order status:', updateError);
+      }
+
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['cash-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
   });
 }

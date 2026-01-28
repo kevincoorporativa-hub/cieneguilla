@@ -23,11 +23,12 @@ export interface Ticket {
   items: TicketItem[];
 }
 
-// Fetch tickets (orders with payments)
+// Fetch tickets (orders with status 'paid')
 export function useTickets(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['tickets', startDate, endDate],
     queryFn: async () => {
+      // Get paid orders directly
       let query = supabase
         .from('orders')
         .select(`
@@ -38,7 +39,8 @@ export function useTickets(startDate?: string, endDate?: string) {
           order_type,
           status,
           customer_id,
-          user_id
+          user_id,
+          store_id
         `)
         .eq('status', 'paid')
         .order('created_at', { ascending: false });
@@ -50,7 +52,7 @@ export function useTickets(startDate?: string, endDate?: string) {
         query = query.lte('created_at', endDate);
       }
 
-      const { data: orders, error: ordersError } = await query.limit(100);
+      const { data: orders, error: ordersError } = await query.limit(200);
 
       if (ordersError) throw ordersError;
       if (!orders || orders.length === 0) return [];
@@ -59,8 +61,8 @@ export function useTickets(startDate?: string, endDate?: string) {
       const orderIds = orders.map(o => o.id);
       const customerIds = orders.map(o => o.customer_id).filter(Boolean);
 
-      // Get payments
-      const { data: payments } = await supabase
+      // Get payments for these orders
+      const { data: orderPayments } = await supabase
         .from('payments')
         .select('order_id, method')
         .in('order_id', orderIds);
@@ -90,7 +92,7 @@ export function useTickets(startDate?: string, endDate?: string) {
 
       // Build tickets
       const tickets: Ticket[] = orders.map(order => {
-        const payment = payments?.find(p => p.order_id === order.id);
+        const payment = orderPayments?.find(p => p.order_id === order.id);
         const customer = customers?.find(c => c.id === order.customer_id);
         const employee = employees?.find(e => e.user_id === order.user_id);
         const items = orderItems?.filter(i => i.order_id === order.id) || [];
