@@ -214,4 +214,77 @@
       @apply p-3 rounded-xl;
     }
   }
+
+  /* Tablet/Touch Mode Styles */
+  .touch-mode {
+    /* Larger tap targets for touch interfaces */
+    .btn-pos {
+      @apply min-h-[56px] text-lg;
+    }
+
+    .product-card {
+      @apply min-h-[130px] p-4;
+    }
+
+    .category-btn {
+      @apply min-h-[64px] text-base;
+    }
+
+    .cart-item {
+      @apply p-4;
+    }
+
+    .numpad-btn {
+      @apply min-h-[64px] min-w-[64px] text-2xl;
+    }
+  }
+
+  /* Swipeable cart container */
+  .cart-swipeable {
+    @apply transition-transform duration-300 ease-out;
+  }
+
+  .cart-swipeable.swiping-left {
+    @apply -translate-x-2 opacity-90;
+  }
+
+  .cart-swipeable.swiping-right {
+    @apply translate-x-2 opacity-90;
+  }
+
+  /* Floating sidebar button */
+  .floating-sidebar-btn {
+    @apply fixed left-4 top-1/2 -translate-y-1/2 z-50 
+           w-12 h-12 rounded-full bg-primary text-primary-foreground 
+           shadow-xl flex items-center justify-center 
+           transition-all duration-300 hover:scale-110 active:scale-95;
+  }
+
+  @media (min-width: 1280px) {
+    .floating-sidebar-btn {
+      @apply hidden;
+    }
+  }
+
+  /* Mobile sidebar overlay */
+  .sidebar-overlay {
+    @apply fixed inset-0 bg-black/50 z-40 transition-opacity duration-300;
+  }
+
+  .sidebar-mobile {
+    @apply fixed left-0 top-0 h-full z-50 transition-transform duration-300;
+  }
+
+  .sidebar-mobile.closed {
+    @apply -translate-x-full;
+  }
+
+  .sidebar-mobile.open {
+    @apply translate-x-0;
+  }
+
+  /* Touch feedback */
+  .touch-active {
+    @apply active:bg-primary/20 active:scale-[0.98] transition-all duration-100;
+  }
 }
