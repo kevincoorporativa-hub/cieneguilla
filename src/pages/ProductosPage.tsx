@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2, Package, Eye, EyeOff, FolderPlus, Check, X } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Eye, EyeOff, FolderPlus, Check, X, Calendar, ArrowUpDown, AlertTriangle, Clock } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import {
   useCategories,
   useProducts,
@@ -41,21 +42,37 @@ import {
   Category,
   Product,
 } from '@/hooks/useProducts';
+import { useProductStock, useProductStockMoves, useCreateProductStockMove } from '@/hooks/useProductInventory';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProductosPage() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [selectedProductForStock, setSelectedProductForStock] = useState<Product | null>(null);
 
-  // Form state
+  // Form state for products
   const [formName, setFormName] = useState('');
   const [formCategoryId, setFormCategoryId] = useState<string>('');
   const [formDescription, setFormDescription] = useState('');
   const [formPrice, setFormPrice] = useState('');
   const [formTrackStock, setFormTrackStock] = useState(false);
   const [formActive, setFormActive] = useState(true);
+  const [formExpires, setFormExpires] = useState(false);
+  const [formExpirationDate, setFormExpirationDate] = useState('');
+  const [formEntryDate, setFormEntryDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formMinStock, setFormMinStock] = useState('5');
+
+  // Stock movement form
+  const [stockMoveType, setStockMoveType] = useState<'purchase' | 'adjustment' | 'waste'>('purchase');
+  const [stockMoveQuantity, setStockMoveQuantity] = useState('');
+  const [stockMoveNotes, setStockMoveNotes] = useState('');
+  const [stockMoveCost, setStockMoveCost] = useState('');
 
   // Category form
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -64,18 +81,27 @@ export default function ProductosPage() {
   // Fetch data
   const { data: categories = [], isLoading: loadingCategories } = useCategories(true);
   const { data: products = [], isLoading: loadingProducts } = useProducts(true);
+  const { data: productStock = [], isLoading: loadingStock } = useProductStock();
+  const { data: stockMoves = [], isLoading: loadingMoves } = useProductStockMoves(selectedProductForStock?.id);
 
   // Mutations
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const createCategory = useCreateCategory();
+  const createStockMove = useCreateProductStockMove();
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || p.category_id === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Get stock for a product
+  const getProductStock = (productId: string) => {
+    const stock = productStock.find(s => s.product_id === productId);
+    return stock?.quantity || 0;
+  };
 
   const handleOpenProductModal = (product?: Product) => {
     if (product) {
@@ -86,6 +112,10 @@ export default function ProductosPage() {
       setFormPrice(product.base_price.toString());
       setFormTrackStock(product.track_stock);
       setFormActive(product.active);
+      setFormExpires((product as any).expires || false);
+      setFormExpirationDate((product as any).expiration_date || '');
+      setFormEntryDate((product as any).entry_date || new Date().toISOString().split('T')[0]);
+      setFormMinStock(((product as any).min_stock || 5).toString());
     } else {
       setEditingProduct(null);
       setFormName('');
@@ -94,8 +124,21 @@ export default function ProductosPage() {
       setFormPrice('');
       setFormTrackStock(false);
       setFormActive(true);
+      setFormExpires(false);
+      setFormExpirationDate('');
+      setFormEntryDate(new Date().toISOString().split('T')[0]);
+      setFormMinStock('5');
     }
     setIsProductModalOpen(true);
+  };
+
+  const handleOpenStockModal = (product: Product) => {
+    setSelectedProductForStock(product);
+    setStockMoveType('purchase');
+    setStockMoveQuantity('');
+    setStockMoveNotes('');
+    setStockMoveCost('');
+    setIsStockModalOpen(true);
   };
 
   const handleSaveProduct = async () => {
@@ -105,31 +148,55 @@ export default function ProductosPage() {
     }
 
     try {
+      const productData = {
+        name: formName,
+        category_id: formCategoryId || null,
+        description: formDescription || null,
+        base_price: parseFloat(formPrice),
+        track_stock: formTrackStock,
+        active: formActive,
+      };
+
       if (editingProduct) {
         await updateProduct.mutateAsync({
           id: editingProduct.id,
-          name: formName,
-          category_id: formCategoryId || null,
-          description: formDescription || null,
-          base_price: parseFloat(formPrice),
-          track_stock: formTrackStock,
-          active: formActive,
+          ...productData,
         });
         toast.success('Producto actualizado');
       } else {
-        await createProduct.mutateAsync({
-          name: formName,
-          category_id: formCategoryId || null,
-          description: formDescription || null,
-          base_price: parseFloat(formPrice),
-          track_stock: formTrackStock,
-          active: formActive,
-        });
+        await createProduct.mutateAsync(productData);
         toast.success('Producto creado');
       }
       setIsProductModalOpen(false);
     } catch (error: any) {
       toast.error('Error al guardar producto', { description: error.message });
+    }
+  };
+
+  const handleSaveStockMove = async () => {
+    if (!selectedProductForStock || !stockMoveQuantity) {
+      toast.error('Complete los campos requeridos');
+      return;
+    }
+
+    try {
+      const quantity = parseFloat(stockMoveQuantity);
+      const finalQuantity = stockMoveType === 'waste' ? -Math.abs(quantity) : Math.abs(quantity);
+
+      await createStockMove.mutateAsync({
+        product_id: selectedProductForStock.id,
+        store_id: '00000000-0000-0000-0000-000000000001', // Default store
+        move_type: stockMoveType,
+        quantity: finalQuantity,
+        unit_cost: stockMoveCost ? parseFloat(stockMoveCost) : undefined,
+        notes: stockMoveNotes || undefined,
+        user_id: user?.id,
+      });
+
+      toast.success('Movimiento registrado');
+      setIsStockModalOpen(false);
+    } catch (error: any) {
+      toast.error('Error al registrar movimiento', { description: error.message });
     }
   };
 
@@ -174,6 +241,28 @@ export default function ProductosPage() {
     }
   };
 
+  const getMoveTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      purchase: 'Compra/Ingreso',
+      sale: 'Venta',
+      adjustment: 'Ajuste',
+      waste: 'Merma',
+      return: 'Devolución',
+    };
+    return labels[type] || type;
+  };
+
+  const getMoveTypeColor = (type: string) => {
+    const colors: Record<string, string> = {
+      purchase: 'bg-success/10 text-success',
+      sale: 'bg-primary/10 text-primary',
+      adjustment: 'bg-warning/10 text-warning',
+      waste: 'bg-destructive/10 text-destructive',
+      return: 'bg-accent/10 text-accent',
+    };
+    return colors[type] || 'bg-muted';
+  };
+
   const isLoading = loadingCategories || loadingProducts;
   const isSaving = createProduct.isPending || updateProduct.isPending;
 
@@ -184,7 +273,7 @@ export default function ProductosPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-pos-2xl font-bold">Productos</h1>
-            <p className="text-muted-foreground">Gestiona los productos del catálogo</p>
+            <p className="text-muted-foreground">Gestiona productos, inventario y kardex</p>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" className="btn-pos" onClick={() => setIsCategoryModalOpen(true)}>
@@ -198,152 +287,403 @@ export default function ProductosPage() {
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-4 items-center">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Buscar productos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-12"
-            />
-          </div>
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-48 h-12">
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas las categorías</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3 max-w-md">
+            <TabsTrigger value="products">Productos</TabsTrigger>
+            <TabsTrigger value="inventory">Inventario</TabsTrigger>
+            <TabsTrigger value="kardex">Kardex</TabsTrigger>
+          </TabsList>
 
-        {/* Products Table */}
-        <Card className="border-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Lista de Productos ({filteredProducts.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="space-y-4">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-16 w-full" />
-                ))}
+          {/* Products Tab */}
+          <TabsContent value="products" className="space-y-4">
+            {/* Filters */}
+            <div className="flex gap-4 items-center">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar productos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-12"
+                />
               </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[40%]">Producto</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead className="text-right">Precio</TableHead>
-                    <TableHead className="text-center">Stock</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredProducts.map((product) => (
-                    <TableRow key={product.id} className={!product.active ? 'opacity-50' : ''}>
-                      <TableCell>
-                        <div>
-                          <p className="font-semibold">{product.name}</p>
-                          {product.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-1">
-                              {product.description}
-                            </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span 
-                          className="px-3 py-1 rounded-full text-sm font-medium"
-                          style={{ 
-                            backgroundColor: `${product.category?.color || '#3b82f6'}20`,
-                            color: product.category?.color || '#3b82f6'
-                          }}
-                        >
-                          {product.category?.name || 'Sin categoría'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-pos-lg">
-                        S/ {Number(product.base_price).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {product.track_stock ? (
-                          <Check className="h-5 w-5 text-success mx-auto" />
-                        ) : (
-                          <X className="h-5 w-5 text-muted-foreground mx-auto" />
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                          product.active 
-                            ? 'bg-success/10 text-success' 
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {product.active ? 'Activo' : 'Inactivo'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleActive(product)}
-                            title={product.active ? 'Desactivar' : 'Activar'}
-                          >
-                            {product.active ? (
-                              <EyeOff className="h-5 w-5 text-muted-foreground" />
-                            ) : (
-                              <Eye className="h-5 w-5 text-success" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenProductModal(product)}
-                          >
-                            <Edit className="h-5 w-5 text-primary" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteProduct(product)}
-                          >
-                            <Trash2 className="h-5 w-5 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-48 h-12">
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
                   ))}
-                </TableBody>
-              </Table>
-            )}
+                </SelectContent>
+              </Select>
+            </div>
 
-            {!isLoading && filteredProducts.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-                <Package className="h-16 w-16 mb-4 opacity-50" />
-                <p className="text-pos-lg font-medium">No hay productos</p>
-                <p className="text-sm">Crea un nuevo producto para empezar</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            {/* Products Table */}
+            <Card className="border-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Lista de Productos ({filteredProducts.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[30%]">Producto</TableHead>
+                        <TableHead>Categoría</TableHead>
+                        <TableHead className="text-right">Precio</TableHead>
+                        <TableHead className="text-center">Stock</TableHead>
+                        <TableHead className="text-center">Vence</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredProducts.map((product) => {
+                        const stock = getProductStock(product.id);
+                        const minStock = (product as any).min_stock || 5;
+                        const isLowStock = product.track_stock && stock <= minStock;
+                        const expirationDate = (product as any).expiration_date;
+                        const isExpired = expirationDate && new Date(expirationDate) < new Date();
+                        const isExpiringSoon = expirationDate && !isExpired && 
+                          new Date(expirationDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+                        return (
+                          <TableRow key={product.id} className={!product.active ? 'opacity-50' : ''}>
+                            <TableCell>
+                              <div>
+                                <p className="font-semibold">{product.name}</p>
+                                {product.description && (
+                                  <p className="text-sm text-muted-foreground line-clamp-1">
+                                    {product.description}
+                                  </p>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span 
+                                className="px-3 py-1 rounded-full text-sm font-medium"
+                                style={{ 
+                                  backgroundColor: `${product.category?.color || '#3b82f6'}20`,
+                                  color: product.category?.color || '#3b82f6'
+                                }}
+                              >
+                                {product.category?.name || 'Sin categoría'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-pos-lg">
+                              S/ {Number(product.base_price).toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {product.track_stock ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className={`font-bold ${isLowStock ? 'text-destructive' : ''}`}>
+                                    {stock}
+                                  </span>
+                                  {isLowStock && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      Stock bajo
+                                    </Badge>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {(product as any).expires && expirationDate ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <span className="text-sm">
+                                    {new Date(expirationDate).toLocaleDateString('es-PE')}
+                                  </span>
+                                  {isExpired && (
+                                    <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                                      <AlertTriangle className="h-3 w-3" />
+                                      Vencido
+                                    </Badge>
+                                  )}
+                                  {isExpiringSoon && (
+                                    <Badge className="text-xs bg-warning text-warning-foreground flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      Por vencer
+                                    </Badge>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                product.active 
+                                  ? 'bg-success/10 text-success' 
+                                  : 'bg-muted text-muted-foreground'
+                              }`}>
+                                {product.active ? 'Activo' : 'Inactivo'}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                {product.track_stock && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleOpenStockModal(product)}
+                                    title="Gestionar Stock"
+                                  >
+                                    <ArrowUpDown className="h-5 w-5 text-primary" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleToggleActive(product)}
+                                  title={product.active ? 'Desactivar' : 'Activar'}
+                                >
+                                  {product.active ? (
+                                    <EyeOff className="h-5 w-5 text-muted-foreground" />
+                                  ) : (
+                                    <Eye className="h-5 w-5 text-success" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenProductModal(product)}
+                                >
+                                  <Edit className="h-5 w-5 text-primary" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleDeleteProduct(product)}
+                                >
+                                  <Trash2 className="h-5 w-5 text-destructive" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+
+                {!isLoading && filteredProducts.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                    <Package className="h-16 w-16 mb-4 opacity-50" />
+                    <p className="text-pos-lg font-medium">No hay productos</p>
+                    <p className="text-sm">Crea un nuevo producto para empezar</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Inventory Tab */}
+          <TabsContent value="inventory" className="space-y-4">
+            <Card className="border-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Inventario de Productos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingStock ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-16 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead className="text-center">Stock Actual</TableHead>
+                        <TableHead className="text-center">Fecha Ingreso</TableHead>
+                        <TableHead className="text-center">Fecha Vencimiento</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {products.filter(p => p.track_stock).map((product) => {
+                        const stock = getProductStock(product.id);
+                        const minStock = (product as any).min_stock || 5;
+                        const isLowStock = stock <= minStock;
+                        const expirationDate = (product as any).expiration_date;
+                        const entryDate = (product as any).entry_date;
+                        const isExpired = expirationDate && new Date(expirationDate) < new Date();
+
+                        return (
+                          <TableRow key={product.id}>
+                            <TableCell className="font-semibold">{product.name}</TableCell>
+                            <TableCell className="text-center">
+                              <span className={`font-bold text-lg ${isLowStock ? 'text-destructive' : 'text-success'}`}>
+                                {stock}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {entryDate ? new Date(entryDate).toLocaleDateString('es-PE') : '-'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {expirationDate ? (
+                                <span className={isExpired ? 'text-destructive font-bold' : ''}>
+                                  {new Date(expirationDate).toLocaleDateString('es-PE')}
+                                </span>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              {isExpired ? (
+                                <Badge variant="destructive">Vencido</Badge>
+                              ) : isLowStock ? (
+                                <Badge className="bg-warning text-warning-foreground">Stock Bajo</Badge>
+                              ) : (
+                                <Badge className="bg-success text-success-foreground">OK</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenStockModal(product)}
+                              >
+                                <ArrowUpDown className="h-4 w-4 mr-2" />
+                                Movimiento
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+
+                {!loadingStock && products.filter(p => p.track_stock).length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                    <Package className="h-16 w-16 mb-4 opacity-50" />
+                    <p className="text-pos-lg font-medium">No hay productos con control de stock</p>
+                    <p className="text-sm">Activa "Controlar Stock" en los productos que desees gestionar</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Kardex Tab */}
+          <TabsContent value="kardex" className="space-y-4">
+            <div className="flex gap-4 items-center mb-4">
+              <Select 
+                value={selectedProductForStock?.id || ''} 
+                onValueChange={(id) => setSelectedProductForStock(products.find(p => p.id === id) || null)}
+              >
+                <SelectTrigger className="w-72 h-12">
+                  <SelectValue placeholder="Seleccionar producto" />
+                </SelectTrigger>
+                <SelectContent>
+                  {products.filter(p => p.track_stock).map((product) => (
+                    <SelectItem key={product.id} value={product.id}>
+                      {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Card className="border-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ArrowUpDown className="h-5 w-5" />
+                  Kardex / Movimientos
+                  {selectedProductForStock && (
+                    <span className="text-muted-foreground font-normal ml-2">
+                      - {selectedProductForStock.name}
+                    </span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!selectedProductForStock ? (
+                  <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
+                    <ArrowUpDown className="h-16 w-16 mb-4 opacity-50" />
+                    <p className="text-pos-lg font-medium">Selecciona un producto</p>
+                    <p className="text-sm">Para ver el historial de movimientos</p>
+                  </div>
+                ) : loadingMoves ? (
+                  <div className="space-y-4">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead className="text-right">Cantidad</TableHead>
+                        <TableHead className="text-right">Costo Unit.</TableHead>
+                        <TableHead>Notas</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stockMoves.map((move) => (
+                        <TableRow key={move.id}>
+                          <TableCell>
+                            {new Date(move.created_at).toLocaleString('es-PE', {
+                              dateStyle: 'short',
+                              timeStyle: 'short'
+                            })}
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getMoveTypeColor(move.move_type)}>
+                              {getMoveTypeLabel(move.move_type)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className={`text-right font-bold ${move.quantity >= 0 ? 'text-success' : 'text-destructive'}`}>
+                            {move.quantity >= 0 ? '+' : ''}{move.quantity}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {move.unit_cost ? `S/ ${Number(move.unit_cost).toFixed(2)}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {move.notes || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+
+                {selectedProductForStock && !loadingMoves && stockMoves.length === 0 && (
+                  <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
+                    <p>No hay movimientos registrados</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Product Modal */}
       <Dialog open={isProductModalOpen} onOpenChange={setIsProductModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -414,6 +754,53 @@ export default function ProductosPage() {
               <Switch checked={formTrackStock} onCheckedChange={setFormTrackStock} />
             </div>
 
+            {formTrackStock && (
+              <>
+                <div className="space-y-2">
+                  <Label>Stock Mínimo</Label>
+                  <Input
+                    type="number"
+                    value={formMinStock}
+                    onChange={(e) => setFormMinStock(e.target.value)}
+                    placeholder="5"
+                    className="h-12"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Fecha de Ingreso</Label>
+                  <Input
+                    type="date"
+                    value={formEntryDate}
+                    onChange={(e) => setFormEntryDate(e.target.value)}
+                    className="h-12"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <Label>Producto Vence</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Habilitar si el producto tiene fecha de vencimiento
+                    </p>
+                  </div>
+                  <Switch checked={formExpires} onCheckedChange={setFormExpires} />
+                </div>
+
+                {formExpires && (
+                  <div className="space-y-2">
+                    <Label>Fecha de Vencimiento</Label>
+                    <Input
+                      type="date"
+                      value={formExpirationDate}
+                      onChange={(e) => setFormExpirationDate(e.target.value)}
+                      className="h-12"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
               <div>
                 <Label>Producto Activo</Label>
@@ -438,6 +825,99 @@ export default function ProductosPage() {
                 disabled={isSaving}
               >
                 {isSaving ? 'Guardando...' : 'Guardar'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Stock Movement Modal */}
+      <Dialog open={isStockModalOpen} onOpenChange={setIsStockModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowUpDown className="h-5 w-5" />
+              Movimiento de Stock
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedProductForStock && (
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="font-semibold">{selectedProductForStock.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Stock actual: <span className="font-bold">{getProductStock(selectedProductForStock.id)}</span>
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Tipo de Movimiento</Label>
+              <Select value={stockMoveType} onValueChange={(v) => setStockMoveType(v as any)}>
+                <SelectTrigger className="h-12">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="purchase">Compra / Ingreso</SelectItem>
+                  <SelectItem value="adjustment">Ajuste de Inventario</SelectItem>
+                  <SelectItem value="waste">Merma / Pérdida</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Cantidad *</Label>
+              <Input
+                type="number"
+                value={stockMoveQuantity}
+                onChange={(e) => setStockMoveQuantity(e.target.value)}
+                placeholder={stockMoveType === 'waste' ? 'Cantidad a restar' : 'Cantidad a agregar'}
+                className="h-12"
+              />
+            </div>
+
+            {stockMoveType === 'purchase' && (
+              <div className="space-y-2">
+                <Label>Costo Unitario (opcional)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                    S/
+                  </span>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={stockMoveCost}
+                    onChange={(e) => setStockMoveCost(e.target.value)}
+                    placeholder="0.00"
+                    className="pl-10 h-12"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>Notas (opcional)</Label>
+              <Textarea
+                value={stockMoveNotes}
+                onChange={(e) => setStockMoveNotes(e.target.value)}
+                placeholder="Observaciones del movimiento..."
+                rows={2}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setIsStockModalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 bg-primary"
+                onClick={handleSaveStockMove}
+                disabled={createStockMove.isPending}
+              >
+                {createStockMove.isPending ? 'Guardando...' : 'Registrar'}
               </Button>
             </div>
           </div>
