@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Bell, AlertTriangle, Clock, Package, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,12 +19,11 @@ interface NotificationItem {
 }
 
 export function NotificationsDropdown() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  
   const { data: expiringProducts = [], isLoading: loadingExpiring, refetch: refetchExpiring } = useExpiringProducts(20);
   const { data: lowStockProducts = [], isLoading: loadingLowStock, refetch: refetchLowStock } = useLowStockProducts();
 
-  useEffect(() => {
+  // Compute notifications from data (no useState needed)
+  const notifications = useMemo(() => {
     const items: NotificationItem[] = [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -69,7 +68,7 @@ export function NotificationsDropdown() {
       return 0;
     });
 
-    setNotifications(items);
+    return items;
   }, [expiringProducts, lowStockProducts]);
 
   const handleRefresh = () => {
