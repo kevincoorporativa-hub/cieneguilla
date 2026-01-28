@@ -68,7 +68,8 @@ export function CheckoutModal({
   const [orderType, setOrderType] = useState<OrderType>('local');
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>('efectivo');
   const [cashReceived, setCashReceived] = useState('');
-  const [clientName, setClientName] = useState('');
+  const [useGenericClient, setUseGenericClient] = useState(true);
+  const [clientName, setClientName] = useState('Cliente Genérico');
   const [clientPhone, setClientPhone] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [showTicketPreview, setShowTicketPreview] = useState(false);
@@ -118,12 +119,13 @@ export function CheckoutModal({
     setTicketNumber(newTicketNumber);
     
     const stockDeductions = calculateStockDeductions();
+    const finalClientName = useGenericClient ? 'Cliente Genérico' : clientName;
     
     onConfirm({
       orderType,
       payments: [{ method: selectedPayment, amount: total }],
-      clientName: orderType === 'delivery' ? clientName : undefined,
-      clientPhone: orderType === 'delivery' ? clientPhone : undefined,
+      clientName: finalClientName || 'Cliente Genérico',
+      clientPhone: clientPhone || undefined,
       clientAddress: orderType === 'delivery' ? clientAddress : undefined,
       change,
       stockDeductions,
@@ -160,7 +162,7 @@ export function CheckoutModal({
             </DialogTitle>
           </DialogHeader>
           
-          <div className="bg-gray-100 p-4 rounded-xl max-h-96 overflow-auto">
+          <div className="bg-muted p-4 rounded-xl max-h-96 overflow-auto">
             <TicketPrint
               ref={ticketRef}
               ticketNumber={ticketNumber}
@@ -172,7 +174,7 @@ export function CheckoutModal({
               cashReceived={selectedPayment === 'efectivo' ? cashAmount : undefined}
               change={selectedPayment === 'efectivo' ? change : undefined}
               orderType={orderType}
-              clientName={orderType === 'delivery' ? clientName : undefined}
+              clientName={useGenericClient ? 'Cliente Genérico' : (clientName || 'Cliente Genérico')}
               config={ticketConfig}
               date={new Date()}
             />
@@ -203,6 +205,73 @@ export function CheckoutModal({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Client Selection */}
+          <div className="space-y-3">
+            <label className="text-pos-base font-semibold">Cliente</label>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  setUseGenericClient(true);
+                  setClientName('Cliente Genérico');
+                }}
+                className={`p-4 rounded-xl border-2 text-center transition-all ${
+                  useGenericClient
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <User className="h-8 w-8 mx-auto text-primary" />
+                <p className="font-semibold mt-2">Cliente Genérico</p>
+                <p className="text-xs text-muted-foreground">Venta rápida</p>
+              </button>
+              <button
+                onClick={() => {
+                  setUseGenericClient(false);
+                  setClientName('');
+                }}
+                className={`p-4 rounded-xl border-2 text-center transition-all ${
+                  !useGenericClient
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <User className="h-8 w-8 mx-auto text-muted-foreground" />
+                <p className="font-semibold mt-2">Otro Cliente</p>
+                <p className="text-xs text-muted-foreground">Ingresar datos</p>
+              </button>
+            </div>
+
+            {/* Custom client form */}
+            {!useGenericClient && (
+              <div className="p-4 bg-muted rounded-xl space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <User className="h-4 w-4" /> Nombre
+                    </label>
+                    <Input
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      placeholder="Nombre del cliente"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Phone className="h-4 w-4" /> Teléfono
+                    </label>
+                    <Input
+                      value={clientPhone}
+                      onChange={(e) => setClientPhone(e.target.value)}
+                      placeholder="987654321"
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Order Type */}
           <div className="space-y-3">
             <label className="text-pos-base font-semibold">Tipo de pedido</label>
@@ -243,41 +312,17 @@ export function CheckoutModal({
             </div>
           </div>
 
-          {/* Delivery info */}
+          {/* Delivery address - only shown for delivery orders */}
           {orderType === 'delivery' && (
             <div className="space-y-3 p-4 bg-muted rounded-xl">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <User className="h-4 w-4" /> Cliente
-                  </label>
-                  <Input
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    placeholder="Nombre del cliente"
-                    className="h-12 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Phone className="h-4 w-4" /> Teléfono
-                  </label>
-                  <Input
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    placeholder="987654321"
-                    className="h-12 rounded-xl"
-                  />
-                </div>
-              </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium flex items-center gap-2">
-                  <MapPin className="h-4 w-4" /> Dirección
+                  <MapPin className="h-4 w-4" /> Dirección de entrega
                 </label>
                 <Input
                   value={clientAddress}
                   onChange={(e) => setClientAddress(e.target.value)}
-                  placeholder="Dirección de entrega"
+                  placeholder="Av. Principal 123, Piso 2"
                   className="h-12 rounded-xl"
                 />
               </div>
