@@ -21,8 +21,8 @@ export function CategoryButton({ nombre, icon: Icon, isActive, onClick, color }:
       )}
       style={color && isActive ? { backgroundColor: color } : undefined}
     >
-      <Icon className="h-6 w-6" />
-      <span className="truncate">{nombre}</span>
+      <Icon className="h-4 w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
+      <span className="truncate text-xs lg:text-sm xl:text-base">{nombre}</span>
     </button>
   );
 }

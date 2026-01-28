@@ -81,8 +81,30 @@
     @apply border-border;
   }
 
+  /* Responsive font sizing based on screen size */
   html {
-    font-size: 18px;
+    font-size: 14px; /* Base for 1024x768 */
+  }
+
+  /* 15" screens (1366x768) */
+  @media (min-width: 1280px) {
+    html {
+      font-size: 15px;
+    }
+  }
+
+  /* 20" screens (1600x900) */
+  @media (min-width: 1536px) {
+    html {
+      font-size: 16px;
+    }
+  }
+
+  /* 22"+ screens (1920x1080+) */
+  @media (min-width: 1800px) {
+    html {
+      font-size: 18px;
+    }
   }
 
   body {
@@ -90,26 +112,68 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 
-  /* Large touch-friendly buttons */
+  /* Large touch-friendly buttons - responsive */
   .btn-pos {
-    @apply min-h-[56px] px-6 text-lg font-semibold rounded-xl transition-all duration-150 active:scale-95;
+    @apply min-h-[44px] px-4 text-base font-semibold rounded-xl transition-all duration-150 active:scale-95;
+  }
+
+  @media (min-width: 1280px) {
+    .btn-pos {
+      @apply min-h-[48px] px-5 text-lg;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .btn-pos {
+      @apply min-h-[56px] px-6;
+    }
   }
 
   .btn-pos-xl {
-    @apply min-h-[72px] px-8 text-xl font-bold rounded-2xl transition-all duration-150 active:scale-95;
+    @apply min-h-[56px] px-6 text-lg font-bold rounded-2xl transition-all duration-150 active:scale-95;
   }
 
-  /* Product grid cards */
+  @media (min-width: 1536px) {
+    .btn-pos-xl {
+      @apply min-h-[72px] px-8 text-xl;
+    }
+  }
+
+  /* Product grid cards - responsive */
   .product-card {
-    @apply bg-card rounded-2xl p-4 shadow-sm border-2 border-transparent 
+    @apply bg-card rounded-xl p-3 shadow-sm border-2 border-transparent 
            hover:border-primary hover:shadow-lg transition-all duration-150 
-           cursor-pointer active:scale-95 min-h-[140px];
+           cursor-pointer active:scale-95 min-h-[100px];
   }
 
-  /* Category buttons - Larger and more prominent */
+  @media (min-width: 1280px) {
+    .product-card {
+      @apply rounded-2xl p-4 min-h-[120px];
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .product-card {
+      @apply min-h-[140px];
+    }
+  }
+
+  /* Category buttons - responsive */
   .category-btn {
-    @apply min-h-[72px] px-6 text-lg font-bold rounded-xl transition-all duration-150 
-           active:scale-95 flex items-center justify-center gap-3;
+    @apply min-h-[52px] px-3 text-sm font-bold rounded-lg transition-all duration-150 
+           active:scale-95 flex items-center justify-center gap-2;
+  }
+
+  @media (min-width: 1280px) {
+    .category-btn {
+      @apply min-h-[60px] px-4 text-base rounded-xl gap-2;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .category-btn {
+      @apply min-h-[72px] px-6 text-lg gap-3;
+    }
   }
 
   /* Stock color indicators */
@@ -126,16 +190,28 @@
     @apply bg-[hsl(var(--warning))] text-black;
   }
 
-  /* Number pad buttons */
+  /* Number pad buttons - responsive */
   .numpad-btn {
-    @apply min-h-[64px] min-w-[64px] text-2xl font-bold rounded-xl 
+    @apply min-h-[48px] min-w-[48px] text-xl font-bold rounded-lg 
            bg-secondary text-secondary-foreground hover:bg-secondary/90 
            active:scale-95 transition-all duration-100;
   }
 
+  @media (min-width: 1536px) {
+    .numpad-btn {
+      @apply min-h-[64px] min-w-[64px] text-2xl rounded-xl;
+    }
+  }
+
   /* Cart item */
   .cart-item {
-    @apply flex items-center justify-between p-3 bg-card rounded-xl 
+    @apply flex items-center justify-between p-2 bg-card rounded-lg 
            border border-border hover:bg-muted/50 transition-colors;
+  }
+
+  @media (min-width: 1280px) {
+    .cart-item {
+      @apply p-3 rounded-xl;
+    }
   }
 }

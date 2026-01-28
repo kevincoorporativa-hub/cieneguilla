@@ -291,14 +291,14 @@ export default function POSPage() {
 
   return (
     <MainLayout>
-      <div className="h-full flex gap-6">
+      <div className="h-full flex gap-3 lg:gap-4 xl:gap-6">
         {/* Left panel - Categories and Products */}
-        <div className="flex-1 flex flex-col gap-4">
+        <div className="flex-1 flex flex-col gap-2 lg:gap-3 xl:gap-4 min-w-0">
           {/* Cash session warning */}
           {!cashSession && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="text-sm">
                 No hay sesión de caja abierta. Vaya a <strong>Control de Caja</strong> para abrir una sesión antes de realizar ventas.
               </AlertDescription>
             </Alert>
@@ -306,14 +306,14 @@ export default function POSPage() {
 
           {/* Categories */}
           {isLoading ? (
-            <div className="grid grid-cols-6 gap-3">
+            <div className="grid grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 lg:gap-3">
               {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-20 rounded-xl" />
+                <Skeleton key={i} className="h-14 lg:h-16 xl:h-20 rounded-xl" />
               ))}
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-6 gap-3">
+              <div className="grid grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 lg:gap-3">
                 {categories.slice(0, 5).map((cat) => (
                   <CategoryButton
                     key={cat.id}
@@ -334,7 +334,7 @@ export default function POSPage() {
                 )}
               </div>
               {categories.length > 5 && (
-                <div className="grid grid-cols-5 gap-3">
+                <div className="grid grid-cols-4 lg:grid-cols-5 gap-2 lg:gap-3">
                   {categories.slice(5).map((cat) => (
                     <CategoryButton
                       key={cat.id}
@@ -352,19 +352,19 @@ export default function POSPage() {
           {/* Products/Combos grid */}
           <ScrollArea className="flex-1">
             {isLoading ? (
-              <div className="grid grid-cols-4 gap-4 pb-4">
+              <div className="grid grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 lg:gap-3 xl:gap-4 pb-4">
                 {[...Array(8)].map((_, i) => (
-                  <Skeleton key={i} className="h-40 rounded-xl" />
+                  <Skeleton key={i} className="h-28 lg:h-32 xl:h-40 rounded-xl" />
                 ))}
               </div>
             ) : showCombos ? (
               /* Combos section with filter */
-              <div className="space-y-4">
+              <div className="space-y-3 lg:space-y-4">
                 {/* Combo filter buttons */}
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => setComboFilter('all')}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl text-xs lg:text-sm font-semibold transition-all ${
                       comboFilter === 'all'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -374,7 +374,7 @@ export default function POSPage() {
                   </button>
                   <button
                     onClick={() => setComboFilter('permanent')}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl text-xs lg:text-sm font-semibold transition-all ${
                       comboFilter === 'permanent'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -384,7 +384,7 @@ export default function POSPage() {
                   </button>
                   <button
                     onClick={() => setComboFilter('temporary')}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl text-xs lg:text-sm font-semibold transition-all ${
                       comboFilter === 'temporary'
                         ? 'bg-warning text-warning-foreground'
                         : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -395,7 +395,7 @@ export default function POSPage() {
                 </div>
                 
                 {/* Combos grid */}
-                <div className="grid grid-cols-4 gap-4 pb-4">
+                <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-3 xl:gap-4 pb-4">
                   {filteredCombos.map((combo) => (
                     <ComboCard
                       key={combo.id}
@@ -405,16 +405,16 @@ export default function POSPage() {
                     />
                   ))}
                   {filteredCombos.length === 0 && (
-                    <div className="col-span-4 flex flex-col items-center justify-center h-64 text-muted-foreground">
-                      <Layers className="h-16 w-16 mb-4 opacity-50" />
-                      <p className="text-pos-lg font-medium">No hay combos disponibles</p>
+                    <div className="col-span-full flex flex-col items-center justify-center h-48 lg:h-64 text-muted-foreground">
+                      <Layers className="h-12 w-12 lg:h-16 lg:w-16 mb-3 lg:mb-4 opacity-50" />
+                      <p className="text-base lg:text-lg font-medium">No hay combos disponibles</p>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
               /* Products grid */
-              <div className="grid grid-cols-4 gap-4 pb-4">
+              <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-3 xl:gap-4 pb-4">
                 {filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -423,9 +423,9 @@ export default function POSPage() {
                   />
                 ))}
                 {filteredProducts.length === 0 && (
-                  <div className="col-span-4 flex flex-col items-center justify-center h-64 text-muted-foreground">
-                    <Package className="h-16 w-16 mb-4 opacity-50" />
-                    <p className="text-pos-lg font-medium">Sin productos en esta categoría</p>
+                  <div className="col-span-full flex flex-col items-center justify-center h-48 lg:h-64 text-muted-foreground">
+                    <Package className="h-12 w-12 lg:h-16 lg:w-16 mb-3 lg:mb-4 opacity-50" />
+                    <p className="text-base lg:text-lg font-medium">Sin productos en esta categoría</p>
                   </div>
                 )}
               </div>
@@ -434,7 +434,7 @@ export default function POSPage() {
         </div>
 
         {/* Right panel - Cart */}
-        <div className="w-[420px]">
+        <div className="w-[280px] lg:w-[320px] xl:w-[380px] 2xl:w-[420px] shrink-0">
           <Cart
             items={cartItems}
             descuento={discount}
