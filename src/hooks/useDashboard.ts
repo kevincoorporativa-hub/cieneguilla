@@ -33,6 +33,12 @@ export interface LowStockItem {
   min_stock: number;
 }
 
+export interface LowStockProduct {
+  name: string;
+  stock: number;
+  min_stock: number;
+}
+
 // Dashboard main stats
 export function useDashboardStats() {
   return useQuery({
@@ -237,7 +243,7 @@ export function useTopProducts() {
   });
 }
 
-// Low stock items
+// Low stock items (Ingredientes/Insumos)
 export function useLowStockItems() {
   return useQuery({
     queryKey: ['dashboard', 'low-stock'],
@@ -270,6 +276,44 @@ export function useLowStockItems() {
       }
 
       return lowStockItems.sort((a, b) => a.stock - b.stock).slice(0, 5);
+    },
+  });
+}
+
+// Low stock products (Productos)
+export function useLowStockProducts() {
+  return useQuery({
+    queryKey: ['dashboard', 'low-stock-products'],
+    queryFn: async () => {
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, name, min_stock')
+        .eq('active', true)
+        .eq('track_stock', true);
+
+      if (!products) return [];
+
+      const { data: stocks } = await supabase
+        .from('product_stock')
+        .select('product_id, quantity');
+
+      const lowStockProducts: LowStockProduct[] = [];
+
+      for (const prod of products) {
+        const stock = stocks?.find(s => s.product_id === prod.id);
+        const currentStock = Number(stock?.quantity || 0);
+        const minStock = Number(prod.min_stock || 5);
+
+        if (currentStock <= minStock) {
+          lowStockProducts.push({
+            name: prod.name,
+            stock: currentStock,
+            min_stock: minStock,
+          });
+        }
+      }
+
+      return lowStockProducts.sort((a, b) => a.stock - b.stock).slice(0, 5);
     },
   });
 }

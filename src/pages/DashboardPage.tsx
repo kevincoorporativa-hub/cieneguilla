@@ -29,6 +29,7 @@ import {
   useCategorySales,
   useTopProducts,
   useLowStockItems,
+  useLowStockProducts,
 } from '@/hooks/useDashboard';
 
 interface StatCardProps {
@@ -81,6 +82,7 @@ export default function DashboardPage() {
   const { data: categorySales = [], isLoading: loadingCategories } = useCategorySales();
   const { data: topProducts = [], isLoading: loadingProducts } = useTopProducts();
   const { data: lowStockItems = [], isLoading: loadingStock } = useLowStockItems();
+  const { data: lowStockProducts = [], isLoading: loadingProductStock } = useLowStockProducts();
 
   // Calculate percentage changes
   const salesChange = stats?.yesterdaySales 
@@ -226,8 +228,8 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Bottom Section - 2 columns */}
-        <div className="grid grid-cols-2 gap-6">
+        {/* Bottom Section - 3 columns */}
+        <div className="grid grid-cols-3 gap-6">
           {/* Top Products */}
           <Card className="border-2">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -267,12 +269,12 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Low Stock Alert */}
+          {/* Low Stock Alert - Insumos */}
           <Card className="border-2 border-warning/50">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-pos-lg flex items-center gap-2 text-warning">
                 <AlertTriangle className="h-5 w-5" />
-                Stock Bajo
+                Stock Bajo Insumos
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -284,22 +286,65 @@ export default function DashboardPage() {
                 </div>
               ) : lowStockItems.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8">
+                  ✅ No hay insumos con stock bajo
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {lowStockItems.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between p-3 bg-warning/10 rounded-xl">
+                      <div>
+                        <p className="font-semibold text-sm">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Mínimo: {item.min_stock} unidades
+                        </p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        item.stock === 0 
+                          ? 'bg-destructive text-destructive-foreground' 
+                          : 'bg-warning text-warning-foreground'
+                      }`}>
+                        {item.stock === 0 ? 'Sin stock' : `${item.stock} uds`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Low Stock Alert - Productos */}
+          <Card className="border-2 border-orange-500/50">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-pos-lg flex items-center gap-2 text-orange-500">
+                <Package className="h-5 w-5" />
+                Stock Bajo Productos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingProductStock ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : lowStockProducts.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
                   ✅ No hay productos con stock bajo
                 </p>
               ) : (
-                <div className="space-y-4">
-                  {lowStockItems.map((product) => (
-                    <div key={product.name} className="flex items-center justify-between p-3 bg-warning/10 rounded-xl">
+                <div className="space-y-3">
+                  {lowStockProducts.map((product) => (
+                    <div key={product.name} className="flex items-center justify-between p-3 bg-orange-500/10 rounded-xl">
                       <div>
-                        <p className="font-semibold">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="font-semibold text-sm">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">
                           Mínimo: {product.min_stock} unidades
                         </p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full font-bold ${
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                         product.stock === 0 
                           ? 'bg-destructive text-destructive-foreground' 
-                          : 'bg-warning text-warning-foreground'
+                          : 'bg-orange-500 text-white'
                       }`}>
                         {product.stock === 0 ? 'Sin stock' : `${product.stock} uds`}
                       </span>
