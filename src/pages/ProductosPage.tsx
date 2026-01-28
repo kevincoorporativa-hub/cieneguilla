@@ -73,6 +73,8 @@ export default function ProductosPage() {
   const [stockMoveQuantity, setStockMoveQuantity] = useState('');
   const [stockMoveNotes, setStockMoveNotes] = useState('');
   const [stockMoveCost, setStockMoveCost] = useState('');
+  const [stockMoveExpires, setStockMoveExpires] = useState(false);
+  const [stockMoveExpirationDate, setStockMoveExpirationDate] = useState('');
 
   // Category form
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -138,6 +140,8 @@ export default function ProductosPage() {
     setStockMoveQuantity('');
     setStockMoveNotes('');
     setStockMoveCost('');
+    setStockMoveExpires(false);
+    setStockMoveExpirationDate('');
     setIsStockModalOpen(true);
   };
 
@@ -191,6 +195,7 @@ export default function ProductosPage() {
         unit_cost: stockMoveCost ? parseFloat(stockMoveCost) : undefined,
         notes: stockMoveNotes || undefined,
         user_id: user?.id,
+        expiration_date: stockMoveExpires && stockMoveExpirationDate ? stockMoveExpirationDate : undefined,
       });
 
       toast.success('Movimiento registrado');
@@ -638,6 +643,7 @@ export default function ProductosPage() {
                         <TableHead>Tipo</TableHead>
                         <TableHead className="text-right">Cantidad</TableHead>
                         <TableHead className="text-right">Costo Unit.</TableHead>
+                        <TableHead>F. Vencimiento</TableHead>
                         <TableHead>Notas</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -660,6 +666,13 @@ export default function ProductosPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             {move.unit_cost ? `S/ ${Number(move.unit_cost).toFixed(2)}` : '-'}
+                          </TableCell>
+                          <TableCell>
+                            {move.expiration_date ? (
+                              <span className="text-sm">
+                                {new Date(move.expiration_date).toLocaleDateString('es-PE')}
+                              </span>
+                            ) : '-'}
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             {move.notes || '-'}
@@ -876,22 +889,53 @@ export default function ProductosPage() {
             </div>
 
             {stockMoveType === 'purchase' && (
-              <div className="space-y-2">
-                <Label>Costo Unitario (opcional)</Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
-                    S/
-                  </span>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={stockMoveCost}
-                    onChange={(e) => setStockMoveCost(e.target.value)}
-                    placeholder="0.00"
-                    className="pl-10 h-12"
+              <>
+                <div className="space-y-2">
+                  <Label>Costo Unitario (opcional)</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                      S/
+                    </span>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={stockMoveCost}
+                      onChange={(e) => setStockMoveCost(e.target.value)}
+                      placeholder="0.00"
+                      className="pl-10 h-12"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <Label>¿Producto con Vencimiento?</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Activar si el lote tiene fecha de vencimiento
+                    </p>
+                  </div>
+                  <Switch
+                    checked={stockMoveExpires}
+                    onCheckedChange={setStockMoveExpires}
                   />
                 </div>
-              </div>
+
+                {stockMoveExpires && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Fecha de Vencimiento *
+                    </Label>
+                    <Input
+                      type="date"
+                      value={stockMoveExpirationDate}
+                      onChange={(e) => setStockMoveExpirationDate(e.target.value)}
+                      className="h-12"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             <div className="space-y-2">
