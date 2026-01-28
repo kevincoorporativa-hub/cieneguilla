@@ -39,6 +39,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { cn } from '@/lib/utils';
+import { mapPaymentMethodToDb, mapOrderTypeToDb } from '@/utils/paymentMethodMapper';
 
 // Default ticket config
 const defaultTicketConfig: TicketConfig = {
@@ -261,12 +262,15 @@ export default function POSPage() {
         total: item.subtotal,
       }));
 
+      // Map order type to database format
+      const dbOrderType = mapOrderTypeToDb(data.orderType || 'local');
+
       const newOrder = await createOrder.mutateAsync({
         order: {
           terminal_id: cashSession.terminal_id,
           cash_session_id: cashSession.id,
           user_id: user?.id || null,
-          order_type: 'local',
+          order_type: dbOrderType,
           status: 'open',
           subtotal,
           discount_percent: 0,
@@ -277,13 +281,14 @@ export default function POSPage() {
         items: orderItems,
       });
 
-      // Create payment(s)
-      for (const payment of data.payments || [{ method: 'cash', amount: total }]) {
+      // Create payment(s) - map payment method to DB format
+      for (const payment of data.payments || [{ method: 'efectivo', amount: total }]) {
+        const dbPaymentMethod = mapPaymentMethodToDb(payment.method);
         await createPayment.mutateAsync({
           order_id: newOrder.id,
           cash_session_id: cashSession.id,
           user_id: user?.id || null,
-          method: payment.method,
+          method: dbPaymentMethod,
           amount: payment.amount,
           reference: payment.reference || null,
         });

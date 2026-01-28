@@ -55,47 +55,59 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
     };
 
     return (
-      <div ref={ref} className="ticket-print bg-white text-black p-4 font-mono text-sm" style={{ width: '80mm' }}>
+      <div 
+        ref={ref} 
+        className="ticket-print" 
+        style={{ 
+          width: '80mm',
+          backgroundColor: 'white',
+          color: 'black',
+          padding: '8px',
+          fontFamily: "'Courier New', Courier, monospace",
+          fontSize: '12px',
+          lineHeight: '1.4',
+        }}
+      >
         {/* Header with logo */}
-        <div className="text-center mb-4">
+        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
           {config.logoUrl && (
             <img 
               src={config.logoUrl} 
               alt="Logo" 
-              className="w-16 h-16 mx-auto mb-2 object-contain"
+              style={{ width: '60px', height: '60px', margin: '0 auto 8px', objectFit: 'contain' }}
             />
           )}
-          <h1 className="text-lg font-bold">{config.businessName}</h1>
-          <p className="text-xs">{config.businessAddress}</p>
-          <p className="text-xs">Tel: {config.businessPhone}</p>
+          <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>{config.businessName}</div>
+          <div style={{ fontSize: '10px', marginBottom: '2px' }}>{config.businessAddress}</div>
+          <div style={{ fontSize: '10px', marginBottom: '2px' }}>Tel: {config.businessPhone}</div>
           {config.businessRuc && (
-            <p className="text-xs">RUC: {config.businessRuc}</p>
+            <div style={{ fontSize: '10px' }}>RUC: {config.businessRuc}</div>
           )}
         </div>
 
         {/* Separator */}
-        <div className="border-t border-dashed border-black my-2" />
+        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
 
         {/* Ticket info */}
-        <div className="mb-3">
-          <div className="flex justify-between">
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
             <span>Ticket:</span>
-            <span className="font-bold">{ticketNumber}</span>
+            <span style={{ fontWeight: 'bold' }}>{ticketNumber}</span>
           </div>
-          <div className="flex justify-between">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
             <span>Fecha:</span>
             <span>{date.toLocaleDateString('es-PE')}</span>
           </div>
-          <div className="flex justify-between">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
             <span>Hora:</span>
             <span>{date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
-          <div className="flex justify-between">
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
             <span>Tipo:</span>
             <span>{orderTypeLabels[orderType]}</span>
           </div>
           {clientName && (
-            <div className="flex justify-between">
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Cliente:</span>
               <span>{clientName}</span>
             </div>
@@ -103,18 +115,24 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
         </div>
 
         {/* Separator */}
-        <div className="border-t border-dashed border-black my-2" />
+        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
+
+        {/* Items header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: 'bold', fontSize: '11px' }}>
+          <span style={{ flex: 1 }}>PRODUCTO</span>
+          <span style={{ width: '60px', textAlign: 'right' }}>PRECIO</span>
+        </div>
 
         {/* Items */}
-        <div className="mb-3">
+        <div style={{ marginBottom: '12px' }}>
           {items.map((item, idx) => (
-            <div key={idx} className="mb-1">
-              <div className="flex justify-between">
-                <span className="flex-1">{item.cantidad}x {item.nombre}</span>
-                <span>S/{item.subtotal.toFixed(2)}</span>
+            <div key={idx} style={{ marginBottom: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ flex: 1 }}>{item.cantidad}x {item.nombre}</span>
+                <span style={{ width: '60px', textAlign: 'right' }}>S/{item.subtotal.toFixed(2)}</span>
               </div>
               {item.cantidad > 1 && (
-                <div className="text-xs text-gray-600 ml-4">
+                <div style={{ fontSize: '10px', color: '#666', marginLeft: '16px' }}>
                   (S/{item.precioUnitario.toFixed(2)} c/u)
                 </div>
               )}
@@ -123,39 +141,39 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
         </div>
 
         {/* Separator */}
-        <div className="border-t border-dashed border-black my-2" />
+        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
 
         {/* Totals */}
-        <div className="mb-3">
-          <div className="flex justify-between">
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
             <span>Subtotal:</span>
             <span>S/{subtotal.toFixed(2)}</span>
           </div>
           {discount && (
-            <div className="flex justify-between text-green-600">
+            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', marginBottom: '2px' }}>
               <span>Descuento ({discount.tipo}):</span>
               <span>-S/{discount.monto.toFixed(2)}</span>
             </div>
           )}
-          <div className="flex justify-between font-bold text-base mt-1">
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '4px' }}>
             <span>TOTAL:</span>
             <span>S/{total.toFixed(2)}</span>
           </div>
         </div>
 
         {/* Payment */}
-        <div className="mb-3">
-          <div className="flex justify-between">
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
             <span>Pago:</span>
             <span>{paymentLabels[paymentMethod]}</span>
           </div>
           {paymentMethod === 'efectivo' && cashReceived !== undefined && (
             <>
-              <div className="flex justify-between">
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                 <span>Recibido:</span>
                 <span>S/{cashReceived.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between font-bold">
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                 <span>Vuelto:</span>
                 <span>S/{(change || 0).toFixed(2)}</span>
               </div>
@@ -164,20 +182,26 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
         </div>
 
         {/* Separator */}
-        <div className="border-t border-dashed border-black my-2" />
+        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
 
         {/* Promo text */}
         {config.promoText && (
-          <div className="text-center my-3 p-2 border border-dashed border-black">
-            <p className="text-xs font-bold">🎉 PROMOCIÓN 🎉</p>
-            <p className="text-xs">{config.promoText}</p>
+          <div style={{ 
+            textAlign: 'center', 
+            margin: '12px 0', 
+            padding: '8px', 
+            border: '1px dashed black',
+            borderRadius: '4px'
+          }}>
+            <div style={{ fontSize: '10px', fontWeight: 'bold' }}>🎉 PROMOCIÓN 🎉</div>
+            <div style={{ fontSize: '10px' }}>{config.promoText}</div>
           </div>
         )}
 
         {/* Footer */}
-        <div className="text-center text-xs mt-4">
-          <p>{config.footerText || '¡Gracias por su preferencia!'}</p>
-          <p className="mt-1">Conserve este ticket</p>
+        <div style={{ textAlign: 'center', fontSize: '10px', marginTop: '16px' }}>
+          <div>{config.footerText || '¡Gracias por su preferencia!'}</div>
+          <div style={{ marginTop: '4px' }}>Conserve este ticket</div>
         </div>
       </div>
     );

@@ -1,6 +1,6 @@
 -- =====================================================
 -- PIZZAPOS - SCRIPT SQL COMPLETO PARA SUPABASE
--- Copiar y pegar en SQL Editor de Supabase
+-- Ejecutar en SQL Editor de Supabase
 -- =====================================================
 
 -- =====================================================
@@ -19,8 +19,11 @@ CREATE TYPE public.order_type AS ENUM ('local', 'takeaway', 'delivery');
 -- Métodos de pago
 CREATE TYPE public.payment_method AS ENUM ('cash', 'card', 'yape', 'plin', 'transfer');
 
--- Tipos de movimiento de stock
+-- Tipos de movimiento de stock (ingredientes)
 CREATE TYPE public.stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste');
+
+-- Tipos de movimiento de stock (productos)
+CREATE TYPE public.product_stock_move_type AS ENUM ('purchase', 'sale', 'adjustment', 'waste', 'return');
 
 -- Estado de sesión de caja
 CREATE TYPE public.cash_session_status AS ENUM ('open', 'closed');
@@ -102,7 +105,7 @@ CREATE TABLE public.categories (
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Productos
+-- Productos (con campos de inventario y vencimiento)
 CREATE TABLE public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category_id UUID REFERENCES public.categories(id) ON DELETE SET NULL,
@@ -112,6 +115,10 @@ CREATE TABLE public.products (
     image_url TEXT,
     active BOOLEAN DEFAULT true,
     track_stock BOOLEAN DEFAULT false,
+    min_stock INT DEFAULT 5,
+    expires BOOLEAN DEFAULT false,
+    expiration_date DATE,
+    entry_date DATE DEFAULT CURRENT_DATE,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -120,7 +127,7 @@ CREATE TABLE public.products (
 CREATE TABLE public.product_variants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
-    name TEXT NOT NULL, -- 'Personal', 'Mediana', 'Familiar'
+    name TEXT NOT NULL,
     price DECIMAL(10,2) NOT NULL,
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -129,7 +136,7 @@ CREATE TABLE public.product_variants (
 -- Grupos de modificadores
 CREATE TABLE public.modifier_groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL, -- 'Extras', 'Salsas', 'Ingredientes extra'
+    name TEXT NOT NULL,
     required BOOLEAN DEFAULT false,
     min_selections INT DEFAULT 0,
     max_selections INT DEFAULT 10,
@@ -157,7 +164,35 @@ CREATE TABLE public.product_modifier_groups (
 );
 
 -- =====================================================
--- PARTE 5: CLIENTES Y DELIVERY
+-- PARTE 5: INVENTARIO DE PRODUCTOS
+-- =====================================================
+
+-- Stock actual de productos por tienda
+CREATE TABLE public.product_stock (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+    store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE NOT NULL,
+    quantity DECIMAL(10,3) DEFAULT 0,
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE (product_id, store_id)
+);
+
+-- Movimientos de stock de productos (Kardex)
+CREATE TABLE public.product_stock_moves (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+    store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE NOT NULL,
+    move_type product_stock_move_type NOT NULL,
+    quantity DECIMAL(10,3) NOT NULL,
+    unit_cost DECIMAL(10,2),
+    reference_id UUID,
+    notes TEXT,
+    user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =====================================================
+-- PARTE 6: CLIENTES Y DELIVERY
 -- =====================================================
 
 -- Clientes
@@ -175,7 +210,7 @@ CREATE TABLE public.customers (
 CREATE TABLE public.customer_addresses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE NOT NULL,
-    label TEXT DEFAULT 'Casa', -- 'Casa', 'Trabajo', etc.
+    label TEXT DEFAULT 'Casa',
     address TEXT NOT NULL,
     reference TEXT,
     lat DECIMAL(10,8),
@@ -185,7 +220,7 @@ CREATE TABLE public.customer_addresses (
 );
 
 -- =====================================================
--- PARTE 6: CAJA (CASH SESSIONS)
+-- PARTE 7: CAJA (CASH SESSIONS)
 -- =====================================================
 
 -- Sesiones de caja
@@ -203,7 +238,7 @@ CREATE TABLE public.cash_sessions (
 );
 
 -- =====================================================
--- PARTE 7: ÓRDENES Y PAGOS
+-- PARTE 8: ÓRDENES Y PAGOS
 -- =====================================================
 
 -- Órdenes
@@ -264,7 +299,7 @@ CREATE TABLE public.payments (
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     method payment_method NOT NULL,
     amount DECIMAL(10,2) NOT NULL,
-    reference TEXT, -- Número de operación para Yape/Plin/Tarjeta
+    reference TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -280,14 +315,14 @@ CREATE TABLE public.delivery_assignments (
 );
 
 -- =====================================================
--- PARTE 8: INVENTARIO
+-- PARTE 9: INVENTARIO DE INGREDIENTES/INSUMOS
 -- =====================================================
 
 -- Ingredientes
 CREATE TABLE public.ingredients (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    unit TEXT NOT NULL, -- 'kg', 'unidad', 'litro', 'gramos'
+    unit TEXT NOT NULL,
     min_stock DECIMAL(10,3) DEFAULT 0,
     cost_per_unit DECIMAL(10,2) DEFAULT 0,
     active BOOLEAN DEFAULT true,
@@ -309,26 +344,54 @@ CREATE TABLE public.product_recipes (
     product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
     product_variant_id UUID REFERENCES public.product_variants(id) ON DELETE CASCADE,
     ingredient_id UUID REFERENCES public.ingredients(id) ON DELETE CASCADE NOT NULL,
-    quantity DECIMAL(10,3) NOT NULL, -- cantidad consumida
+    quantity DECIMAL(10,3) NOT NULL,
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE (product_id, product_variant_id, ingredient_id)
 );
 
--- Movimientos de stock
+-- Movimientos de stock de ingredientes
 CREATE TABLE public.stock_moves (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ingredient_id UUID REFERENCES public.ingredients(id) ON DELETE CASCADE NOT NULL,
     store_id UUID REFERENCES public.stores(id) ON DELETE CASCADE NOT NULL,
     move_type stock_move_type NOT NULL,
-    quantity DECIMAL(10,3) NOT NULL, -- positivo entrada, negativo salida
-    reference_id UUID, -- order_id o adjustment_id
+    quantity DECIMAL(10,3) NOT NULL,
+    reference_id UUID,
     notes TEXT,
     user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- =====================================================
--- PARTE 9: INDEXES
+-- PARTE 10: COMBOS
+-- =====================================================
+
+-- Combos
+CREATE TABLE public.combos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    image_url TEXT,
+    active BOOLEAN DEFAULT true,
+    is_temporary BOOLEAN DEFAULT false,
+    start_date DATE,
+    end_date DATE,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Items de combo
+CREATE TABLE public.combo_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    combo_id UUID REFERENCES public.combos(id) ON DELETE CASCADE NOT NULL,
+    product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+    quantity INT DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- =====================================================
+-- PARTE 11: INDEXES
 -- =====================================================
 
 CREATE INDEX idx_orders_status ON public.orders(status);
@@ -341,12 +404,15 @@ CREATE INDEX idx_payments_session ON public.payments(cash_session_id);
 CREATE INDEX idx_cash_sessions_terminal ON public.cash_sessions(terminal_id);
 CREATE INDEX idx_cash_sessions_status ON public.cash_sessions(status);
 CREATE INDEX idx_products_category ON public.products(category_id);
+CREATE INDEX idx_products_expires ON public.products(expires, expiration_date);
+CREATE INDEX idx_product_stock_product ON public.product_stock(product_id);
+CREATE INDEX idx_product_stock_moves_product ON public.product_stock_moves(product_id);
 CREATE INDEX idx_user_roles_user ON public.user_roles(user_id);
 CREATE INDEX idx_stock_moves_ingredient ON public.stock_moves(ingredient_id);
 CREATE INDEX idx_delivery_assignments_driver ON public.delivery_assignments(driver_user_id);
 
 -- =====================================================
--- PARTE 10: FUNCIONES HELPER
+-- PARTE 12: FUNCIONES HELPER
 -- =====================================================
 
 -- Función para verificar si un usuario tiene un rol específico
@@ -381,7 +447,7 @@ AS $$
     )
 $$;
 
--- Función para verificar si puede operar en caja (admin, manager, cashier)
+-- Función para verificar si puede operar en caja
 CREATE OR REPLACE FUNCTION public.can_operate_pos(_user_id UUID)
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -412,7 +478,7 @@ AS $$
 $$;
 
 -- =====================================================
--- PARTE 11: TRIGGERS Y FUNCIONES DE NEGOCIO
+-- PARTE 13: TRIGGERS Y FUNCIONES DE NEGOCIO
 -- =====================================================
 
 -- Función para recalcular totales de orden
@@ -427,25 +493,19 @@ DECLARE
     v_total DECIMAL(10,2);
     v_order_record RECORD;
 BEGIN
-    -- Obtener el order_id correcto
     IF TG_OP = 'DELETE' THEN
         SELECT * INTO v_order_record FROM public.orders WHERE id = OLD.order_id;
     ELSE
         SELECT * INTO v_order_record FROM public.orders WHERE id = NEW.order_id;
     END IF;
     
-    -- Calcular subtotal
     SELECT COALESCE(SUM(total), 0) INTO v_subtotal
     FROM public.order_items
     WHERE order_id = v_order_record.id;
     
-    -- Calcular descuento
     v_discount := v_subtotal * (v_order_record.discount_percent / 100);
-    
-    -- Calcular total
     v_total := v_subtotal - v_discount;
     
-    -- Actualizar orden
     UPDATE public.orders
     SET subtotal = v_subtotal,
         discount_amount = v_discount,
@@ -460,14 +520,66 @@ BEGIN
 END;
 $$;
 
--- Trigger para recalcular totales cuando cambian los items
 CREATE TRIGGER trg_recalculate_order_totals
 AFTER INSERT OR UPDATE OR DELETE ON public.order_items
 FOR EACH ROW
 EXECUTE FUNCTION public.recalculate_order_totals();
 
--- Función para descontar stock cuando se paga una orden
-CREATE OR REPLACE FUNCTION public.deduct_stock_on_payment()
+-- Función para descontar stock de productos cuando se paga
+CREATE OR REPLACE FUNCTION public.deduct_product_stock_on_payment()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_order RECORD;
+    v_item RECORD;
+BEGIN
+    SELECT * INTO v_order FROM public.orders WHERE id = NEW.order_id;
+    
+    IF v_order.status != 'paid' THEN
+        UPDATE public.orders SET status = 'paid', updated_at = now() WHERE id = NEW.order_id;
+        
+        FOR v_item IN SELECT oi.*, p.track_stock 
+                      FROM public.order_items oi
+                      JOIN public.products p ON p.id = oi.product_id
+                      WHERE oi.order_id = NEW.order_id
+        LOOP
+            IF v_item.track_stock THEN
+                -- Actualizar stock
+                UPDATE public.product_stock
+                SET quantity = quantity - v_item.quantity,
+                    updated_at = now()
+                WHERE product_id = v_item.product_id
+                  AND store_id = v_order.store_id;
+                
+                -- Registrar movimiento
+                INSERT INTO public.product_stock_moves 
+                    (product_id, store_id, move_type, quantity, reference_id, notes, user_id)
+                VALUES (
+                    v_item.product_id,
+                    v_order.store_id,
+                    'sale',
+                    -v_item.quantity,
+                    NEW.order_id,
+                    'Venta orden #' || v_order.order_number,
+                    NEW.user_id
+                );
+            END IF;
+        END LOOP;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_deduct_product_stock_on_payment
+AFTER INSERT ON public.payments
+FOR EACH ROW
+EXECUTE FUNCTION public.deduct_product_stock_on_payment();
+
+-- Función para descontar stock de ingredientes
+CREATE OR REPLACE FUNCTION public.deduct_ingredient_stock_on_payment()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -477,56 +589,44 @@ DECLARE
     v_item RECORD;
     v_recipe RECORD;
 BEGIN
-    -- Obtener la orden
     SELECT * INTO v_order FROM public.orders WHERE id = NEW.order_id;
     
-    -- Solo procesar si la orden no estaba ya pagada
-    IF v_order.status != 'paid' THEN
-        -- Marcar orden como pagada
-        UPDATE public.orders SET status = 'paid', updated_at = now() WHERE id = NEW.order_id;
-        
-        -- Para cada item de la orden
-        FOR v_item IN SELECT * FROM public.order_items WHERE order_id = NEW.order_id
+    FOR v_item IN SELECT * FROM public.order_items WHERE order_id = NEW.order_id
+    LOOP
+        FOR v_recipe IN 
+            SELECT pr.*, i.name as ingredient_name
+            FROM public.product_recipes pr
+            JOIN public.ingredients i ON i.id = pr.ingredient_id
+            WHERE pr.product_id = v_item.product_id
+              AND (pr.product_variant_id IS NULL OR pr.product_variant_id = v_item.product_variant_id)
         LOOP
-            -- Para cada ingrediente en la receta
-            FOR v_recipe IN 
-                SELECT pr.*, i.name as ingredient_name
-                FROM public.product_recipes pr
-                JOIN public.ingredients i ON i.id = pr.ingredient_id
-                WHERE pr.product_id = v_item.product_id
-                  AND (pr.product_variant_id IS NULL OR pr.product_variant_id = v_item.product_variant_id)
-            LOOP
-                -- Descontar del stock
-                UPDATE public.ingredient_stock
-                SET quantity = quantity - (v_recipe.quantity * v_item.quantity),
-                    updated_at = now()
-                WHERE ingredient_id = v_recipe.ingredient_id
-                  AND store_id = v_order.store_id;
-                
-                -- Registrar movimiento
-                INSERT INTO public.stock_moves (ingredient_id, store_id, move_type, quantity, reference_id, notes, user_id)
-                VALUES (
-                    v_recipe.ingredient_id,
-                    v_order.store_id,
-                    'sale',
-                    -(v_recipe.quantity * v_item.quantity),
-                    NEW.order_id,
-                    'Venta orden #' || v_order.order_number,
-                    NEW.user_id
-                );
-            END LOOP;
+            UPDATE public.ingredient_stock
+            SET quantity = quantity - (v_recipe.quantity * v_item.quantity),
+                updated_at = now()
+            WHERE ingredient_id = v_recipe.ingredient_id
+              AND store_id = v_order.store_id;
+            
+            INSERT INTO public.stock_moves (ingredient_id, store_id, move_type, quantity, reference_id, notes, user_id)
+            VALUES (
+                v_recipe.ingredient_id,
+                v_order.store_id,
+                'sale',
+                -(v_recipe.quantity * v_item.quantity),
+                NEW.order_id,
+                'Venta orden #' || v_order.order_number,
+                NEW.user_id
+            );
         END LOOP;
-    END IF;
+    END LOOP;
     
     RETURN NEW;
 END;
 $$;
 
--- Trigger para descontar stock al registrar pago
-CREATE TRIGGER trg_deduct_stock_on_payment
+CREATE TRIGGER trg_deduct_ingredient_stock_on_payment
 AFTER INSERT ON public.payments
 FOR EACH ROW
-EXECUTE FUNCTION public.deduct_stock_on_payment();
+EXECUTE FUNCTION public.deduct_ingredient_stock_on_payment();
 
 -- Función para crear perfil de empleado automáticamente
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -536,11 +636,9 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-    -- Crear rol por defecto (cashier)
     INSERT INTO public.user_roles (user_id, role)
     VALUES (NEW.id, 'cashier');
     
-    -- Crear empleado básico
     INSERT INTO public.employees (user_id, first_name, last_name, email)
     VALUES (
         NEW.id,
@@ -553,7 +651,6 @@ BEGIN
 END;
 $$;
 
--- Trigger para nuevos usuarios
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW
@@ -570,7 +667,6 @@ BEGIN
 END;
 $$;
 
--- Triggers de updated_at
 CREATE TRIGGER trg_stores_updated BEFORE UPDATE ON public.stores FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER trg_employees_updated BEFORE UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 CREATE TRIGGER trg_products_updated BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
@@ -578,7 +674,7 @@ CREATE TRIGGER trg_customers_updated BEFORE UPDATE ON public.customers FOR EACH 
 CREATE TRIGGER trg_orders_updated BEFORE UPDATE ON public.orders FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 -- =====================================================
--- PARTE 12: VIEWS PARA REPORTES
+-- PARTE 14: VIEWS PARA REPORTES
 -- =====================================================
 
 -- Vista: Ventas por día
@@ -664,7 +760,7 @@ LEFT JOIN public.employees e ON e.user_id = cs.user_id
 LEFT JOIN public.payments p ON p.cash_session_id = cs.id
 GROUP BY cs.id, t.name, e.first_name, e.last_name;
 
--- Vista: Stock actual con alertas
+-- Vista: Stock actual con alertas (ingredientes)
 CREATE OR REPLACE VIEW public.v_current_stock AS
 SELECT 
     i.id as ingredient_id,
@@ -685,39 +781,69 @@ LEFT JOIN public.stores s ON s.id = ist.store_id
 WHERE i.active = true
 ORDER BY stock_status DESC, i.name;
 
--- Vista: Órdenes abiertas (para cocina)
-CREATE OR REPLACE VIEW public.v_open_orders AS
+-- Vista: Stock actual de productos con alertas
+CREATE OR REPLACE VIEW public.v_product_stock_status AS
 SELECT 
-    o.id,
-    o.order_number,
-    o.order_type,
-    o.status,
-    o.table_id,
-    t.name as table_name,
-    o.notes,
-    o.created_at,
-    EXTRACT(EPOCH FROM (now() - o.created_at))/60 as minutes_waiting,
-    json_agg(
-        json_build_object(
-            'id', oi.id,
-            'product_name', oi.product_name,
-            'variant_name', oi.variant_name,
-            'quantity', oi.quantity,
-            'notes', oi.notes
-        )
-    ) as items
-FROM public.orders o
-LEFT JOIN public.tables t ON t.id = o.table_id
-LEFT JOIN public.order_items oi ON oi.order_id = o.id
-WHERE o.status IN ('open', 'preparing')
-GROUP BY o.id, t.name
-ORDER BY o.created_at ASC;
+    p.id as product_id,
+    p.name as product_name,
+    p.min_stock,
+    p.expires,
+    p.expiration_date,
+    p.entry_date,
+    COALESCE(ps.quantity, 0) as current_quantity,
+    CASE 
+        WHEN COALESCE(ps.quantity, 0) <= 0 THEN 'out_of_stock'
+        WHEN COALESCE(ps.quantity, 0) <= p.min_stock THEN 'low_stock'
+        ELSE 'ok'
+    END as stock_status,
+    CASE 
+        WHEN p.expires AND p.expiration_date IS NOT NULL THEN
+            CASE 
+                WHEN p.expiration_date < CURRENT_DATE THEN 'expired'
+                WHEN p.expiration_date <= CURRENT_DATE + INTERVAL '7 days' THEN 'expiring_soon'
+                WHEN p.expiration_date <= CURRENT_DATE + INTERVAL '20 days' THEN 'expiring_warning'
+                ELSE 'ok'
+            END
+        ELSE 'no_expiry'
+    END as expiry_status,
+    ps.store_id,
+    s.name as store_name
+FROM public.products p
+LEFT JOIN public.product_stock ps ON ps.product_id = p.id
+LEFT JOIN public.stores s ON s.id = ps.store_id
+WHERE p.active = true AND p.track_stock = true
+ORDER BY stock_status DESC, p.name;
+
+-- Vista: Productos por vencer
+CREATE OR REPLACE VIEW public.v_expiring_products AS
+SELECT 
+    p.id as product_id,
+    p.name as product_name,
+    p.expiration_date,
+    p.entry_date,
+    COALESCE(ps.quantity, 0) as current_quantity,
+    (p.expiration_date - CURRENT_DATE) as days_until_expiry,
+    CASE 
+        WHEN p.expiration_date < CURRENT_DATE THEN 'expired'
+        WHEN p.expiration_date <= CURRENT_DATE + INTERVAL '7 days' THEN 'critical'
+        WHEN p.expiration_date <= CURRENT_DATE + INTERVAL '14 days' THEN 'warning'
+        ELSE 'ok'
+    END as urgency,
+    ps.store_id,
+    s.name as store_name
+FROM public.products p
+LEFT JOIN public.product_stock ps ON ps.product_id = p.id
+LEFT JOIN public.stores s ON s.id = ps.store_id
+WHERE p.active = true 
+  AND p.expires = true 
+  AND p.expiration_date IS NOT NULL
+  AND p.expiration_date <= CURRENT_DATE + INTERVAL '20 days'
+ORDER BY p.expiration_date ASC;
 
 -- =====================================================
--- PARTE 13: ROW LEVEL SECURITY (RLS)
+-- PARTE 15: RLS POLICIES
 -- =====================================================
 
--- Habilitar RLS en todas las tablas
 ALTER TABLE public.stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.terminals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tables ENABLE ROW LEVEL SECURITY;
@@ -729,6 +855,8 @@ ALTER TABLE public.product_variants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.modifier_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.modifiers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_modifier_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_stock ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_stock_moves ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.customer_addresses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cash_sessions ENABLE ROW LEVEL SECURITY;
@@ -741,435 +869,117 @@ ALTER TABLE public.ingredients ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ingredient_stock ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_recipes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.stock_moves ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.combos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.combo_items ENABLE ROW LEVEL SECURITY;
+
+-- Políticas de lectura para usuarios autenticados
+CREATE POLICY "Authenticated users can read stores" ON public.stores FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read terminals" ON public.terminals FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read tables" ON public.tables FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read categories" ON public.categories FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read products" ON public.products FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read product_variants" ON public.product_variants FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read modifier_groups" ON public.modifier_groups FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read modifiers" ON public.modifiers FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read product_modifier_groups" ON public.product_modifier_groups FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read product_stock" ON public.product_stock FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read product_stock_moves" ON public.product_stock_moves FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read customers" ON public.customers FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read customer_addresses" ON public.customer_addresses FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read ingredients" ON public.ingredients FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read ingredient_stock" ON public.ingredient_stock FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read product_recipes" ON public.product_recipes FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read combos" ON public.combos FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Authenticated users can read combo_items" ON public.combo_items FOR SELECT TO authenticated USING (true);
+
+-- Políticas para roles de usuario
+CREATE POLICY "Users can read own roles" ON public.user_roles FOR SELECT TO authenticated USING (user_id = auth.uid());
+CREATE POLICY "Admins can manage roles" ON public.user_roles FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para empleados
+CREATE POLICY "Users can read own employee profile" ON public.employees FOR SELECT TO authenticated USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage employees" ON public.employees FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para órdenes
+CREATE POLICY "POS users can read orders" ON public.orders FOR SELECT TO authenticated USING (public.can_operate_pos(auth.uid()));
+CREATE POLICY "POS users can create orders" ON public.orders FOR INSERT TO authenticated WITH CHECK (public.can_operate_pos(auth.uid()));
+CREATE POLICY "POS users can update orders" ON public.orders FOR UPDATE TO authenticated USING (public.can_operate_pos(auth.uid()));
+
+-- Políticas para items de orden
+CREATE POLICY "POS users can read order_items" ON public.order_items FOR SELECT TO authenticated USING (true);
+CREATE POLICY "POS users can create order_items" ON public.order_items FOR INSERT TO authenticated WITH CHECK (public.can_operate_pos(auth.uid()));
+CREATE POLICY "POS users can update order_items" ON public.order_items FOR UPDATE TO authenticated USING (public.can_operate_pos(auth.uid()));
+
+-- Políticas para pagos
+CREATE POLICY "POS users can read payments" ON public.payments FOR SELECT TO authenticated USING (public.can_operate_pos(auth.uid()));
+CREATE POLICY "POS users can create payments" ON public.payments FOR INSERT TO authenticated WITH CHECK (public.can_operate_pos(auth.uid()));
+
+-- Políticas para sesiones de caja
+CREATE POLICY "POS users can read cash_sessions" ON public.cash_sessions FOR SELECT TO authenticated USING (public.can_operate_pos(auth.uid()));
+CREATE POLICY "POS users can create cash_sessions" ON public.cash_sessions FOR INSERT TO authenticated WITH CHECK (public.can_operate_pos(auth.uid()));
+CREATE POLICY "POS users can update own cash_sessions" ON public.cash_sessions FOR UPDATE TO authenticated USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para delivery
+CREATE POLICY "Authenticated users can read delivery_assignments" ON public.delivery_assignments FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can manage delivery_assignments" ON public.delivery_assignments FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para stock moves
+CREATE POLICY "Authenticated users can read stock_moves" ON public.stock_moves FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Admins can manage stock_moves" ON public.stock_moves FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+
+-- Políticas para order_item_modifiers
+CREATE POLICY "Authenticated users can read order_item_modifiers" ON public.order_item_modifiers FOR SELECT TO authenticated USING (true);
+CREATE POLICY "POS users can manage order_item_modifiers" ON public.order_item_modifiers FOR ALL TO authenticated USING (public.can_operate_pos(auth.uid()));
+
+-- Políticas para gestión (admin/manager)
+CREATE POLICY "Admins can manage stores" ON public.stores FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage terminals" ON public.terminals FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage tables" ON public.tables FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage categories" ON public.categories FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage products" ON public.products FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage product_variants" ON public.product_variants FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage modifier_groups" ON public.modifier_groups FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage modifiers" ON public.modifiers FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage product_modifier_groups" ON public.product_modifier_groups FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage product_stock" ON public.product_stock FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage product_stock_moves" ON public.product_stock_moves FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage customers" ON public.customers FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage customer_addresses" ON public.customer_addresses FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage ingredients" ON public.ingredients FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage ingredient_stock" ON public.ingredient_stock FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage product_recipes" ON public.product_recipes FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage combos" ON public.combos FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
+CREATE POLICY "Admins can manage combo_items" ON public.combo_items FOR ALL TO authenticated USING (public.is_admin_or_manager(auth.uid()));
 
 -- =====================================================
--- POLÍTICAS RLS: STORES
--- =====================================================
-CREATE POLICY "Everyone can view stores" ON public.stores
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage stores" ON public.stores
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: TERMINALS
--- =====================================================
-CREATE POLICY "Everyone can view terminals" ON public.terminals
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage terminals" ON public.terminals
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: TABLES
--- =====================================================
-CREATE POLICY "Everyone can view tables" ON public.tables
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage tables" ON public.tables
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: USER_ROLES
--- =====================================================
-CREATE POLICY "Users can view own role" ON public.user_roles
-    FOR SELECT TO authenticated
-    USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin can manage roles" ON public.user_roles
-    FOR ALL TO authenticated
-    USING (public.has_role(auth.uid(), 'admin'))
-    WITH CHECK (public.has_role(auth.uid(), 'admin'));
-
--- =====================================================
--- POLÍTICAS RLS: EMPLOYEES
--- =====================================================
-CREATE POLICY "Users can view own profile" ON public.employees
-    FOR SELECT TO authenticated
-    USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Users can update own profile" ON public.employees
-    FOR UPDATE TO authenticated
-    USING (user_id = auth.uid())
-    WITH CHECK (user_id = auth.uid());
-
-CREATE POLICY "Admin can manage employees" ON public.employees
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: CATÁLOGO (Solo lectura para todos, escritura admin/manager)
--- =====================================================
-CREATE POLICY "Everyone can view categories" ON public.categories
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage categories" ON public.categories
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Everyone can view products" ON public.products
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage products" ON public.products
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Everyone can view variants" ON public.product_variants
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage variants" ON public.product_variants
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Everyone can view modifier_groups" ON public.modifier_groups
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage modifier_groups" ON public.modifier_groups
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Everyone can view modifiers" ON public.modifiers
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage modifiers" ON public.modifiers
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Everyone can view product_modifier_groups" ON public.product_modifier_groups
-    FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Admin/Manager can manage product_modifier_groups" ON public.product_modifier_groups
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: CLIENTES
--- =====================================================
-CREATE POLICY "POS users can view customers" ON public.customers
-    FOR SELECT TO authenticated
-    USING (public.can_operate_pos(auth.uid()));
-
-CREATE POLICY "POS users can manage customers" ON public.customers
-    FOR ALL TO authenticated
-    USING (public.can_operate_pos(auth.uid()))
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
-CREATE POLICY "POS users can view addresses" ON public.customer_addresses
-    FOR SELECT TO authenticated
-    USING (public.can_operate_pos(auth.uid()));
-
-CREATE POLICY "POS users can manage addresses" ON public.customer_addresses
-    FOR ALL TO authenticated
-    USING (public.can_operate_pos(auth.uid()))
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: CASH SESSIONS
--- =====================================================
-CREATE POLICY "Cashiers can view own sessions" ON public.cash_sessions
-    FOR SELECT TO authenticated
-    USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Cashiers can create sessions" ON public.cash_sessions
-    FOR INSERT TO authenticated
-    WITH CHECK (public.can_operate_pos(auth.uid()) AND user_id = auth.uid());
-
-CREATE POLICY "Cashiers can close own sessions" ON public.cash_sessions
-    FOR UPDATE TO authenticated
-    USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: ORDERS
--- =====================================================
-CREATE POLICY "POS and Kitchen can view orders" ON public.orders
-    FOR SELECT TO authenticated
-    USING (
-        public.can_operate_pos(auth.uid()) 
-        OR public.has_role(auth.uid(), 'kitchen')
-        OR public.has_role(auth.uid(), 'delivery')
-    );
-
-CREATE POLICY "POS can create orders" ON public.orders
-    FOR INSERT TO authenticated
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
-CREATE POLICY "POS can update orders" ON public.orders
-    FOR UPDATE TO authenticated
-    USING (public.can_operate_pos(auth.uid()))
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
-CREATE POLICY "Admin can delete orders" ON public.orders
-    FOR DELETE TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: ORDER ITEMS
--- =====================================================
-CREATE POLICY "POS and Kitchen can view order_items" ON public.order_items
-    FOR SELECT TO authenticated
-    USING (
-        public.can_operate_pos(auth.uid()) 
-        OR public.has_role(auth.uid(), 'kitchen')
-    );
-
-CREATE POLICY "POS can manage order_items" ON public.order_items
-    FOR ALL TO authenticated
-    USING (public.can_operate_pos(auth.uid()))
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: ORDER ITEM MODIFIERS
--- =====================================================
-CREATE POLICY "POS and Kitchen can view modifiers" ON public.order_item_modifiers
-    FOR SELECT TO authenticated
-    USING (
-        public.can_operate_pos(auth.uid()) 
-        OR public.has_role(auth.uid(), 'kitchen')
-    );
-
-CREATE POLICY "POS can manage item modifiers" ON public.order_item_modifiers
-    FOR ALL TO authenticated
-    USING (public.can_operate_pos(auth.uid()))
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: PAYMENTS
--- =====================================================
-CREATE POLICY "Cashiers view own payments, admin all" ON public.payments
-    FOR SELECT TO authenticated
-    USING (user_id = auth.uid() OR public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Cashiers can create payments" ON public.payments
-    FOR INSERT TO authenticated
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
-CREATE POLICY "Admin can manage payments" ON public.payments
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: DELIVERY ASSIGNMENTS
--- =====================================================
-CREATE POLICY "Drivers see own assignments" ON public.delivery_assignments
-    FOR SELECT TO authenticated
-    USING (
-        driver_user_id = auth.uid() 
-        OR public.is_admin_or_manager(auth.uid())
-        OR public.can_operate_pos(auth.uid())
-    );
-
-CREATE POLICY "POS can manage assignments" ON public.delivery_assignments
-    FOR ALL TO authenticated
-    USING (public.can_operate_pos(auth.uid()))
-    WITH CHECK (public.can_operate_pos(auth.uid()));
-
--- =====================================================
--- POLÍTICAS RLS: INVENTARIO (Solo admin/manager)
--- =====================================================
-CREATE POLICY "Admin/Manager can view ingredients" ON public.ingredients
-    FOR SELECT TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin/Manager can manage ingredients" ON public.ingredients
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin/Manager can view stock" ON public.ingredient_stock
-    FOR SELECT TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin/Manager can manage stock" ON public.ingredient_stock
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin/Manager can view recipes" ON public.product_recipes
-    FOR SELECT TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin/Manager can manage recipes" ON public.product_recipes
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin/Manager can view stock_moves" ON public.stock_moves
-    FOR SELECT TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()));
-
-CREATE POLICY "Admin/Manager can manage stock_moves" ON public.stock_moves
-    FOR ALL TO authenticated
-    USING (public.is_admin_or_manager(auth.uid()))
-    WITH CHECK (public.is_admin_or_manager(auth.uid()));
-
--- =====================================================
--- PARTE 14: DATOS DE EJEMPLO (SEED)
+-- PARTE 16: DATOS INICIALES (SEED)
 -- =====================================================
 
--- Insertar tienda
-INSERT INTO public.stores (id, name, address, phone) VALUES
-('11111111-1111-1111-1111-111111111111', 'PizzaPOS Central', 'Av. Principal 123, Lima', '01-234-5678');
+-- Insertar tienda por defecto
+INSERT INTO public.stores (id, name, address, phone) 
+VALUES ('00000000-0000-0000-0000-000000000001', 'Sucursal Principal', 'Av. Principal 123, Lima', '01-234-5678');
 
--- Insertar terminal
-INSERT INTO public.terminals (id, store_id, name) VALUES
-('22222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 'Caja 1');
-
--- Insertar mesa
-INSERT INTO public.tables (id, store_id, name, capacity) VALUES
-('33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 'Mesa 1', 4);
+-- Insertar terminal por defecto
+INSERT INTO public.terminals (id, store_id, name) 
+VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Caja 1');
 
 -- Insertar categorías
-INSERT INTO public.categories (id, name, description, icon, color, sort_order) VALUES
-('c1111111-1111-1111-1111-111111111111', 'Pizzas', 'Nuestras deliciosas pizzas artesanales', '🍕', '#ef4444', 1),
-('c2222222-2222-2222-2222-222222222222', 'Bebidas', 'Refrescos y gaseosas', '🥤', '#3b82f6', 2),
-('c3333333-3333-3333-3333-333333333333', 'Cócteles', 'Bebidas preparadas', '🍹', '#8b5cf6', 3),
-('c4444444-4444-4444-4444-444444444444', 'Combos', 'Promociones especiales', '🎁', '#22c55e', 4),
-('c5555555-5555-5555-5555-555555555555', 'Extras', 'Complementos y adicionales', '➕', '#f59e0b', 5);
+INSERT INTO public.categories (name, icon, color, sort_order) VALUES
+('Pizzas', 'pizza', '#ef4444', 1),
+('Bebidas', 'cup-soda', '#3b82f6', 2),
+('Postres', 'cake', '#ec4899', 3),
+('Combos', 'package', '#8b5cf6', 4);
 
--- Insertar productos (Pizzas)
-INSERT INTO public.products (id, category_id, name, description, base_price, track_stock) VALUES
-('p1111111-1111-1111-1111-111111111111', 'c1111111-1111-1111-1111-111111111111', 'Pizza Margarita', 'Salsa de tomate, mozzarella y albahaca fresca', 28.00, true),
-('p2222222-2222-2222-2222-222222222222', 'c1111111-1111-1111-1111-111111111111', 'Pizza Pepperoni', 'Salsa de tomate, mozzarella y pepperoni', 32.00, true),
-('p3333333-3333-3333-3333-333333333333', 'c1111111-1111-1111-1111-111111111111', 'Pizza Hawaiana', 'Jamón, piña y mozzarella', 35.00, true),
-('p4444444-4444-4444-4444-444444444444', 'c1111111-1111-1111-1111-111111111111', 'Pizza Suprema', 'Pepperoni, jamón, pimiento, champiñones, aceitunas', 42.00, true),
-('p5555555-5555-5555-5555-555555555555', 'c1111111-1111-1111-1111-111111111111', 'Pizza BBQ', 'Pollo, cebolla, mozzarella y salsa BBQ', 38.00, true),
-('p6666666-6666-6666-6666-666666666666', 'c1111111-1111-1111-1111-111111111111', 'Pizza Vegetariana', 'Pimiento, champiñones, aceitunas, tomate, cebolla', 30.00, true);
+-- Insertar productos de ejemplo
+INSERT INTO public.products (name, category_id, base_price, track_stock, expires, entry_date) VALUES
+('Pizza Margherita', (SELECT id FROM public.categories WHERE name = 'Pizzas'), 35.00, false, false, CURRENT_DATE),
+('Pizza Pepperoni', (SELECT id FROM public.categories WHERE name = 'Pizzas'), 40.00, false, false, CURRENT_DATE),
+('Pizza Hawaiana', (SELECT id FROM public.categories WHERE name = 'Pizzas'), 38.00, false, false, CURRENT_DATE),
+('Coca Cola 500ml', (SELECT id FROM public.categories WHERE name = 'Bebidas'), 5.00, true, true, CURRENT_DATE),
+('Inca Kola 500ml', (SELECT id FROM public.categories WHERE name = 'Bebidas'), 5.00, true, true, CURRENT_DATE),
+('Agua San Luis 625ml', (SELECT id FROM public.categories WHERE name = 'Bebidas'), 3.00, true, true, CURRENT_DATE),
+('Brownie', (SELECT id FROM public.categories WHERE name = 'Postres'), 8.00, true, true, CURRENT_DATE),
+('Cheesecake', (SELECT id FROM public.categories WHERE name = 'Postres'), 12.00, true, true, CURRENT_DATE);
 
--- Bebidas
-INSERT INTO public.products (id, category_id, name, description, base_price) VALUES
-('p7777777-7777-7777-7777-777777777777', 'c2222222-2222-2222-2222-222222222222', 'Coca Cola', 'Gaseosa 500ml', 5.00),
-('p8888888-8888-8888-8888-888888888888', 'c2222222-2222-2222-2222-222222222222', 'Inca Kola', 'Gaseosa 500ml', 5.00),
-('p9999999-9999-9999-9999-999999999999', 'c2222222-2222-2222-2222-222222222222', 'Agua Mineral', 'Botella 500ml', 3.00);
-
--- Combo
-INSERT INTO public.products (id, category_id, name, description, base_price) VALUES
-('pa111111-1111-1111-1111-111111111111', 'c4444444-4444-4444-4444-444444444444', 'Combo Familiar', 'Pizza familiar + 2 gaseosas 1.5L', 65.00);
-
--- Variantes de pizza
-INSERT INTO public.product_variants (id, product_id, name, price) VALUES
--- Margarita
-('v1111111-1111-1111-1111-111111111111', 'p1111111-1111-1111-1111-111111111111', 'Personal', 18.00),
-('v1111111-1111-1111-1111-111111111112', 'p1111111-1111-1111-1111-111111111111', 'Mediana', 28.00),
-('v1111111-1111-1111-1111-111111111113', 'p1111111-1111-1111-1111-111111111111', 'Familiar', 42.00),
--- Pepperoni
-('v2222222-2222-2222-2222-222222222221', 'p2222222-2222-2222-2222-222222222222', 'Personal', 22.00),
-('v2222222-2222-2222-2222-222222222222', 'p2222222-2222-2222-2222-222222222222', 'Mediana', 32.00),
-('v2222222-2222-2222-2222-222222222223', 'p2222222-2222-2222-2222-222222222222', 'Familiar', 48.00),
--- Hawaiana
-('v3333333-3333-3333-3333-333333333331', 'p3333333-3333-3333-3333-333333333333', 'Personal', 24.00),
-('v3333333-3333-3333-3333-333333333332', 'p3333333-3333-3333-3333-333333333333', 'Mediana', 35.00),
-('v3333333-3333-3333-3333-333333333333', 'p3333333-3333-3333-3333-333333333333', 'Familiar', 52.00);
-
--- Grupo de modificadores
-INSERT INTO public.modifier_groups (id, name, min_selections, max_selections) VALUES
-('mg111111-1111-1111-1111-111111111111', 'Extras', 0, 5);
-
--- Modificadores (extras)
-INSERT INTO public.modifiers (id, group_id, name, price) VALUES
-('m1111111-1111-1111-1111-111111111111', 'mg111111-1111-1111-1111-111111111111', 'Extra queso', 3.00),
-('m2222222-2222-2222-2222-222222222222', 'mg111111-1111-1111-1111-111111111111', 'Extra pepperoni', 4.00),
-('m3333333-3333-3333-3333-333333333333', 'mg111111-1111-1111-1111-111111111111', 'Aceitunas extra', 2.00),
-('m4444444-4444-4444-4444-444444444444', 'mg111111-1111-1111-1111-111111111111', 'Champiñones extra', 3.00),
-('m5555555-5555-5555-5555-555555555555', 'mg111111-1111-1111-1111-111111111111', 'Jamón extra', 4.00);
-
--- Asociar modificadores a pizzas
-INSERT INTO public.product_modifier_groups (product_id, modifier_group_id) VALUES
-('p1111111-1111-1111-1111-111111111111', 'mg111111-1111-1111-1111-111111111111'),
-('p2222222-2222-2222-2222-222222222222', 'mg111111-1111-1111-1111-111111111111'),
-('p3333333-3333-3333-3333-333333333333', 'mg111111-1111-1111-1111-111111111111'),
-('p4444444-4444-4444-4444-444444444444', 'mg111111-1111-1111-1111-111111111111'),
-('p5555555-5555-5555-5555-555555555555', 'mg111111-1111-1111-1111-111111111111'),
-('p6666666-6666-6666-6666-666666666666', 'mg111111-1111-1111-1111-111111111111');
-
--- Cliente de ejemplo
-INSERT INTO public.customers (id, name, phone, email) VALUES
-('cu111111-1111-1111-1111-111111111111', 'Carlos Rodríguez', '999-888-777', 'carlos@email.com');
-
--- Dirección del cliente
-INSERT INTO public.customer_addresses (id, customer_id, label, address, reference, is_default) VALUES
-('ca111111-1111-1111-1111-111111111111', 'cu111111-1111-1111-1111-111111111111', 'Casa', 'Jr. Las Flores 456, San Isidro', 'Frente al parque', true);
-
--- Ingredientes
-INSERT INTO public.ingredients (id, name, unit, min_stock, cost_per_unit) VALUES
-('i1111111-1111-1111-1111-111111111111', 'Masa de pizza', 'unidad', 10, 3.00),
-('i2222222-2222-2222-2222-222222222222', 'Salsa de tomate', 'kg', 2, 8.00),
-('i3333333-3333-3333-3333-333333333333', 'Queso mozzarella', 'kg', 3, 25.00),
-('i4444444-4444-4444-4444-444444444444', 'Pepperoni', 'kg', 1, 35.00),
-('i5555555-5555-5555-5555-555555555555', 'Jamón', 'kg', 1, 20.00),
-('i6666666-6666-6666-6666-666666666666', 'Piña', 'kg', 1, 8.00),
-('i7777777-7777-7777-7777-777777777777', 'Albahaca', 'kg', 0.2, 15.00);
-
--- Stock inicial
-INSERT INTO public.ingredient_stock (ingredient_id, store_id, quantity) VALUES
-('i1111111-1111-1111-1111-111111111111', '11111111-1111-1111-1111-111111111111', 50),
-('i2222222-2222-2222-2222-222222222222', '11111111-1111-1111-1111-111111111111', 10),
-('i3333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', 15),
-('i4444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 5),
-('i5555555-5555-5555-5555-555555555555', '11111111-1111-1111-1111-111111111111', 4),
-('i6666666-6666-6666-6666-666666666666', '11111111-1111-1111-1111-111111111111', 3),
-('i7777777-7777-7777-7777-777777777777', '11111111-1111-1111-1111-111111111111', 0.5);
-
--- Recetas (consumo por pizza mediana)
-INSERT INTO public.product_recipes (product_id, product_variant_id, ingredient_id, quantity) VALUES
--- Pizza Margarita Mediana
-('p1111111-1111-1111-1111-111111111111', 'v1111111-1111-1111-1111-111111111112', 'i1111111-1111-1111-1111-111111111111', 1),
-('p1111111-1111-1111-1111-111111111111', 'v1111111-1111-1111-1111-111111111112', 'i2222222-2222-2222-2222-222222222222', 0.15),
-('p1111111-1111-1111-1111-111111111111', 'v1111111-1111-1111-1111-111111111112', 'i3333333-3333-3333-3333-333333333333', 0.25),
-('p1111111-1111-1111-1111-111111111111', 'v1111111-1111-1111-1111-111111111112', 'i7777777-7777-7777-7777-777777777777', 0.02),
--- Pizza Pepperoni Mediana
-('p2222222-2222-2222-2222-222222222222', 'v2222222-2222-2222-2222-222222222222', 'i1111111-1111-1111-1111-111111111111', 1),
-('p2222222-2222-2222-2222-222222222222', 'v2222222-2222-2222-2222-222222222222', 'i2222222-2222-2222-2222-222222222222', 0.15),
-('p2222222-2222-2222-2222-222222222222', 'v2222222-2222-2222-2222-222222222222', 'i3333333-3333-3333-3333-333333333333', 0.25),
-('p2222222-2222-2222-2222-222222222222', 'v2222222-2222-2222-2222-222222222222', 'i4444444-4444-4444-4444-444444444444', 0.1),
--- Pizza Hawaiana Mediana
-('p3333333-3333-3333-3333-333333333333', 'v3333333-3333-3333-3333-333333333332', 'i1111111-1111-1111-1111-111111111111', 1),
-('p3333333-3333-3333-3333-333333333333', 'v3333333-3333-3333-3333-333333333332', 'i2222222-2222-2222-2222-222222222222', 0.15),
-('p3333333-3333-3333-3333-333333333333', 'v3333333-3333-3333-3333-333333333332', 'i3333333-3333-3333-3333-333333333333', 0.25),
-('p3333333-3333-3333-3333-333333333333', 'v3333333-3333-3333-3333-333333333332', 'i5555555-5555-5555-5555-555555555555', 0.1),
-('p3333333-3333-3333-3333-333333333333', 'v3333333-3333-3333-3333-333333333332', 'i6666666-6666-6666-6666-666666666666', 0.15);
-
--- =====================================================
--- FIN DEL SCRIPT
--- =====================================================
-
--- =====================================================
--- NOTAS DE USO:
--- =====================================================
--- 
--- 1. CREAR USUARIO ADMIN:
---    - Ve a Authentication > Users en Supabase Dashboard
---    - Click "Add user" > ingresa email y contraseña
---    - Copia el UUID del usuario creado
---    - Ejecuta este SQL reemplazando el UUID:
---
---    UPDATE public.user_roles SET role = 'admin' 
---    WHERE user_id = 'TU-UUID-AQUI';
---
--- 2. CREAR OTROS USUARIOS:
---    - Mismo proceso, pero no cambies el rol (quedan como 'cashier')
---    - Para cambiar rol: 
---    UPDATE public.user_roles SET role = 'manager' WHERE user_id = 'UUID';
---
--- 3. PROBAR EL SISTEMA:
---    - Login con tu usuario admin
---    - Crea una orden desde el POS
---    - Añade productos
---    - Procesa el pago
---    - Revisa los reportes
---
--- =====================================================
+-- Actualizar fechas de vencimiento para productos que vencen
+UPDATE public.products SET expiration_date = CURRENT_DATE + INTERVAL '30 days' WHERE expires = true;
