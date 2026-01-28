@@ -228,6 +228,7 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['payments'] });
       queryClient.invalidateQueries({ queryKey: ['cash-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['cash-session-summary'] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
     },
   });
