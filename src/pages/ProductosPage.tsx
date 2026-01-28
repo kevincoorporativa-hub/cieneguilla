@@ -43,6 +43,7 @@ import {
   Product,
 } from '@/hooks/useProducts';
 import { useProductStock, useProductStockMoves, useCreateProductStockMove } from '@/hooks/useProductInventory';
+import { useStores } from '@/hooks/useStores';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProductosPage() {
@@ -85,6 +86,7 @@ export default function ProductosPage() {
   const { data: products = [], isLoading: loadingProducts } = useProducts(true);
   const { data: productStock = [], isLoading: loadingStock } = useProductStock();
   const { data: stockMoves = [], isLoading: loadingMoves } = useProductStockMoves(selectedProductForStock?.id);
+  const { data: stores = [] } = useStores();
 
   // Mutations
   const createProduct = useCreateProduct();
@@ -183,13 +185,20 @@ export default function ProductosPage() {
       return;
     }
 
+    // Get the first available store
+    const storeId = stores[0]?.id;
+    if (!storeId) {
+      toast.error('No hay tiendas configuradas. Por favor, cree una tienda primero.');
+      return;
+    }
+
     try {
       const quantity = parseFloat(stockMoveQuantity);
       const finalQuantity = stockMoveType === 'waste' ? -Math.abs(quantity) : Math.abs(quantity);
 
       await createStockMove.mutateAsync({
         product_id: selectedProductForStock.id,
-        store_id: '00000000-0000-0000-0000-000000000001', // Default store
+        store_id: storeId,
         move_type: stockMoveType,
         quantity: finalQuantity,
         unit_cost: stockMoveCost ? parseFloat(stockMoveCost) : undefined,
