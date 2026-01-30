@@ -93,25 +93,24 @@ export function Cart({
           </div>
         </div>
 
-        {/* Actions - Responsive buttons */}
-        <div className="grid grid-cols-2 gap-3 lg:gap-4 xl:gap-5 pt-2 lg:pt-3">
+        {/* Actions - Stacked buttons */}
+        <div className="flex flex-col gap-3 lg:gap-4 pt-2 lg:pt-3">
           <Button
-            variant="outline"
-            className="h-14 lg:h-16 xl:h-20 text-sm lg:text-base xl:text-xl font-bold rounded-xl lg:rounded-2xl border-2"
-            onClick={onApplyDiscount}
-            disabled={items.length === 0}
-          >
-            <Percent className="h-5 w-5 lg:h-6 lg:w-6 xl:h-8 xl:w-8 mr-2" />
-            <span className="hidden lg:inline">Descuento</span>
-            <span className="lg:hidden">Desc.</span>
-          </Button>
-          <Button
-            className="h-14 lg:h-16 xl:h-20 text-sm lg:text-base xl:text-xl font-bold rounded-xl lg:rounded-2xl bg-success hover:bg-success/90 text-success-foreground"
+            className="h-16 lg:h-20 xl:h-24 text-lg lg:text-xl xl:text-2xl font-bold rounded-xl lg:rounded-2xl bg-success hover:bg-success/90 text-success-foreground"
             onClick={onCheckout}
             disabled={items.length === 0}
           >
-            <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 xl:h-8 xl:w-8 mr-2" />
+            <CreditCard className="h-6 w-6 lg:h-8 lg:w-8 xl:h-10 xl:w-10 mr-2 lg:mr-3" />
             Cobrar
+          </Button>
+          <Button
+            variant="outline"
+            className="h-12 lg:h-14 xl:h-16 text-sm lg:text-base xl:text-lg font-bold rounded-xl lg:rounded-2xl border-2"
+            onClick={onApplyDiscount}
+            disabled={items.length === 0}
+          >
+            <Percent className="h-5 w-5 lg:h-6 lg:w-6 xl:h-7 xl:w-7 mr-2" />
+            Descuento
           </Button>
         </div>
       </div>
