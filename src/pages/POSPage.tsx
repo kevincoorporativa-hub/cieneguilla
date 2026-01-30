@@ -23,6 +23,7 @@ import { ProductCard } from '@/components/pos/ProductCard';
 import { ComboCard } from '@/components/pos/ComboCard';
 import { SwipeableCart } from '@/components/pos/SwipeableCart';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
+import { CashSessionModal } from '@/components/pos/CashSessionModal';
 import { Button } from '@/components/ui/button';
 import { DiscountModal } from '@/components/pos/DiscountModal';
 import { Product as POSProduct, CartItem, Discount, ComboCompleto } from '@/types/pos';
@@ -99,7 +100,7 @@ export default function POSPage() {
   const [isDiscountOpen, setIsDiscountOpen] = useState(false);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isKioskMode, setIsKioskMode] = useState(false);
-
+  const [isSessionReady, setIsSessionReady] = useState(false);
   // Hooks
   const { lightTap, successFeedback, errorFeedback } = useHapticFeedback();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -425,18 +426,14 @@ export default function POSPage() {
 
   return (
     <MainLayout>
+      {/* Modal obligatorio de apertura/cierre de caja */}
+      {!isSessionReady && (
+        <CashSessionModal onSessionReady={() => setIsSessionReady(true)} />
+      )}
+      
       <div className="h-full flex gap-3 lg:gap-4 xl:gap-6">
         {/* Left panel - Categories and Products */}
         <div className="flex-1 flex flex-col gap-2 lg:gap-3 xl:gap-4 min-w-0">
-          {/* Cash session warning */}
-          {!cashSession && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                No hay sesión de caja abierta. Vaya a <strong>Control de Caja</strong> para abrir una sesión antes de realizar ventas.
-              </AlertDescription>
-            </Alert>
-          )}
 
           {/* Kiosk Mode Toggle Button */}
           <div className="flex justify-end">
