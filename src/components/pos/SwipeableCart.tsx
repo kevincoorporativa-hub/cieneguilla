@@ -149,24 +149,24 @@ export function SwipeableCart({
           </div>
         </div>
 
-        {/* Touch-friendly action buttons */}
-        <div className="grid grid-cols-2 gap-3 lg:gap-4 xl:gap-5 pt-3">
+        {/* Touch-friendly stacked buttons */}
+        <div className="flex flex-col gap-3 lg:gap-4 pt-3">
           <Button
-            variant="outline"
-            className="h-16 lg:h-20 xl:h-24 text-base lg:text-lg xl:text-2xl font-bold rounded-xl lg:rounded-2xl border-2 touch-active"
-            onClick={onApplyDiscount}
-            disabled={items.length === 0}
-          >
-            <Percent className="h-6 w-6 lg:h-7 lg:w-7 xl:h-10 xl:w-10 mr-2" />
-            Descuento
-          </Button>
-          <Button
-            className="h-16 lg:h-20 xl:h-24 text-base lg:text-lg xl:text-2xl font-bold rounded-xl lg:rounded-2xl bg-success hover:bg-success/90 text-success-foreground touch-active"
+            className="h-20 lg:h-24 xl:h-28 text-xl lg:text-2xl xl:text-3xl font-bold rounded-xl lg:rounded-2xl bg-success hover:bg-success/90 text-success-foreground touch-active"
             onClick={onCheckout}
             disabled={items.length === 0}
           >
-            <CreditCard className="h-6 w-6 lg:h-7 lg:w-7 xl:h-10 xl:w-10 mr-2" />
+            <CreditCard className="h-8 w-8 lg:h-10 lg:w-10 xl:h-12 xl:w-12 mr-3" />
             Cobrar
+          </Button>
+          <Button
+            variant="outline"
+            className="h-14 lg:h-16 xl:h-20 text-base lg:text-lg xl:text-xl font-bold rounded-xl lg:rounded-2xl border-2 touch-active"
+            onClick={onApplyDiscount}
+            disabled={items.length === 0}
+          >
+            <Percent className="h-6 w-6 lg:h-7 lg:w-7 xl:h-8 xl:w-8 mr-2" />
+            Descuento
           </Button>
         </div>
       </div>
