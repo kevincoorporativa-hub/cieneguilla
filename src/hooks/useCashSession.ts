@@ -47,7 +47,7 @@ export function useCurrentCashSession() {
         .from('cash_sessions')
         .select(`
           *,
-          terminal:terminals(name, store:stores(name))
+          terminal:terminals(id, name, store_id, store:stores(id, name))
         `)
         .eq('user_id', user.id)
         .eq('status', 'open')
