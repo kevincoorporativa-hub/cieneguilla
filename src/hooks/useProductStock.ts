@@ -15,6 +15,8 @@ export function useProductStock(storeId?: string) {
   return useQuery({
     queryKey: ['product-stock', storeId],
     queryFn: async () => {
+      if (!storeId) return [];
+
       // Get products with their stock tracking settings
       const { data: products, error: productsError } = await supabase
         .from('products')
@@ -23,16 +25,11 @@ export function useProductStock(storeId?: string) {
 
       if (productsError) throw productsError;
 
-      // Get stock levels
-      let stockQuery = supabase
+      // Get stock levels for THIS store only
+      const { data: stocks, error: stockError } = await supabase
         .from('product_stock')
-        .select('product_id, quantity, store_id');
-
-      if (storeId) {
-        stockQuery = stockQuery.eq('store_id', storeId);
-      }
-
-      const { data: stocks, error: stockError } = await stockQuery;
+        .select('product_id, quantity')
+        .eq('store_id', storeId);
       if (stockError) throw stockError;
 
       // Merge stock into products
@@ -62,6 +59,7 @@ export function useProductStock(storeId?: string) {
 
       return productsWithStock;
     },
+    enabled: !!storeId,
   });
 }
 

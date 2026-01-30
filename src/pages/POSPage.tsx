@@ -75,7 +75,10 @@ function getCategoryIcon(name: string): typeof Pizza {
 
 // Transform DB product to POS product - stock will be added separately
 function transformProduct(dbProduct: any, stockData?: { current_stock: number; track_stock: boolean }): POSProduct {
-  const stock = stockData?.track_stock ? stockData.current_stock : 999;
+  // Si el producto trackea stock y aún no hay data de stock, ser conservador (0)
+  const stock = dbProduct.track_stock
+    ? Number(stockData?.current_stock ?? 0)
+    : 999;
   return {
     id: dbProduct.id,
     nombre: dbProduct.name,
@@ -112,7 +115,13 @@ export default function POSPage() {
   const { data: dbProducts = [], isLoading: loadingProducts } = useProducts();
   const { data: combos = [], isLoading: loadingCombos } = useCombos();
   const { data: cashSession } = useCurrentCashSession();
-  const { data: productStockData = [] } = useProductStock();
+
+  const storeId = useMemo(() => {
+    const terminal = (cashSession as any)?.terminal;
+    return (terminal?.store_id as string | undefined) ?? (terminal?.store?.id as string | undefined);
+  }, [cashSession]);
+
+  const { data: productStockData = [] } = useProductStock(storeId);
 
   // Mutations
   const createOrder = useCreateOrder();
@@ -293,10 +302,10 @@ export default function POSPage() {
     toast.success(`Descuento de S/ ${newDiscount.monto.toFixed(2)} aplicado`);
   }, []);
 
-  const handleCheckoutConfirm = useCallback(async (data: any) => {
+  const handleCheckoutConfirm = useCallback(async (data: any): Promise<boolean> => {
     if (!cashSession) {
       toast.error('Debe abrir una sesión de caja primero');
-      return;
+      return false;
     }
 
     try {
@@ -347,12 +356,13 @@ export default function POSPage() {
       });
       setCartItems([]);
       setDiscount(undefined);
-      setIsCheckoutOpen(false);
+      return true;
     } catch (error: any) {
       errorFeedback(); // Haptic feedback on error
       toast.error('Error al procesar la venta', {
         description: error.message,
       });
+      return false;
     }
   }, [cashSession, cartItems, subtotal, discount, total, user, createOrder, createPayment, successFeedback, errorFeedback]);
 

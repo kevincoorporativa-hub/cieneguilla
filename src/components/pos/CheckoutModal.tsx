@@ -32,7 +32,7 @@ interface CheckoutModalProps {
   subtotal: number;
   products: Product[];
   combos: ComboCompleto[];
-  onConfirm: (data: CheckoutData) => void;
+  onConfirm: (data: CheckoutData) => Promise<boolean>;
   ticketConfig: TicketConfig;
 }
 
@@ -74,6 +74,18 @@ export function CheckoutModal({
   const [clientAddress, setClientAddress] = useState('');
   const [showTicketPreview, setShowTicketPreview] = useState(false);
   const [ticketNumber, setTicketNumber] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewSnapshot, setPreviewSnapshot] = useState<{
+    items: CartItem[];
+    subtotal: number;
+    total: number;
+    discount?: Discount;
+    paymentMethod: PaymentMethod;
+    cashReceived?: number;
+    change?: number;
+    orderType: OrderType;
+    clientName: string;
+  } | null>(null);
   
   const ticketRef = useRef<HTMLDivElement>(null);
 
@@ -114,24 +126,46 @@ export function CheckoutModal({
     return deductions;
   };
 
-  const handleConfirm = () => {
-    const newTicketNumber = `T${Date.now().toString().slice(-6)}`;
-    setTicketNumber(newTicketNumber);
-    
+  const handleConfirm = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
     const stockDeductions = calculateStockDeductions();
     const finalClientName = useGenericClient ? 'Cliente Genérico' : clientName;
-    
-    onConfirm({
-      orderType,
-      payments: [{ method: selectedPayment, amount: total }],
-      clientName: finalClientName || 'Cliente Genérico',
-      clientPhone: clientPhone || undefined,
-      clientAddress: orderType === 'delivery' ? clientAddress : undefined,
-      change,
-      stockDeductions,
-    });
 
-    setShowTicketPreview(true);
+    try {
+      const ok = await onConfirm({
+        orderType,
+        payments: [{ method: selectedPayment, amount: total }],
+        clientName: finalClientName || 'Cliente Genérico',
+        clientPhone: clientPhone || undefined,
+        clientAddress: orderType === 'delivery' ? clientAddress : undefined,
+        change,
+        stockDeductions,
+      });
+
+      if (!ok) return;
+
+      const newTicketNumber = `T${Date.now().toString().slice(-6)}`;
+      setTicketNumber(newTicketNumber);
+
+      // Guardar snapshot para que el ticket no se “vacíe” si el carrito se limpia en el padre
+      setPreviewSnapshot({
+        items: [...items],
+        subtotal,
+        total,
+        discount,
+        paymentMethod: selectedPayment,
+        cashReceived: selectedPayment === 'efectivo' ? cashAmount : undefined,
+        change: selectedPayment === 'efectivo' ? change : undefined,
+        orderType,
+        clientName: (finalClientName || 'Cliente Genérico'),
+      });
+
+      setShowTicketPreview(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePrintAndClose = () => {
@@ -152,6 +186,7 @@ export function CheckoutModal({
   const stockDeductionsPreview = calculateStockDeductions();
 
   if (showTicketPreview) {
+    const snap = previewSnapshot;
     return (
       <Dialog open={isOpen} onOpenChange={handleCloseWithoutPrint}>
         <DialogContent className="max-w-md">
@@ -166,15 +201,15 @@ export function CheckoutModal({
             <TicketPrint
               ref={ticketRef}
               ticketNumber={ticketNumber}
-              items={items}
-              subtotal={subtotal}
-              discount={discount}
-              total={total}
-              paymentMethod={selectedPayment}
-              cashReceived={selectedPayment === 'efectivo' ? cashAmount : undefined}
-              change={selectedPayment === 'efectivo' ? change : undefined}
-              orderType={orderType}
-              clientName={useGenericClient ? 'Cliente Genérico' : (clientName || 'Cliente Genérico')}
+              items={snap?.items || items}
+              subtotal={snap?.subtotal ?? subtotal}
+              discount={snap?.discount ?? discount}
+              total={snap?.total ?? total}
+              paymentMethod={snap?.paymentMethod ?? selectedPayment}
+              cashReceived={snap?.cashReceived}
+              change={snap?.change}
+              orderType={snap?.orderType ?? orderType}
+              clientName={snap?.clientName ?? (useGenericClient ? 'Cliente Genérico' : (clientName || 'Cliente Genérico'))}
               config={ticketConfig}
               date={new Date()}
             />
@@ -440,10 +475,10 @@ export function CheckoutModal({
             <Button
               className="flex-1 btn-pos-xl bg-success hover:bg-success/90"
               onClick={handleConfirm}
-              disabled={selectedPayment === 'efectivo' && cashAmount < total}
+              disabled={isSubmitting || (selectedPayment === 'efectivo' && cashAmount < total)}
             >
               <Check className="h-6 w-6 mr-2" />
-              Confirmar Venta
+              {isSubmitting ? 'Procesando…' : 'Confirmar Venta'}
             </Button>
           </div>
         </div>
