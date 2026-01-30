@@ -150,22 +150,22 @@ export function SwipeableCart({
         </div>
 
         {/* Touch-friendly action buttons */}
-        <div className="grid grid-cols-2 gap-2 lg:gap-3 xl:gap-4 pt-2">
+        <div className="grid grid-cols-2 gap-3 lg:gap-4 xl:gap-5 pt-3">
           <Button
             variant="outline"
-            className="h-12 lg:h-14 xl:h-20 text-sm lg:text-base xl:text-xl font-bold rounded-xl lg:rounded-2xl border-2 touch-active"
+            className="h-16 lg:h-20 xl:h-24 text-base lg:text-lg xl:text-2xl font-bold rounded-xl lg:rounded-2xl border-2 touch-active"
             onClick={onApplyDiscount}
             disabled={items.length === 0}
           >
-            <Percent className="h-5 w-5 lg:h-6 lg:w-6 xl:h-8 xl:w-8 mr-2" />
+            <Percent className="h-6 w-6 lg:h-7 lg:w-7 xl:h-10 xl:w-10 mr-2" />
             Descuento
           </Button>
           <Button
-            className="h-12 lg:h-14 xl:h-20 text-sm lg:text-base xl:text-xl font-bold rounded-xl lg:rounded-2xl bg-success hover:bg-success/90 text-success-foreground touch-active"
+            className="h-16 lg:h-20 xl:h-24 text-base lg:text-lg xl:text-2xl font-bold rounded-xl lg:rounded-2xl bg-success hover:bg-success/90 text-success-foreground touch-active"
             onClick={onCheckout}
             disabled={items.length === 0}
           >
-            <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 xl:h-8 xl:w-8 mr-2" />
+            <CreditCard className="h-6 w-6 lg:h-7 lg:w-7 xl:h-10 xl:w-10 mr-2" />
             Cobrar
           </Button>
         </div>

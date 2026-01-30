@@ -94,23 +94,23 @@ export function Cart({
         </div>
 
         {/* Actions - Responsive buttons */}
-        <div className="grid grid-cols-2 gap-2 lg:gap-3 xl:gap-4 pt-1 lg:pt-2">
+        <div className="grid grid-cols-2 gap-3 lg:gap-4 xl:gap-5 pt-2 lg:pt-3">
           <Button
             variant="outline"
-            className="h-10 lg:h-12 xl:h-16 text-xs lg:text-sm xl:text-lg font-bold rounded-lg lg:rounded-xl border-2"
+            className="h-14 lg:h-16 xl:h-20 text-sm lg:text-base xl:text-xl font-bold rounded-xl lg:rounded-2xl border-2"
             onClick={onApplyDiscount}
             disabled={items.length === 0}
           >
-            <Percent className="h-4 w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6 mr-1 lg:mr-2" />
+            <Percent className="h-5 w-5 lg:h-6 lg:w-6 xl:h-8 xl:w-8 mr-2" />
             <span className="hidden lg:inline">Descuento</span>
             <span className="lg:hidden">Desc.</span>
           </Button>
           <Button
-            className="h-10 lg:h-12 xl:h-16 text-xs lg:text-sm xl:text-lg font-bold rounded-lg lg:rounded-xl bg-success hover:bg-success/90 text-success-foreground"
+            className="h-14 lg:h-16 xl:h-20 text-sm lg:text-base xl:text-xl font-bold rounded-xl lg:rounded-2xl bg-success hover:bg-success/90 text-success-foreground"
             onClick={onCheckout}
             disabled={items.length === 0}
           >
-            <CreditCard className="h-4 w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6 mr-1 lg:mr-2" />
+            <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 xl:h-8 xl:w-8 mr-2" />
             Cobrar
           </Button>
         </div>
