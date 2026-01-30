@@ -230,6 +230,9 @@ export function useCreatePayment() {
       queryClient.invalidateQueries({ queryKey: ['cash-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['cash-session-summary'] });
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      // Invalidar stock para que el POS se actualice inmediatamente
+      queryClient.invalidateQueries({ queryKey: ['product-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }
