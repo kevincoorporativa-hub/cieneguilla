@@ -34,6 +34,7 @@ import { useCategories, useProducts, Category } from '@/hooks/useProducts';
 import { useCombos } from '@/hooks/useCombos';
 import { useCreateOrder, useCreatePayment } from '@/hooks/useOrders';
 import { useCurrentCashSession } from '@/hooks/useCashSession';
+import { useProductStock } from '@/hooks/useProductStock';
 import { useAuth } from '@/contexts/AuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,15 +73,16 @@ function getCategoryIcon(name: string): typeof Pizza {
   return categoryIcons[key] || MoreHorizontal;
 }
 
-// Transform DB product to POS product
-function transformProduct(dbProduct: any): POSProduct {
+// Transform DB product to POS product - stock will be added separately
+function transformProduct(dbProduct: any, stockData?: { current_stock: number; track_stock: boolean }): POSProduct {
+  const stock = stockData?.track_stock ? stockData.current_stock : 999;
   return {
     id: dbProduct.id,
     nombre: dbProduct.name,
     categoria: dbProduct.category?.name?.toLowerCase() || 'otros',
     precio: Number(dbProduct.base_price),
-    stock: 999, // Stock is managed by ingredients, not products
-    stockMinimo: 5,
+    stock: stock,
+    stockMinimo: Number(dbProduct.min_stock || 5),
     requiereStock: dbProduct.track_stock,
     productoVence: false,
     activo: dbProduct.active,
@@ -110,15 +112,19 @@ export default function POSPage() {
   const { data: dbProducts = [], isLoading: loadingProducts } = useProducts();
   const { data: combos = [], isLoading: loadingCombos } = useCombos();
   const { data: cashSession } = useCurrentCashSession();
+  const { data: productStockData = [] } = useProductStock();
 
   // Mutations
   const createOrder = useCreateOrder();
   const createPayment = useCreatePayment();
 
-  // Transform products
+  // Transform products with stock data
   const products = useMemo(() => 
-    dbProducts.map(transformProduct), 
-    [dbProducts]
+    dbProducts.map(dbProduct => {
+      const stockInfo = productStockData.find(s => s.product_id === dbProduct.id);
+      return transformProduct(dbProduct, stockInfo);
+    }), 
+    [dbProducts, productStockData]
   );
 
   // Set first category as selected when categories load
@@ -159,6 +165,32 @@ export default function POSPage() {
 
   const handleAddProduct = useCallback((product: POSProduct) => {
     lightTap(); // Haptic feedback
+    
+    // Validar stock antes de agregar
+    if (product.requiereStock) {
+      const currentInCart = cartItems
+        .filter(item => item.productoId === product.id)
+        .reduce((sum, item) => sum + item.cantidad, 0);
+      
+      if (product.stock <= 0) {
+        errorFeedback();
+        toast.error(`${product.nombre} sin stock disponible`, { 
+          position: 'top-center',
+          description: 'No se puede agregar al carrito'
+        });
+        return;
+      }
+      
+      if (currentInCart + 1 > product.stock) {
+        errorFeedback();
+        toast.error(`Stock insuficiente`, { 
+          position: 'top-center',
+          description: `Solo hay ${product.stock} unidades de ${product.nombre} disponibles`
+        });
+        return;
+      }
+    }
+    
     setCartItems((prev) => {
       const existing = prev.find((item) => item.productoId === product.id && item.type === 'product');
       if (existing) {
@@ -186,7 +218,7 @@ export default function POSPage() {
       ];
     });
     toast.success(`${product.nombre} agregado`, { position: 'top-center' });
-  }, [lightTap]);
+  }, [lightTap, errorFeedback, cartItems]);
 
   const handleAddCombo = useCallback((combo: ComboCompleto) => {
     lightTap(); // Haptic feedback
@@ -223,6 +255,20 @@ export default function POSPage() {
     if (cantidad <= 0) {
       setCartItems((prev) => prev.filter((item) => item.id !== id));
     } else {
+      // Validar stock para productos
+      const item = cartItems.find(i => i.id === id);
+      if (item?.productoId) {
+        const product = products.find(p => p.id === item.productoId);
+        if (product?.requiereStock && cantidad > product.stock) {
+          errorFeedback();
+          toast.error(`Stock insuficiente`, { 
+            position: 'top-center',
+            description: `Solo hay ${product.stock} unidades disponibles`
+          });
+          return;
+        }
+      }
+      
       setCartItems((prev) =>
         prev.map((item) =>
           item.id === id
@@ -231,7 +277,7 @@ export default function POSPage() {
         )
       );
     }
-  }, []);
+  }, [cartItems, products, errorFeedback]);
 
   const handleRemoveItem = useCallback((id: string) => {
     setCartItems((prev) => prev.filter((item) => item.id !== id));
