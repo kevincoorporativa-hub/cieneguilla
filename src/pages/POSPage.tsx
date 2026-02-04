@@ -231,6 +231,57 @@ export default function POSPage() {
 
   const handleAddCombo = useCallback((combo: ComboCompleto) => {
     lightTap(); // Haptic feedback
+    
+    // Calcular cuántos combos ya hay en el carrito
+    const currentComboQty = cartItems
+      .filter(item => item.comboId === combo.id)
+      .reduce((sum, item) => sum + item.cantidad, 0);
+    const newQty = currentComboQty + 1;
+    
+    // Validar stock de TODOS los componentes del combo
+    for (const comp of combo.componentes) {
+      const product = products.find(p => p.id === comp.productoId);
+      if (!product) continue;
+      
+      if (product.requiereStock) {
+        // Calcular cuánto de este producto ya está en el carrito (individual + otros combos)
+        const individualQty = cartItems
+          .filter(item => item.productoId === comp.productoId)
+          .reduce((sum, item) => sum + item.cantidad, 0);
+        
+        // Cantidad de este producto usado por otros combos en el carrito
+        let otherCombosQty = 0;
+        cartItems.filter(item => item.type === 'combo' && item.comboId !== combo.id).forEach(cartCombo => {
+          const comboData = combos.find(c => c.id === cartCombo.comboId);
+          const compInCombo = comboData?.componentes.find(c => c.productoId === comp.productoId);
+          if (compInCombo) {
+            otherCombosQty += compInCombo.cantidad * cartCombo.cantidad;
+          }
+        });
+        
+        // Total requerido incluyendo el nuevo combo
+        const requiredQty = individualQty + otherCombosQty + (comp.cantidad * newQty);
+        
+        if (product.stock <= 0) {
+          errorFeedback();
+          toast.error(`${product.nombre} sin stock disponible`, { 
+            position: 'top-center',
+            description: `No se puede agregar el combo "${combo.nombre}"`
+          });
+          return;
+        }
+        
+        if (requiredQty > product.stock) {
+          errorFeedback();
+          toast.error(`Stock insuficiente de ${product.nombre}`, { 
+            position: 'top-center',
+            description: `Solo hay ${product.stock} unidades disponibles`
+          });
+          return;
+        }
+      }
+    }
+    
     setCartItems((prev) => {
       const existing = prev.find((item) => item.comboId === combo.id && item.type === 'combo');
       if (existing) {
@@ -258,7 +309,7 @@ export default function POSPage() {
       ];
     });
     toast.success(`${combo.nombre} agregado`, { position: 'top-center' });
-  }, [lightTap]);
+  }, [lightTap, errorFeedback, cartItems, products, combos]);
 
   const handleUpdateQuantity = useCallback((id: string, cantidad: number) => {
     if (cantidad <= 0) {
