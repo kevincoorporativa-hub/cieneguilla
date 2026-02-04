@@ -215,19 +215,27 @@ export function useExpiringProducts(daysAhead: number = 20) {
 }
 
 // Fetch nearest expiration date per product from stock moves
-export function useProductExpirationDates() {
+export function useProductExpirationDates(storeId?: string) {
   return useQuery({
-    queryKey: ['product-expiration-dates'],
+    queryKey: ['product-expiration-dates', storeId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('product_stock_moves')
-        .select(`
+        .select(
+          `
           product_id,
           expiration_date
-        `)
+        `
+        )
         .not('expiration_date', 'is', null)
         .gt('quantity', 0)
         .order('expiration_date', { ascending: true });
+
+      if (storeId) {
+        query = query.eq('store_id', storeId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       

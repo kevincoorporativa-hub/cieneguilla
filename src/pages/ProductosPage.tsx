@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2, Package, Eye, EyeOff, FolderPlus, Check, X, Calendar, ArrowUpDown, AlertTriangle, Clock } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,7 @@ export default function ProductosPage() {
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
@@ -84,10 +85,19 @@ export default function ProductosPage() {
   // Fetch data
   const { data: categories = [], isLoading: loadingCategories } = useCategories(true);
   const { data: products = [], isLoading: loadingProducts } = useProducts(true);
-  const { data: productStock = [], isLoading: loadingStock } = useProductStock();
-  const { data: stockMoves = [], isLoading: loadingMoves } = useProductStockMoves(selectedProductForStock?.id);
   const { data: stores = [] } = useStores();
-  const { data: expirationDatesMap } = useProductExpirationDates();
+  const { data: productStock = [], isLoading: loadingStock } = useProductStock(selectedStoreId || undefined);
+  const { data: stockMoves = [], isLoading: loadingMoves } = useProductStockMoves(
+    selectedProductForStock?.id,
+    selectedStoreId || undefined
+  );
+  const { data: expirationDatesMap } = useProductExpirationDates(selectedStoreId || undefined);
+
+  useEffect(() => {
+    if (!selectedStoreId && stores.length > 0) {
+      setSelectedStoreId(stores[0].id);
+    }
+  }, [stores, selectedStoreId]);
 
   // Get nearest expiration date for a product from stock moves
   const getNearestExpiration = (productId: string) => {
@@ -167,6 +177,10 @@ export default function ProductosPage() {
         base_price: parseFloat(formPrice),
         track_stock: formTrackStock,
         active: formActive,
+        min_stock: formTrackStock ? Number(formMinStock || 5) : 5,
+        entry_date: formTrackStock ? (formEntryDate || null) : null,
+        expires: formTrackStock ? formExpires : false,
+        expiration_date: formTrackStock && formExpires ? (formExpirationDate || null) : null,
       };
 
       if (editingProduct) {
@@ -191,8 +205,8 @@ export default function ProductosPage() {
       return;
     }
 
-    // Get the first available store
-    const storeId = stores[0]?.id;
+    // Store scope (critical for correct stock)
+    const storeId = selectedStoreId || stores[0]?.id;
     if (!storeId) {
       toast.error('No hay tiendas configuradas. Por favor, cree una tienda primero.');
       return;
@@ -328,6 +342,20 @@ export default function ProductosPage() {
                   className="pl-10 h-12"
                 />
               </div>
+
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger className="w-56 h-12">
+                  <SelectValue placeholder="Tienda" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store: any) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="w-48 h-12">
                   <SelectValue placeholder="Categoría" />
@@ -619,6 +647,19 @@ export default function ProductosPage() {
           {/* Kardex Tab */}
           <TabsContent value="kardex" className="space-y-4">
             <div className="flex gap-4 items-center mb-4">
+              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                <SelectTrigger className="w-56 h-12">
+                  <SelectValue placeholder="Tienda" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stores.map((store: any) => (
+                    <SelectItem key={store.id} value={store.id}>
+                      {store.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
               <Select 
                 value={selectedProductForStock?.id || ''} 
                 onValueChange={(id) => setSelectedProductForStock(products.find(p => p.id === id) || null)}
