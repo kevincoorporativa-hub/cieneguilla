@@ -647,9 +647,9 @@ export default function ProductosPage() {
                         // Get nearest expiration from stock moves
                         const nearestExpiration = getNearestExpiration(product.id);
                         const entryDate = (product as any).entry_date;
-                        const isExpired = nearestExpiration && new Date(nearestExpiration) < new Date();
-                        const isExpiringSoon = nearestExpiration && !isExpired && 
-                          new Date(nearestExpiration) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+                        const daysLeft = nearestExpiration ? getDaysUntilExpiration(nearestExpiration) : null;
+                        const isExpired = daysLeft !== null && daysLeft < 0;
+                        const isExpiringSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7;
 
                         return (
                           <TableRow key={product.id}>
@@ -668,10 +668,20 @@ export default function ProductosPage() {
                                   <span className={isExpired ? 'text-destructive font-bold' : ''}>
                                     {new Date(nearestExpiration).toLocaleDateString('es-PE')}
                                   </span>
-                                  {isExpiringSoon && (
-                                    <Badge className="text-xs bg-warning text-warning-foreground">
-                                      Por vencer
-                                    </Badge>
+                                  {daysLeft !== null && (
+                                    isExpired ? (
+                                      <Badge variant="destructive" className="text-xs">
+                                        {formatDaysMessage(daysLeft)}
+                                      </Badge>
+                                    ) : isExpiringSoon ? (
+                                      <Badge className="text-xs bg-warning text-warning-foreground">
+                                        {formatDaysMessage(daysLeft)}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">
+                                        {formatDaysMessage(daysLeft)}
+                                      </span>
+                                    )
                                   )}
                                 </div>
                               ) : '-'}
