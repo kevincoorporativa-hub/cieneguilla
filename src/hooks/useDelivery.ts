@@ -63,10 +63,10 @@ export interface CustomerAddress {
   is_default: boolean;
 }
 
-// Fetch delivery orders
-export function useDeliveryOrders(status?: DeliveryStatus | 'all') {
+// Fetch delivery orders with optional date filter
+export function useDeliveryOrders(status?: DeliveryStatus | 'all', dateFilter?: string) {
   return useQuery({
-    queryKey: ['delivery-orders', status],
+    queryKey: ['delivery-orders', status, dateFilter],
     queryFn: async () => {
       let query = supabase
         .from('orders')
@@ -85,6 +85,13 @@ export function useDeliveryOrders(status?: DeliveryStatus | 'all') {
 
       if (status && status !== 'all') {
         query = query.eq('status', status);
+      }
+
+      // Date filter
+      if (dateFilter) {
+        const startOfDay = `${dateFilter}T00:00:00`;
+        const endOfDay = `${dateFilter}T23:59:59`;
+        query = query.gte('created_at', startOfDay).lte('created_at', endOfDay);
       }
 
       const { data, error } = await query;
@@ -378,6 +385,82 @@ export function useUpdateDeliveryStatus() {
 
       if (error) throw error;
       return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['delivery-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+}
+
+// Create delivery order
+export function useCreateDeliveryOrder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      customerId,
+      customerAddressId,
+      items,
+      notes,
+      storeId,
+    }: {
+      customerId: string;
+      customerAddressId: string;
+      items: { productId?: string; comboId?: string; quantity: number; unitPrice: number; notes?: string }[];
+      notes?: string;
+      storeId: string;
+    }) => {
+      // Calculate total
+      const total = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+
+      // Create order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          store_id: storeId,
+          order_type: 'delivery',
+          status: 'open',
+          customer_id: customerId,
+          customer_address_id: customerAddressId,
+          notes: notes || null,
+          subtotal: total,
+          tax: 0,
+          discount: 0,
+          total: total,
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Create order items
+      const orderItems = items.map(item => ({
+        order_id: order.id,
+        product_id: item.productId || null,
+        combo_id: item.comboId || null,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        subtotal: item.quantity * item.unitPrice,
+        notes: item.notes || null,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      // Create delivery assignment
+      const { error: assignmentError } = await supabase
+        .from('delivery_assignments')
+        .insert({
+          order_id: order.id,
+        });
+
+      if (assignmentError) throw assignmentError;
+
+      return order;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['delivery-orders'] });

@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { Truck, MapPin, Phone, Clock, CheckCircle, User, Package, UserCheck, Eye, XCircle, ChefHat, Navigation } from 'lucide-react';
+import { Truck, MapPin, Phone, Clock, CheckCircle, User, Package, UserCheck, Eye, XCircle, ChefHat, Navigation, Plus, Search, CalendarIcon, Minus } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog,
   DialogContent,
@@ -18,9 +22,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import {
   useDeliveryOrders,
   useDeliveryDrivers,
@@ -28,9 +38,17 @@ import {
   useUpdateDeliveryStatus,
   useMarkPickedUp,
   useMarkDelivered,
+  useCustomers,
+  useCreateCustomer,
+  useCreateCustomerAddress,
+  useCreateDeliveryOrder,
   DeliveryStatus,
   DeliveryOrder,
+  Customer,
 } from '@/hooks/useDelivery';
+import { useProducts } from '@/hooks/useProducts';
+import { useCombos } from '@/hooks/useCombos';
+import { useStores } from '@/hooks/useStores';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -93,29 +111,64 @@ function useOrderItems(orderId: string | null) {
   });
 }
 
+interface CartItem {
+  id: string;
+  type: 'product' | 'combo';
+  name: string;
+  price: number;
+  quantity: number;
+}
+
 export default function DeliveryPage() {
   const [selectedStatus, setSelectedStatus] = useState<FilterStatus>('all');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
   const [selectedDriverId, setSelectedDriverId] = useState<string>('');
 
+  // Create order form state
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
+  const [orderNotes, setOrderNotes] = useState('');
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [productSearch, setProductSearch] = useState('');
+  
+  // New customer form
+  const [showNewCustomerForm, setShowNewCustomerForm] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
+  const [newCustomerAddress, setNewCustomerAddress] = useState('');
+  const [newCustomerReference, setNewCustomerReference] = useState('');
+
   // Fetch data
+  const dateFilterString = dateFilter ? format(dateFilter, 'yyyy-MM-dd') : undefined;
   const { data: orders = [], isLoading: loadingOrders } = useDeliveryOrders(
-    selectedStatus === 'all' ? undefined : selectedStatus
+    selectedStatus === 'all' ? undefined : selectedStatus,
+    dateFilterString
   );
   const { data: drivers = [], isLoading: loadingDrivers } = useDeliveryDrivers();
   const { data: orderItems = [] } = useOrderItems(selectedOrder?.id || null);
+  const { data: customers = [] } = useCustomers();
+  const { data: products = [] } = useProducts();
+  const { data: combos = [] } = useCombos();
+  const { data: stores = [] } = useStores();
 
   // Mutations
   const assignDriver = useAssignDriver();
   const updateStatus = useUpdateDeliveryStatus();
   const markPickedUp = useMarkPickedUp();
   const markDelivered = useMarkDelivered();
+  const createCustomer = useCreateCustomer();
+  const createCustomerAddress = useCreateCustomerAddress();
+  const createDeliveryOrder = useCreateDeliveryOrder();
 
   const pendingCount = orders.filter(o => o.status === 'open').length;
   const inProgressCount = orders.filter(o => o.status === 'preparing' || o.status === 'ready').length;
+
+  const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
 
   const handleOpenAssignModal = (orderId: string) => {
     setSelectedOrderId(orderId);
@@ -126,6 +179,20 @@ export default function DeliveryPage() {
   const handleOpenDetailModal = (order: DeliveryOrder) => {
     setSelectedOrder(order);
     setDetailModalOpen(true);
+  };
+
+  const handleOpenCreateModal = () => {
+    setSelectedCustomerId('');
+    setSelectedAddressId('');
+    setOrderNotes('');
+    setCartItems([]);
+    setProductSearch('');
+    setShowNewCustomerForm(false);
+    setNewCustomerName('');
+    setNewCustomerPhone('');
+    setNewCustomerAddress('');
+    setNewCustomerReference('');
+    setCreateModalOpen(true);
   };
 
   const handleAssignDriver = async () => {
@@ -184,9 +251,116 @@ export default function DeliveryPage() {
     }
   };
 
+  // Cart functions
+  const addToCart = (item: { id: string; type: 'product' | 'combo'; name: string; price: number }) => {
+    setCartItems(prev => {
+      const existing = prev.find(i => i.id === item.id && i.type === item.type);
+      if (existing) {
+        return prev.map(i => 
+          i.id === item.id && i.type === item.type 
+            ? { ...i, quantity: i.quantity + 1 } 
+            : i
+        );
+      }
+      return [...prev, { ...item, quantity: 1 }];
+    });
+  };
+
+  const updateCartQuantity = (id: string, type: 'product' | 'combo', delta: number) => {
+    setCartItems(prev => 
+      prev.map(item => {
+        if (item.id === id && item.type === type) {
+          const newQty = item.quantity + delta;
+          return newQty > 0 ? { ...item, quantity: newQty } : item;
+        }
+        return item;
+      }).filter(item => item.quantity > 0)
+    );
+  };
+
+  const removeFromCart = (id: string, type: 'product' | 'combo') => {
+    setCartItems(prev => prev.filter(item => !(item.id === id && item.type === type)));
+  };
+
+  const cartTotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const handleCreateOrder = async () => {
+    if (cartItems.length === 0) {
+      toast.error('Agregue productos al pedido');
+      return;
+    }
+
+    let finalCustomerId = selectedCustomerId;
+    let finalAddressId = selectedAddressId;
+
+    try {
+      // Create new customer if needed
+      if (showNewCustomerForm) {
+        if (!newCustomerName || !newCustomerPhone || !newCustomerAddress) {
+          toast.error('Complete los datos del cliente');
+          return;
+        }
+
+        const newCust = await createCustomer.mutateAsync({
+          name: newCustomerName,
+          phone: newCustomerPhone,
+          email: null,
+          notes: null,
+        });
+        finalCustomerId = newCust.id;
+
+        const newAddr = await createCustomerAddress.mutateAsync({
+          customer_id: newCust.id,
+          label: 'Principal',
+          address: newCustomerAddress,
+          reference: newCustomerReference || null,
+          is_default: true,
+        });
+        finalAddressId = newAddr.id;
+      } else {
+        if (!selectedCustomerId || !selectedAddressId) {
+          toast.error('Seleccione cliente y dirección');
+          return;
+        }
+      }
+
+      const storeId = stores[0]?.id;
+      if (!storeId) {
+        toast.error('No hay tienda configurada');
+        return;
+      }
+
+      await createDeliveryOrder.mutateAsync({
+        customerId: finalCustomerId,
+        customerAddressId: finalAddressId,
+        items: cartItems.map(item => ({
+          productId: item.type === 'product' ? item.id : undefined,
+          comboId: item.type === 'combo' ? item.id : undefined,
+          quantity: item.quantity,
+          unitPrice: item.price,
+        })),
+        notes: orderNotes || undefined,
+        storeId,
+      });
+
+      toast.success('Pedido de delivery creado exitosamente');
+      setCreateModalOpen(false);
+    } catch (error: any) {
+      toast.error('Error al crear pedido', { description: error.message });
+    }
+  };
+
   const filteredOrders = selectedStatus === 'all' 
     ? orders 
     : orders.filter(o => o.status === selectedStatus);
+
+  const filteredProducts = products.filter(p => 
+    p.active && p.name.toLowerCase().includes(productSearch.toLowerCase())
+  );
+
+  const filteredCombos = combos.filter(c => 
+    c.activo && c.nombre.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   const isLoading = loadingOrders;
 
@@ -199,7 +373,14 @@ export default function DeliveryPage() {
             <h1 className="text-pos-2xl font-bold">Delivery</h1>
             <p className="text-muted-foreground">Gestiona los pedidos de entrega</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            <Button 
+              className="btn-pos bg-primary"
+              onClick={handleOpenCreateModal}
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Nuevo Pedido
+            </Button>
             <Card className="border-2 px-6 py-3">
               <div className="text-center">
                 <p className="text-2xl font-bold text-warning">{pendingCount}</p>
@@ -216,8 +397,9 @@ export default function DeliveryPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex gap-3 flex-wrap">
-          {(['all', 'open', 'preparing', 'ready', 'paid'] as const).map((status) => (
+        <div className="flex gap-3 flex-wrap items-center">
+          {/* Status filters - Todos at the end */}
+          {(['open', 'preparing', 'ready', 'paid', 'all'] as const).map((status) => (
             <Button
               key={status}
               variant={selectedStatus === status ? 'default' : 'outline'}
@@ -235,6 +417,42 @@ export default function DeliveryPage() {
               )}
             </Button>
           ))}
+
+          {/* Date filter */}
+          <div className="ml-auto flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-[200px] justify-start text-left font-normal",
+                    !dateFilter && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dateFilter ? format(dateFilter, "dd/MM/yyyy", { locale: es }) : "Filtrar por fecha"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={dateFilter}
+                  onSelect={setDateFilter}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+            {dateFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDateFilter(undefined)}
+              >
+                <XCircle className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Orders Grid */}
@@ -401,7 +619,19 @@ export default function DeliveryPage() {
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <Truck className="h-16 w-16 mb-4 opacity-50" />
             <p className="text-pos-lg font-medium">No hay pedidos de delivery</p>
-            <p className="text-sm mt-2">Los pedidos de delivery aparecerán aquí</p>
+            <p className="text-sm mt-2">
+              {dateFilter 
+                ? `No hay pedidos para el ${format(dateFilter, "dd/MM/yyyy", { locale: es })}`
+                : 'Los pedidos de delivery aparecerán aquí'
+              }
+            </p>
+            <Button 
+              className="mt-4"
+              onClick={handleOpenCreateModal}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear Pedido
+            </Button>
           </div>
         )}
       </div>
@@ -650,6 +880,254 @@ export default function DeliveryPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Order Modal */}
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5" />
+              Nuevo Pedido de Delivery
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="grid grid-cols-2 gap-6 py-4">
+            {/* Left: Customer & Products */}
+            <div className="space-y-4">
+              {/* Customer Selection */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-semibold">Cliente</Label>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setShowNewCustomerForm(!showNewCustomerForm)}
+                  >
+                    {showNewCustomerForm ? 'Seleccionar existente' : '+ Nuevo cliente'}
+                  </Button>
+                </div>
+
+                {showNewCustomerForm ? (
+                  <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+                    <div>
+                      <Label>Nombre *</Label>
+                      <Input
+                        value={newCustomerName}
+                        onChange={(e) => setNewCustomerName(e.target.value)}
+                        placeholder="Nombre del cliente"
+                      />
+                    </div>
+                    <div>
+                      <Label>Teléfono *</Label>
+                      <Input
+                        value={newCustomerPhone}
+                        onChange={(e) => setNewCustomerPhone(e.target.value)}
+                        placeholder="999 999 999"
+                      />
+                    </div>
+                    <div>
+                      <Label>Dirección *</Label>
+                      <Input
+                        value={newCustomerAddress}
+                        onChange={(e) => setNewCustomerAddress(e.target.value)}
+                        placeholder="Av. Principal 123"
+                      />
+                    </div>
+                    <div>
+                      <Label>Referencia</Label>
+                      <Input
+                        value={newCustomerReference}
+                        onChange={(e) => setNewCustomerReference(e.target.value)}
+                        placeholder="Cerca de..."
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Select value={selectedCustomerId} onValueChange={(v) => {
+                      setSelectedCustomerId(v);
+                      setSelectedAddressId('');
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar cliente..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {customers.map(customer => (
+                          <SelectItem key={customer.id} value={customer.id}>
+                            {customer.name} {customer.phone && `- ${customer.phone}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {selectedCustomer && selectedCustomer.addresses && selectedCustomer.addresses.length > 0 && (
+                      <div>
+                        <Label>Dirección de entrega</Label>
+                        <Select value={selectedAddressId} onValueChange={setSelectedAddressId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Seleccionar dirección..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedCustomer.addresses.map(addr => (
+                              <SelectItem key={addr.id} value={addr.id}>
+                                {addr.label}: {addr.address}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Product Search */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Productos</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Buscar productos o combos..."
+                    className="pl-10"
+                  />
+                </div>
+                
+                <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-2">
+                  {filteredProducts.slice(0, 10).map(product => (
+                    <div 
+                      key={product.id}
+                      className="flex justify-between items-center p-2 hover:bg-muted rounded cursor-pointer"
+                      onClick={() => addToCart({
+                        id: product.id,
+                        type: 'product',
+                        name: product.name,
+                        price: Number(product.base_price),
+                      })}
+                    >
+                      <span>{product.name}</span>
+                      <span className="font-semibold">S/ {Number(product.base_price).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {filteredCombos.slice(0, 5).map(combo => (
+                    <div 
+                      key={combo.id}
+                      className="flex justify-between items-center p-2 hover:bg-muted rounded cursor-pointer border-l-4 border-primary"
+                      onClick={() => addToCart({
+                        id: combo.id,
+                        type: 'combo',
+                        name: combo.nombre,
+                        price: Number(combo.precio),
+                      })}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">Combo</Badge>
+                        {combo.nombre}
+                      </span>
+                      <span className="font-semibold">S/ {Number(combo.precio).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <Label>Notas del pedido</Label>
+                <Textarea
+                  value={orderNotes}
+                  onChange={(e) => setOrderNotes(e.target.value)}
+                  placeholder="Instrucciones especiales..."
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            {/* Right: Cart */}
+            <div className="space-y-4">
+              <Label className="text-base font-semibold">Resumen del Pedido</Label>
+              
+              <div className="border rounded-lg p-4 min-h-[300px] flex flex-col">
+                {cartItems.length === 0 ? (
+                  <div className="flex-1 flex items-center justify-center text-muted-foreground">
+                    <div className="text-center">
+                      <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                      <p>Agregue productos al pedido</p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 space-y-2 overflow-y-auto">
+                      {cartItems.map(item => (
+                        <div key={`${item.type}-${item.id}`} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                          <div className="flex-1">
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              S/ {item.price.toFixed(2)} c/u
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => updateCartQuantity(item.id, item.type, -1)}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                            <span className="w-8 text-center font-bold">{item.quantity}</span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => updateCartQuantity(item.id, item.type, 1)}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => removeFromCart(item.id, item.type)}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="pt-4 border-t mt-4">
+                      <div className="flex justify-between items-center text-xl font-bold">
+                        <span>Total:</span>
+                        <span className="text-primary">S/ {cartTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setCreateModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1 bg-primary"
+                  onClick={handleCreateOrder}
+                  disabled={cartItems.length === 0 || createDeliveryOrder.isPending}
+                >
+                  {createDeliveryOrder.isPending ? 'Creando...' : 'Crear Pedido'}
+                </Button>
+              </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </MainLayout>
