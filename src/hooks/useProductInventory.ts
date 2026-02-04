@@ -215,6 +215,7 @@ export function useExpiringProducts(daysAhead: number = 20) {
 }
 
 // Fetch nearest expiration date per product from stock moves
+// Logic: Show the nearest FUTURE expiration if any, otherwise show the most recent expired
 export function useProductExpirationDates(storeId?: string) {
   return useQuery({
     queryKey: ['product-expiration-dates', storeId],
@@ -239,12 +240,32 @@ export function useProductExpirationDates(storeId?: string) {
 
       if (error) throw error;
       
-      // Group by product and get nearest expiration
-      const expirationMap = new Map<string, string>();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Group expirations by product
+      const productExpirations = new Map<string, string[]>();
       
       (data || []).forEach((move: any) => {
-        if (!expirationMap.has(move.product_id)) {
-          expirationMap.set(move.product_id, move.expiration_date);
+        const existing = productExpirations.get(move.product_id) || [];
+        existing.push(move.expiration_date);
+        productExpirations.set(move.product_id, existing);
+      });
+      
+      // For each product, find the best expiration to show
+      const expirationMap = new Map<string, string>();
+      
+      productExpirations.forEach((dates, productId) => {
+        // Separate future and past dates
+        const futureDates = dates.filter(d => new Date(d) >= today);
+        const pastDates = dates.filter(d => new Date(d) < today);
+        
+        if (futureDates.length > 0) {
+          // Show nearest future expiration (first one since sorted ASC)
+          expirationMap.set(productId, futureDates[0]);
+        } else if (pastDates.length > 0) {
+          // All expired: show the most recent expired (last one since sorted ASC)
+          expirationMap.set(productId, pastDates[pastDates.length - 1]);
         }
       });
       
