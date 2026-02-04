@@ -24,6 +24,7 @@ export interface CreateOrderData {
 
 export interface CreateOrderItem {
   product_id: string | null;
+  combo_id?: string | null;
   product_variant_id?: string | null;
   product_name: string;
   variant_name?: string | null;
@@ -151,6 +152,7 @@ export function useCreateOrder() {
       const orderItems = items.map((item) => ({
         order_id: newOrder.id,
         product_id: item.product_id,
+        combo_id: item.combo_id || null,
         product_variant_id: item.product_variant_id || null,
         product_name: item.product_name,
         variant_name: item.variant_name || null,
