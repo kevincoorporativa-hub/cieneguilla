@@ -365,9 +365,10 @@ export default function POSPage() {
     }
 
     try {
-      // Create order items
+      // Create order items - include combo_id for combo items
       const orderItems = cartItems.map(item => ({
         product_id: item.productoId || null,
+        combo_id: item.comboId || null,
         product_name: item.nombre,
         quantity: item.cantidad,
         unit_price: item.precioUnitario,
