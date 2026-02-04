@@ -158,6 +158,19 @@ export default function ProductosPage() {
     setStockMoveQuantity('');
     setStockMoveNotes('');
     setStockMoveCost('');
+    // Si el producto está marcado como que vence, preactivar el switch
+    setStockMoveExpires(!!(product as any)?.expires);
+    setStockMoveExpirationDate('');
+    setIsStockModalOpen(true);
+  };
+
+  const handleOpenStockEntryModal = () => {
+    // Ingreso general (sin producto preseleccionado)
+    setSelectedProductForStock(null);
+    setStockMoveType('purchase');
+    setStockMoveQuantity('');
+    setStockMoveNotes('');
+    setStockMoveCost('');
     setStockMoveExpires(false);
     setStockMoveExpirationDate('');
     setIsStockModalOpen(true);
@@ -205,6 +218,17 @@ export default function ProductosPage() {
       return;
     }
 
+    const parsedQty = parseFloat(stockMoveQuantity);
+    if (Number.isNaN(parsedQty) || parsedQty <= 0) {
+      toast.error('Ingrese una cantidad válida');
+      return;
+    }
+
+    if (stockMoveType === 'purchase' && stockMoveExpires && !stockMoveExpirationDate) {
+      toast.error('Ingrese la fecha de vencimiento');
+      return;
+    }
+
     // Store scope (critical for correct stock)
     const storeId = selectedStoreId || stores[0]?.id;
     if (!storeId) {
@@ -213,7 +237,7 @@ export default function ProductosPage() {
     }
 
     try {
-      const quantity = parseFloat(stockMoveQuantity);
+      const quantity = parsedQty;
       const finalQuantity = stockMoveType === 'waste' ? -Math.abs(quantity) : Math.abs(quantity);
 
       await createStockMove.mutateAsync({
@@ -314,6 +338,14 @@ export default function ProductosPage() {
               <FolderPlus className="h-5 w-5 mr-2" />
               Nueva Categoría
             </Button>
+
+            {activeTab === 'inventory' && (
+              <Button variant="outline" className="btn-pos" onClick={handleOpenStockEntryModal}>
+                <ArrowUpDown className="h-5 w-5 mr-2" />
+                Ingreso Producto
+              </Button>
+            )}
+
             <Button className="btn-pos bg-primary" onClick={() => handleOpenProductModal()}>
               <Plus className="h-5 w-5 mr-2" />
               Nuevo Producto
@@ -545,11 +577,16 @@ export default function ProductosPage() {
           {/* Inventory Tab */}
           <TabsContent value="inventory" className="space-y-4">
             <Card className="border-2">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
                   Inventario de Productos
                 </CardTitle>
+
+                <Button onClick={handleOpenStockEntryModal}>
+                  <ArrowUpDown className="h-4 w-4 mr-2" />
+                  Ingreso de producto
+                </Button>
               </CardHeader>
               <CardContent>
                 {loadingStock ? (
@@ -921,6 +958,34 @@ export default function ProductosPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {!selectedProductForStock && (
+              <div className="space-y-2">
+                <Label>Producto *</Label>
+                <Select
+                  value={selectedProductForStock?.id || ''}
+                  onValueChange={(id) => {
+                    const product = products.find((p) => p.id === id) || null;
+                    setSelectedProductForStock(product);
+                    setStockMoveExpires(!!(product as any)?.expires);
+                    setStockMoveExpirationDate('');
+                  }}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Seleccionar producto" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {products
+                      .filter((p) => p.track_stock)
+                      .map((product) => (
+                        <SelectItem key={product.id} value={product.id}>
+                          {product.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {selectedProductForStock && (
               <div className="p-4 bg-muted rounded-lg">
                 <p className="font-semibold">{selectedProductForStock.name}</p>
