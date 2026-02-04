@@ -20,6 +20,10 @@ export interface Product {
   image_url: string | null;
   active: boolean;
   track_stock: boolean;
+  min_stock?: number | null;
+  expires?: boolean | null;
+  expiration_date?: string | null;
+  entry_date?: string | null;
   created_at: string;
   updated_at?: string;
   category?: Category;
@@ -134,6 +138,10 @@ export function useCreateProduct() {
       image_url?: string | null;
       active?: boolean;
       track_stock?: boolean;
+      min_stock?: number | null;
+      expires?: boolean | null;
+      expiration_date?: string | null;
+      entry_date?: string | null;
     }) => {
       const { data, error } = await supabase
         .from('products')
@@ -145,6 +153,10 @@ export function useCreateProduct() {
           image_url: product.image_url || null,
           active: product.active ?? true,
           track_stock: product.track_stock ?? false,
+          min_stock: product.min_stock ?? 5,
+          expires: product.expires ?? false,
+          expiration_date: product.expiration_date ?? null,
+          entry_date: product.entry_date ?? null,
         })
         .select()
         .single();
@@ -172,6 +184,10 @@ export function useUpdateProduct() {
       image_url?: string | null;
       active?: boolean;
       track_stock?: boolean;
+      min_stock?: number | null;
+      expires?: boolean | null;
+      expiration_date?: string | null;
+      entry_date?: string | null;
     }) => {
       const { data, error } = await supabase
         .from('products')

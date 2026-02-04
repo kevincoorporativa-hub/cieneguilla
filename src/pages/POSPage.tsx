@@ -308,6 +308,11 @@ export default function POSPage() {
       return false;
     }
 
+    if (!storeId) {
+      toast.error('No se pudo determinar la tienda de esta caja');
+      return false;
+    }
+
     try {
       // Create order items
       const orderItems = cartItems.map(item => ({
@@ -323,6 +328,7 @@ export default function POSPage() {
 
       const newOrder = await createOrder.mutateAsync({
         order: {
+          store_id: storeId,
           terminal_id: cashSession.terminal_id,
           cash_session_id: cashSession.id,
           user_id: user?.id || null,
@@ -364,7 +370,7 @@ export default function POSPage() {
       });
       return false;
     }
-  }, [cashSession, cartItems, subtotal, discount, total, user, createOrder, createPayment, successFeedback, errorFeedback]);
+  }, [cashSession, storeId, cartItems, subtotal, discount, total, user, createOrder, createPayment, successFeedback, errorFeedback]);
 
   // Toggle kiosk mode
   const handleToggleKioskMode = useCallback(() => {
