@@ -104,6 +104,30 @@ export default function ProductosPage() {
     return expirationDatesMap?.get(productId) || null;
   };
 
+  // Calculate days until expiration (negative = already expired)
+  const getDaysUntilExpiration = (expirationDate: string) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expDate = new Date(expirationDate);
+    expDate.setHours(0, 0, 0, 0);
+    const diffTime = expDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  // Format days message
+  const formatDaysMessage = (days: number) => {
+    if (days < 0) {
+      return `Venció hace ${Math.abs(days)} día${Math.abs(days) !== 1 ? 's' : ''}`;
+    } else if (days === 0) {
+      return 'Vence hoy';
+    } else if (days === 1) {
+      return 'Vence mañana';
+    } else {
+      return `Vence en ${days} días`;
+    }
+  };
+
   // Mutations
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
@@ -438,9 +462,6 @@ export default function ProductosPage() {
                         const isLowStock = product.track_stock && stock <= minStock;
                         // Get nearest expiration from stock moves
                         const nearestExpiration = getNearestExpiration(product.id);
-                        const isExpired = nearestExpiration && new Date(nearestExpiration) < new Date();
-                        const isExpiringSoon = nearestExpiration && !isExpired && 
-                          new Date(nearestExpiration) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
                         return (
                           <TableRow key={product.id} className={!product.active ? 'opacity-50' : ''}>
@@ -486,23 +507,34 @@ export default function ProductosPage() {
                             </TableCell>
                             <TableCell className="text-center">
                               {nearestExpiration ? (
-                                <div className="flex flex-col items-center gap-1">
-                                  <span className="text-sm">
-                                    {new Date(nearestExpiration).toLocaleDateString('es-PE')}
-                                  </span>
-                                  {isExpired && (
-                                    <Badge variant="destructive" className="text-xs flex items-center gap-1">
-                                      <AlertTriangle className="h-3 w-3" />
-                                      Vencido
-                                    </Badge>
-                                  )}
-                                  {isExpiringSoon && (
-                                    <Badge className="text-xs bg-warning text-warning-foreground flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      Por vencer
-                                    </Badge>
-                                  )}
-                                </div>
+                                (() => {
+                                  const daysLeft = getDaysUntilExpiration(nearestExpiration);
+                                  const isExpiredCalc = daysLeft < 0;
+                                  const isExpiringSoonCalc = daysLeft >= 0 && daysLeft <= 7;
+                                  
+                                  return (
+                                    <div className="flex flex-col items-center gap-1">
+                                      <span className="text-sm">
+                                        {new Date(nearestExpiration).toLocaleDateString('es-PE')}
+                                      </span>
+                                      {isExpiredCalc ? (
+                                        <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                                          <AlertTriangle className="h-3 w-3" />
+                                          {formatDaysMessage(daysLeft)}
+                                        </Badge>
+                                      ) : isExpiringSoonCalc ? (
+                                        <Badge className="text-xs bg-warning text-warning-foreground flex items-center gap-1">
+                                          <Clock className="h-3 w-3" />
+                                          {formatDaysMessage(daysLeft)}
+                                        </Badge>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">
+                                          {formatDaysMessage(daysLeft)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()
                               ) : (
                                 <span className="text-muted-foreground">-</span>
                               )}
