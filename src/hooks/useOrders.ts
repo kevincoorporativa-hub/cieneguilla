@@ -233,13 +233,37 @@ export function useCreatePayment() {
           console.error('Error updating order status:', updateError);
         }
       } else {
-        // For delivery orders, create a delivery_assignment record
-        const { error: assignmentError } = await supabase
+        // For delivery orders, ensure there's a delivery_assignment record
+        // and force the order status to remain 'open' (Pendiente).
+        // NOTE: Some DB setups auto-mark orders as 'paid' when a payment is inserted.
+        // For delivery we must keep the operational status as 'open' until delivered.
+        const { data: existingAssignment, error: existingAssignmentError } = await supabase
           .from('delivery_assignments')
-          .insert({ order_id: payment.order_id });
+          .select('id')
+          .eq('order_id', payment.order_id)
+          .maybeSingle();
 
-        if (assignmentError) {
-          console.error('Error creating delivery assignment:', assignmentError);
+        if (existingAssignmentError) {
+          console.error('Error checking delivery assignment:', existingAssignmentError);
+        }
+
+        if (!existingAssignment) {
+          const { error: assignmentError } = await supabase
+            .from('delivery_assignments')
+            .insert({ order_id: payment.order_id });
+
+          if (assignmentError) {
+            console.error('Error creating delivery assignment:', assignmentError);
+          }
+        }
+
+        const { error: keepOpenError } = await supabase
+          .from('orders')
+          .update({ status: 'open', updated_at: new Date().toISOString() })
+          .eq('id', payment.order_id);
+
+        if (keepOpenError) {
+          console.error('Error forcing delivery order to open:', keepOpenError);
         }
       }
 
