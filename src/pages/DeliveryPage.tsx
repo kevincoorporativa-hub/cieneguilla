@@ -189,13 +189,6 @@ export default function DeliveryPage() {
         <div className="flex gap-3 flex-wrap items-center">
           {/* Status filters */}
           <Button
-            variant={selectedStatus === 'all' ? 'default' : 'outline'}
-            className={`btn-pos ${selectedStatus === 'all' ? '' : 'hover:bg-muted'}`}
-            onClick={() => setSelectedStatus('all')}
-          >
-            Todos
-          </Button>
-          <Button
             variant={selectedStatus === 'open' ? 'default' : 'outline'}
             className={`btn-pos ${selectedStatus === 'open' ? '' : 'hover:bg-muted'}`}
             onClick={() => setSelectedStatus('open')}
@@ -221,6 +214,13 @@ export default function DeliveryPage() {
             {getStatusIcon('paid')}
             <span className="ml-1">Entregado</span>
             <Badge variant="secondary" className="ml-2 text-xs">{deliveredCount}</Badge>
+          </Button>
+          <Button
+            variant={selectedStatus === 'all' ? 'default' : 'outline'}
+            className={`btn-pos ${selectedStatus === 'all' ? '' : 'hover:bg-muted'}`}
+            onClick={() => setSelectedStatus('all')}
+          >
+            Todos
           </Button>
 
           <div className="h-6 w-px bg-border mx-2" />
