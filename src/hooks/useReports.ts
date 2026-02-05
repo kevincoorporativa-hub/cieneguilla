@@ -348,11 +348,20 @@ export function useDeliverySummary(startDate?: string, endDate?: string) {
         .select('total, status')
         .eq('order_type', 'delivery');
 
+      // IMPORTANT:
+      // created_at is timestamptz (UTC). If we filter by naive strings like
+      // "YYYY-MM-DDT00:00:00" PostgREST interprets them as UTC, causing an off-by-one-day
+      // for timezones like -05 (Peru). We therefore build *local* start/end boundaries
+      // and convert them to ISO (UTC) before filtering.
       if (startDate) {
-        query = query.gte('created_at', `${startDate}T00:00:00`);
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+        query = query.gte('created_at', startLocal.toISOString());
       }
       if (endDate) {
-        query = query.lte('created_at', `${endDate}T23:59:59`);
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endLocalExclusive = new Date(y, (m || 1) - 1, (d || 1) + 1, 0, 0, 0, 0);
+        query = query.lt('created_at', endLocalExclusive.toISOString());
       }
 
       const { data, error } = await query;
@@ -384,13 +393,18 @@ export function useHourlySales(date?: string) {
     queryKey: ['reports', 'hourly-sales', date],
     queryFn: async () => {
       const targetDate = date || new Date().toISOString().split('T')[0];
-      
+
+      // Same local-boundary approach as Delivery to avoid UTC off-by-one.
+      const [y, m, d] = targetDate.split('-').map(Number);
+      const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+      const endLocalExclusive = new Date(y, (m || 1) - 1, (d || 1) + 1, 0, 0, 0, 0);
+
       const { data, error } = await supabase
         .from('orders')
         .select('total, created_at')
         .eq('status', 'paid')
-        .gte('created_at', `${targetDate}T00:00:00`)
-        .lte('created_at', `${targetDate}T23:59:59`);
+        .gte('created_at', startLocal.toISOString())
+        .lt('created_at', endLocalExclusive.toISOString());
 
       if (error) throw error;
 
