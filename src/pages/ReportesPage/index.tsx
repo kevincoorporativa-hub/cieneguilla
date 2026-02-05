@@ -75,7 +75,9 @@
    const { data: summary, isLoading: loadingSummary } = useSalesSummary(dateRange);
    const { data: topCombos = [], isLoading: loadingCombos } = useTopCombos(dateRanges.start, dateRanges.end);
    const { data: deliverySummary, isLoading: loadingDelivery } = useDeliverySummary(dateRanges.start, dateRanges.end);
-   const { data: hourlySales = [], isLoading: loadingHourly } = useHourlySales(dateRanges.start);
+  // Hourly sales always shows TODAY's data (current local date)
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const { data: hourlySales = [], isLoading: loadingHourly } = useHourlySales(todayStr);
    const { data: paymentMethods = [], isLoading: loadingPayments } = usePaymentMethodsSummary(dateRanges.start, dateRanges.end);
  
    const isLoading = loadingSales || loadingProducts || loadingCategories || loadingSummary || 
