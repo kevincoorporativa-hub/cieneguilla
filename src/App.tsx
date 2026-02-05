@@ -13,7 +13,7 @@ import InventarioPage from "./pages/InventarioPage";
 import DeliveryPage from "./pages/DeliveryPage";
 import CajaPage from "./pages/CajaPage";
 import TicketsPage from "./pages/TicketsPage";
-import ReportesPage from "./pages/ReportesPage";
+import ReportesPage from "./pages/ReportesPage/index";
 import UsuariosPage from "./pages/UsuariosPage";
 import ConfiguracionPage from "./pages/ConfiguracionPage";
 import LoginPage from "./pages/LoginPage";
