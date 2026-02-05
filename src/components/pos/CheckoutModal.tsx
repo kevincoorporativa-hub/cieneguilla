@@ -493,7 +493,7 @@ export function CheckoutModal({
                 <Button
                   variant="outline"
                   className="h-14 px-5 font-bold text-lg bg-success/10 text-success border-2 border-success hover:bg-success hover:text-success-foreground"
-                  onClick={() => setCashReceived(String(total))}
+                  onClick={() => setCashReceived(String(finalTotal))}
                 >
                   Exacto
                 </Button>
