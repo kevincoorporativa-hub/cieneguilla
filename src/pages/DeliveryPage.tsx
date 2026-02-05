@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Truck, MapPin, Phone, Clock, CheckCircle, User, Package, UserCheck, Eye, XCircle, ChefHat, Navigation, CalendarIcon } from 'lucide-react';
+import { Truck, MapPin, Phone, Clock, CheckCircle, User, Package, Eye, XCircle, Navigation, CalendarIcon } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,13 +13,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -30,10 +23,7 @@ import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
   useDeliveryOrders,
-  useDeliveryDrivers,
-  useAssignDriver,
   useUpdateDeliveryStatus,
-  useMarkPickedUp,
   useMarkDelivered,
   DeliveryStatus,
   DeliveryOrder,
@@ -46,7 +36,7 @@ type FilterStatus = DeliveryStatus | 'all';
 function getStatusColor(status: DeliveryStatus) {
   switch (status) {
     case 'open': return 'bg-warning text-warning-foreground';
-    case 'preparing': return 'bg-blue-500 text-white';
+    case 'preparing': return 'bg-orange-500 text-white'; // kept for backwards compat
     case 'ready': return 'bg-orange-500 text-white';
     case 'paid': return 'bg-success text-success-foreground';
     case 'cancelled': return 'bg-destructive text-destructive-foreground';
@@ -56,7 +46,7 @@ function getStatusColor(status: DeliveryStatus) {
 function getStatusLabel(status: DeliveryStatus) {
   switch (status) {
     case 'open': return 'Pendiente';
-    case 'preparing': return 'En preparación';
+    case 'preparing': return 'En camino'; // simplified flow
     case 'ready': return 'En camino';
     case 'paid': return 'Entregado';
     case 'cancelled': return 'Cancelado';
@@ -66,7 +56,7 @@ function getStatusLabel(status: DeliveryStatus) {
 function getStatusIcon(status: DeliveryStatus) {
   switch (status) {
     case 'open': return <Clock className="h-4 w-4" />;
-    case 'preparing': return <ChefHat className="h-4 w-4" />;
+    case 'preparing': return <Truck className="h-4 w-4" />; // simplified flow
     case 'ready': return <Truck className="h-4 w-4" />;
     case 'paid': return <CheckCircle className="h-4 w-4" />;
     case 'cancelled': return <XCircle className="h-4 w-4" />;
@@ -107,11 +97,8 @@ export default function DeliveryPage() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   });
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<DeliveryOrder | null>(null);
-  const [selectedDriverId, setSelectedDriverId] = useState<string>('');
 
   // Fetch data
   const dateFilterString = dateFilter ? format(dateFilter, 'yyyy-MM-dd') : undefined;
@@ -119,63 +106,27 @@ export default function DeliveryPage() {
     selectedStatus === 'all' ? undefined : selectedStatus,
     dateFilterString
   );
-  const { data: drivers = [], isLoading: loadingDrivers } = useDeliveryDrivers();
   const { data: orderItems = [] } = useOrderItems(selectedOrder?.id || null);
 
   // Mutations
-  const assignDriver = useAssignDriver();
   const updateStatus = useUpdateDeliveryStatus();
-  const markPickedUp = useMarkPickedUp();
   const markDelivered = useMarkDelivered();
 
   // Counts based on all orders (not filtered by status)
   const pendingCount = useMemo(() => orders.filter(o => o.status === 'open').length, [orders]);
-  const inProgressCount = useMemo(() => orders.filter(o => o.status === 'preparing' || o.status === 'ready').length, [orders]);
-
-  const handleOpenAssignModal = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    setSelectedDriverId('');
-    setAssignModalOpen(true);
-  };
+  const inProgressCount = useMemo(() => orders.filter(o => o.status === 'ready').length, [orders]);
 
   const handleOpenDetailModal = (order: DeliveryOrder) => {
     setSelectedOrder(order);
     setDetailModalOpen(true);
   };
 
-  const handleAssignDriver = async () => {
-    if (!selectedOrderId || !selectedDriverId) {
-      toast.error('Seleccione un repartidor');
-      return;
-    }
-
-    try {
-      await assignDriver.mutateAsync({
-        orderId: selectedOrderId,
-        driverUserId: selectedDriverId,
-      });
-      toast.success('Repartidor asignado correctamente');
-      setAssignModalOpen(false);
-    } catch (error: any) {
-      toast.error('Error al asignar repartidor', { description: error.message });
-    }
-  };
-
   const handleStartPreparing = async (orderId: string) => {
     try {
-      await updateStatus.mutateAsync({ orderId, status: 'preparing' });
-      toast.success('Pedido en preparación');
-    } catch (error: any) {
-      toast.error('Error al actualizar estado', { description: error.message });
-    }
-  };
-
-  const handleSendDelivery = async (orderId: string) => {
-    try {
-      await markPickedUp.mutateAsync(orderId);
+      await updateStatus.mutateAsync({ orderId, status: 'ready' });
       toast.success('Pedido en camino');
     } catch (error: any) {
-      toast.error('Error al enviar pedido', { description: error.message });
+      toast.error('Error al actualizar estado', { description: error.message });
     }
   };
 
@@ -274,7 +225,7 @@ export default function DeliveryPage() {
           <div className="h-6 w-px bg-border mx-2" />
 
           {/* Status filters */}
-          {(['all', 'open', 'preparing', 'ready', 'paid'] as const).map((status) => (
+          {(['all', 'open', 'ready', 'paid'] as const).map((status) => (
             <Button
               key={status}
               variant={selectedStatus === status ? 'default' : 'outline'}
@@ -400,33 +351,12 @@ export default function DeliveryPage() {
 
                     {order.status === 'open' && (
                       <Button 
-                        className="btn-pos bg-blue-500 hover:bg-blue-600"
+                        className="btn-pos bg-orange-500 hover:bg-orange-600"
                         onClick={() => handleStartPreparing(order.id)}
                         disabled={updateStatus.isPending}
                       >
-                        <ChefHat className="h-4 w-4 mr-1" />
-                        Preparar
-                      </Button>
-                    )}
-                    
-                    {order.status === 'preparing' && !order.delivery_assignment?.driver_user_id && (
-                      <Button 
-                        className="btn-pos bg-orange-500 hover:bg-orange-600"
-                        onClick={() => handleOpenAssignModal(order.id)}
-                      >
-                        <UserCheck className="h-4 w-4 mr-1" />
-                        Asignar
-                      </Button>
-                    )}
-                    
-                    {order.status === 'preparing' && order.delivery_assignment?.driver_user_id && (
-                      <Button 
-                        className="btn-pos bg-orange-500 hover:bg-orange-600"
-                        onClick={() => handleSendDelivery(order.id)}
-                        disabled={markPickedUp.isPending}
-                      >
                         <Truck className="h-4 w-4 mr-1" />
-                        Enviar
+                        En Camino
                       </Button>
                     )}
                     
@@ -467,62 +397,6 @@ export default function DeliveryPage() {
           </div>
         )}
       </div>
-
-      {/* Assign Driver Modal */}
-      <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <UserCheck className="h-5 w-5" />
-              Asignar Repartidor
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Seleccionar Repartidor</label>
-              <Select value={selectedDriverId} onValueChange={setSelectedDriverId}>
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Seleccionar repartidor..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {loadingDrivers && (
-                    <div className="p-3 text-center text-muted-foreground text-sm">
-                      Cargando...
-                    </div>
-                  )}
-                  {!loadingDrivers && drivers.length === 0 && (
-                    <div className="p-3 text-center text-muted-foreground text-sm">
-                      No hay repartidores disponibles
-                    </div>
-                  )}
-                  {!loadingDrivers && drivers.map(driver => (
-                    <SelectItem key={driver.user_id} value={driver.user_id}>
-                      {driver.first_name} {driver.last_name}
-                      {driver.phone && ` - ${driver.phone}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
-                className="flex-1"
-                onClick={() => setAssignModalOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                className="flex-1 bg-primary"
-                onClick={handleAssignDriver}
-                disabled={!selectedDriverId || assignDriver.isPending}
-              >
-                {assignDriver.isPending ? 'Asignando...' : 'Asignar'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Order Detail Modal */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
@@ -654,43 +528,15 @@ export default function DeliveryPage() {
                       Cancelar
                     </Button>
                     <Button 
-                      className="flex-1 bg-blue-500 hover:bg-blue-600"
+                      className="flex-1 bg-orange-500 hover:bg-orange-600"
                       onClick={() => {
                         handleStartPreparing(selectedOrder.id);
                         setDetailModalOpen(false);
                       }}
                     >
-                      <ChefHat className="h-4 w-4 mr-1" />
-                      Iniciar Preparación
+                      <Truck className="h-4 w-4 mr-1" />
+                      En Camino
                     </Button>
-                  </>
-                )}
-                
-                {selectedOrder.status === 'preparing' && (
-                  <>
-                    {!selectedOrder.delivery_assignment?.driver_user_id ? (
-                      <Button 
-                        className="flex-1 bg-orange-500 hover:bg-orange-600"
-                        onClick={() => {
-                          handleOpenAssignModal(selectedOrder.id);
-                          setDetailModalOpen(false);
-                        }}
-                      >
-                        <UserCheck className="h-4 w-4 mr-1" />
-                        Asignar Repartidor
-                      </Button>
-                    ) : (
-                      <Button 
-                        className="flex-1 bg-orange-500 hover:bg-orange-600"
-                        onClick={() => {
-                          handleSendDelivery(selectedOrder.id);
-                          setDetailModalOpen(false);
-                        }}
-                      >
-                        <Truck className="h-4 w-4 mr-1" />
-                        Enviar a Entrega
-                      </Button>
-                    )}
                   </>
                 )}
                 
