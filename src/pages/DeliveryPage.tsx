@@ -25,7 +25,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { format, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -102,7 +102,11 @@ function useOrderItems(orderId: string | null) {
 
 export default function DeliveryPage() {
   const [selectedStatus, setSelectedStatus] = useState<FilterStatus>('all');
-  const [dateFilter, setDateFilter] = useState<Date | undefined>(startOfDay(new Date()));
+  // Use current local date without timezone issues
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  });
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);

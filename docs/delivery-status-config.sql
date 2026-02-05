@@ -3,6 +3,23 @@
  -- Script para actualizar el flujo de estados de delivery
  -- Copiar y pegar en SQL Editor de Supabase
  -- =====================================================
+
+-- =====================================================
+-- FLUJO DE ESTADOS DE DELIVERY:
+-- =====================================================
+-- 
+-- [POS/VENTA] El cajero vende con tipo "delivery" 
+--      ↓
+-- [open/Pendiente] Pedido creado, esperando preparación
+--      ↓ (Botón "Preparar")
+-- [preparing/En preparación] Cocina trabajando en el pedido
+--      ↓ (Asignar repartidor + Botón "Enviar")
+-- [ready/En camino] Repartidor lleva el pedido
+--      ↓ (Botón "Entregado")
+-- [paid/Entregado] Pedido completado exitosamente
+--
+-- En cualquier momento se puede cancelar → [cancelled]
+-- =====================================================
  
  -- =====================================================
  -- ESTADOS DE DELIVERY:
@@ -13,6 +30,15 @@
  -- 'cancelled' = Cancelado (orden cancelada)
  -- =====================================================
  
+-- =====================================================
+-- PARTE 0: LIMPIAR FUNCIONES Y TRIGGERS EXISTENTES
+-- =====================================================
+
+DROP TRIGGER IF EXISTS trg_update_delivery_timestamps ON public.orders;
+DROP FUNCTION IF EXISTS public.advance_delivery_status(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.update_delivery_timestamps();
+DROP VIEW IF EXISTS public.v_delivery_orders_detail;
+
  -- =====================================================
  -- PARTE 1: FUNCIÓN PARA ACTUALIZAR ESTADO DE DELIVERY
  -- =====================================================
