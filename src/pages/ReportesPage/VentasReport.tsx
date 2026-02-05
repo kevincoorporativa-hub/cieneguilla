@@ -44,13 +44,21 @@ export function VentasReport({ salesByDay, hourlySales, summary, isLoading, date
    );
  
    const hourlyChartData = useMemo(() => 
-     hourlySales.map(h => ({
-       hora: `${h.hour}:00`,
-       ventas: h.total_sales,
-       ordenes: h.total_orders,
-     })),
-     [hourlySales]
-   );
+    {
+      // Create all hours from 6 to 23
+      const allHours = [];
+      for (let h = 6; h <= 23; h++) {
+        const hourData = hourlySales.find(hs => hs.hour === h);
+        allHours.push({
+          hora: `${h}:00`,
+          ventas: hourData?.total_sales || 0,
+          ordenes: hourData?.total_orders || 0,
+        });
+      }
+      return allHours;
+    },
+    [hourlySales]
+  );
 
   // Daily sales chart data - format based on date range
   const dailySalesChartData = useMemo(() => {
