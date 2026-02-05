@@ -45,6 +45,8 @@ interface CheckoutData {
   clientAddress?: string;
   change: number;
   stockDeductions: { productId: string; quantity: number }[];
+  extraCharge?: number;
+  finalTotal: number;
 }
 
 const paymentMethods: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
@@ -87,6 +89,7 @@ export function CheckoutModal({
     change?: number;
     orderType: OrderType;
     clientName: string;
+    extraCharge?: number;
   } | null>(null);
   
   const ticketRef = useRef<HTMLDivElement>(null);
@@ -146,6 +149,8 @@ export function CheckoutModal({
         clientAddress: orderType === 'delivery' ? clientAddress : undefined,
         change,
         stockDeductions,
+        extraCharge: extraChargeAmount > 0 ? extraChargeAmount : undefined,
+        finalTotal,
       });
 
       if (!ok) return;
@@ -164,6 +169,7 @@ export function CheckoutModal({
         change: selectedPayment === 'efectivo' ? change : undefined,
         orderType,
         clientName: (finalClientName || 'Cliente Genérico'),
+        extraCharge: extraChargeAmount > 0 ? extraChargeAmount : undefined,
       });
 
       setShowTicketPreview(true);
@@ -216,6 +222,7 @@ export function CheckoutModal({
               clientName={snap?.clientName ?? (useGenericClient ? 'Cliente Genérico' : (clientName || 'Cliente Genérico'))}
               config={ticketConfig}
               date={new Date()}
+              extraCharge={snap?.extraCharge}
             />
           </div>
 

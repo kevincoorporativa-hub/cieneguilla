@@ -365,6 +365,10 @@ export default function POSPage() {
     }
 
     try {
+      // Usar el total final que incluye el recargo adicional
+      const orderTotal = data.finalTotal ?? total;
+      const extraChargeAmount = data.extraCharge || 0;
+
       // Create order items - include combo_id for combo items
       const orderItems = cartItems.map(item => ({
         product_id: item.productoId || null,
@@ -374,6 +378,18 @@ export default function POSPage() {
         unit_price: item.precioUnitario,
         total: item.subtotal,
       }));
+      
+      // Si hay recargo adicional, agregarlo como un item especial
+      if (extraChargeAmount > 0) {
+        orderItems.push({
+          product_id: null,
+          combo_id: null,
+          product_name: 'Recargo adicional',
+          quantity: 1,
+          unit_price: extraChargeAmount,
+          total: extraChargeAmount,
+        });
+      }
 
       // Map order type to database format
       const dbOrderType = mapOrderTypeToDb(data.orderType || 'local');
@@ -386,17 +402,17 @@ export default function POSPage() {
           user_id: user?.id || null,
           order_type: dbOrderType,
           status: 'open',
-          subtotal,
+          subtotal: subtotal + extraChargeAmount,
           discount_percent: 0,
           discount_amount: discount?.monto || 0,
           tax_amount: 0,
-          total,
+          total: orderTotal,
         },
         items: orderItems,
       });
 
       // Create payment(s) - map payment method to DB format
-      for (const payment of data.payments || [{ method: 'efectivo', amount: total }]) {
+      for (const payment of data.payments || [{ method: 'efectivo', amount: orderTotal }]) {
         const dbPaymentMethod = mapPaymentMethodToDb(payment.method);
         await createPayment.mutateAsync({
           order_id: newOrder.id,

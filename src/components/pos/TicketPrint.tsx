@@ -24,6 +24,7 @@ interface TicketPrintProps {
   clientName?: string;
   config: TicketConfig;
   date: Date;
+  extraCharge?: number;
 }
 
 export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
@@ -39,7 +40,8 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
     orderType, 
     clientName,
     config, 
-    date 
+    date,
+    extraCharge
   }, ref) => {
     const paymentLabels: Record<PaymentMethod, string> = {
       efectivo: 'Efectivo',
@@ -153,6 +155,12 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
             <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', marginBottom: '2px' }}>
               <span>Descuento ({discount.tipo}):</span>
               <span>-S/{discount.monto.toFixed(2)}</span>
+            </div>
+          )}
+          {extraCharge && extraCharge > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <span>Recargo adicional:</span>
+              <span>+S/{extraCharge.toFixed(2)}</span>
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '4px' }}>
