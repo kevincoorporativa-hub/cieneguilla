@@ -13,6 +13,7 @@
    FileSpreadsheet,
    FileDown,
    Clock,
+   Image,
  } from 'lucide-react';
  import { MainLayout } from '@/components/layout/MainLayout';
  import { Button } from '@/components/ui/button';
@@ -35,7 +36,8 @@ import {
    DropdownMenuItem,
    DropdownMenuTrigger,
  } from '@/components/ui/dropdown-menu';
- import { exportToExcel, exportToPDF, ExportData } from '@/utils/exportUtils';
+import { exportToExcel, exportToPDF, exportChartsToPDF, ExportData } from '@/utils/exportUtils';
+import { toast } from 'sonner';
  import { 
    useSalesByDay, 
    useTopProducts, 
@@ -227,6 +229,30 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
      const data = getExportData();
     exportToPDF(data, `reporte_${selectedReport}_${dateRangeOption}`);
    };
+
+  const handleExportChartsPDF = async () => {
+    toast.loading('Generando PDF de gráficos...', { id: 'export-charts' });
+    try {
+      const reportTitles: Record<ReportType, string> = {
+        ventas: 'Reporte de Ventas',
+        productos: 'Productos Más Vendidos',
+        categorias: 'Ventas por Categoría',
+        combos: 'Combos Más Vendidos',
+        delivery: 'Reporte de Delivery',
+        metodos: 'Métodos de Pago',
+      };
+      
+      await exportChartsToPDF(
+        '#report-charts-container',
+        reportTitles[selectedReport],
+        `Período: ${rangeLabel}`,
+        `graficos_${selectedReport}_${dateRangeOption}`
+      );
+      toast.success('PDF de gráficos generado correctamente', { id: 'export-charts' });
+    } catch (error) {
+      toast.error('Error al generar el PDF', { id: 'export-charts' });
+    }
+  };
  
    const reportTabs = [
      { id: 'ventas', label: 'Ventas', icon: DollarSign },
@@ -323,6 +349,10 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
                    <FileDown className="h-4 w-4 mr-2 text-destructive" />
                    Exportar a PDF
                  </DropdownMenuItem>
+                 <DropdownMenuItem onClick={handleExportChartsPDF} className="cursor-pointer">
+                   <Image className="h-4 w-4 mr-2 text-primary" />
+                   Descargar Gráficos (PDF)
+                 </DropdownMenuItem>
                </DropdownMenuContent>
              </DropdownMenu>
            </div>
@@ -346,6 +376,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
          </div>
  
          {/* Report Content */}
+         <div id="report-charts-container">
          {selectedReport === 'ventas' && (
            <VentasReport 
              salesByDay={salesByDay}
@@ -392,6 +423,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
              isLoading={isLoading}
            />
          )}
+         </div>
        </div>
      </MainLayout>
    );
