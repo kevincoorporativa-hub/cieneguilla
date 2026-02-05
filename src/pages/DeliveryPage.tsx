@@ -115,6 +115,7 @@ export default function DeliveryPage() {
   // Counts based on all orders (not filtered by status)
   const pendingCount = useMemo(() => orders.filter(o => o.status === 'open').length, [orders]);
   const inProgressCount = useMemo(() => orders.filter(o => o.status === 'ready').length, [orders]);
+  const deliveredCount = useMemo(() => orders.filter(o => o.status === 'paid').length, [orders]);
 
   const handleOpenDetailModal = (order: DeliveryOrder) => {
     setSelectedOrder(order);
@@ -186,7 +187,45 @@ export default function DeliveryPage() {
 
         {/* Filters */}
         <div className="flex gap-3 flex-wrap items-center">
-          {/* Date filter first */}
+          {/* Status filters */}
+          <Button
+            variant={selectedStatus === 'all' ? 'default' : 'outline'}
+            className={`btn-pos ${selectedStatus === 'all' ? '' : 'hover:bg-muted'}`}
+            onClick={() => setSelectedStatus('all')}
+          >
+            Todos
+          </Button>
+          <Button
+            variant={selectedStatus === 'open' ? 'default' : 'outline'}
+            className={`btn-pos ${selectedStatus === 'open' ? '' : 'hover:bg-muted'}`}
+            onClick={() => setSelectedStatus('open')}
+          >
+            {getStatusIcon('open')}
+            <span className="ml-1">Pendiente</span>
+            <Badge variant="secondary" className="ml-2 text-xs">{pendingCount}</Badge>
+          </Button>
+          <Button
+            variant={selectedStatus === 'ready' ? 'default' : 'outline'}
+            className={`btn-pos ${selectedStatus === 'ready' ? '' : 'hover:bg-muted'}`}
+            onClick={() => setSelectedStatus('ready')}
+          >
+            {getStatusIcon('ready')}
+            <span className="ml-1">En camino</span>
+            <Badge variant="secondary" className="ml-2 text-xs">{inProgressCount}</Badge>
+          </Button>
+          <Button
+            variant={selectedStatus === 'paid' ? 'default' : 'outline'}
+            className={`btn-pos ${selectedStatus === 'paid' ? '' : 'hover:bg-muted'}`}
+            onClick={() => setSelectedStatus('paid')}
+          >
+            {getStatusIcon('paid')}
+            <span className="ml-1">Entregado</span>
+            <Badge variant="secondary" className="ml-2 text-xs">{deliveredCount}</Badge>
+          </Button>
+
+          <div className="h-6 w-px bg-border mx-2" />
+
+          {/* Date filter at the end */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -221,28 +260,6 @@ export default function DeliveryPage() {
               Ver todo
             </Button>
           )}
-
-          <div className="h-6 w-px bg-border mx-2" />
-
-          {/* Status filters */}
-          {(['all', 'open', 'ready', 'paid'] as const).map((status) => (
-            <Button
-              key={status}
-              variant={selectedStatus === status ? 'default' : 'outline'}
-              className={`btn-pos ${selectedStatus === status ? '' : 'hover:bg-muted'}`}
-              onClick={() => setSelectedStatus(status)}
-            >
-              {status !== 'all' && getStatusIcon(status as DeliveryStatus)}
-              <span className="ml-1">
-                {status === 'all' ? 'Todos' : getStatusLabel(status as DeliveryStatus)}
-              </span>
-              {status !== 'all' && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {orders.filter(o => o.status === status).length}
-                </Badge>
-              )}
-            </Button>
-          ))}
         </div>
 
         {/* Orders Grid */}
