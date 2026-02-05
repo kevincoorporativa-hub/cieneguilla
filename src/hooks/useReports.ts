@@ -497,17 +497,24 @@ export function useSalesSummary(dateRange: 'today' | 'week' | 'month') {
     queryKey: ['reports', 'summary', dateRange],
     queryFn: async () => {
       const now = new Date();
-      let startDate: Date;
+      let startLocal: Date;
+      let endLocalExclusive: Date;
 
       switch (dateRange) {
         case 'today':
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          // From midnight today to midnight tomorrow (local)
+          startLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+          endLocalExclusive = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
           break;
         case 'week':
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          // Last 7 days from today (local)
+          startLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
+          endLocalExclusive = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
           break;
         case 'month':
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          // From 1st of current month to tomorrow (local)
+          startLocal = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+          endLocalExclusive = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
           break;
       }
 
@@ -515,7 +522,8 @@ export function useSalesSummary(dateRange: 'today' | 'week' | 'month') {
         .from('orders')
         .select('total, created_at')
         .eq('status', 'paid')
-        .gte('created_at', startDate.toISOString());
+        .gte('created_at', startLocal.toISOString())
+        .lt('created_at', endLocalExclusive.toISOString());
 
       if (ordersError) throw ordersError;
 
