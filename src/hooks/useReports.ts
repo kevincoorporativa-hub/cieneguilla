@@ -73,21 +73,69 @@ export function useSalesByDay(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['reports', 'sales-by-day', startDate, endDate],
     queryFn: async () => {
-      let query = supabase
-        .from('v_sales_by_day')
-        .select('*')
-        .order('sale_date', { ascending: false });
+      // Build local date boundaries to avoid UTC off-by-one issues
+      let startISO: string | undefined;
+      let endISO: string | undefined;
 
       if (startDate) {
-        query = query.gte('sale_date', startDate);
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+        startISO = startLocal.toISOString();
       }
       if (endDate) {
-        query = query.lte('sale_date', endDate);
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endLocalExclusive = new Date(y, (m || 1) - 1, (d || 1) + 1, 0, 0, 0, 0);
+        endISO = endLocalExclusive.toISOString();
       }
 
-      const { data, error } = await query.limit(30);
+      // Query orders directly with local boundaries
+      let query = supabase
+        .from('orders')
+        .select('total, created_at, order_type')
+        .eq('status', 'paid');
+
+      if (startISO) {
+        query = query.gte('created_at', startISO);
+      }
+      if (endISO) {
+        query = query.lt('created_at', endISO);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      return data as SalesByDay[];
+
+      // Aggregate by local date
+      const dailyTotals: Record<string, { orders: number; sales: number; local: number; takeaway: number; delivery: number }> = {};
+
+      for (const order of data || []) {
+        // Convert to local date string
+        const localDate = new Date(order.created_at);
+        const dateKey = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+
+        if (!dailyTotals[dateKey]) {
+          dailyTotals[dateKey] = { orders: 0, sales: 0, local: 0, takeaway: 0, delivery: 0 };
+        }
+        dailyTotals[dateKey].orders += 1;
+        dailyTotals[dateKey].sales += Number(order.total);
+        if (order.order_type === 'local') dailyTotals[dateKey].local += 1;
+        if (order.order_type === 'takeaway') dailyTotals[dateKey].takeaway += 1;
+        if (order.order_type === 'delivery') dailyTotals[dateKey].delivery += 1;
+      }
+
+      const result: SalesByDay[] = Object.entries(dailyTotals)
+        .map(([date, d]) => ({
+          sale_date: date,
+          total_orders: d.orders,
+          total_sales: d.sales,
+          average_ticket: d.orders > 0 ? Math.round((d.sales / d.orders) * 100) / 100 : 0,
+          local_orders: d.local,
+          takeaway_orders: d.takeaway,
+          delivery_orders: d.delivery,
+        }))
+        .sort((a, b) => b.sale_date.localeCompare(a.sale_date))
+        .slice(0, 30);
+
+      return result;
     },
   });
 }
