@@ -166,9 +166,9 @@ export function useCreateProductStockMove() {
 }
 
 // Fetch products expiring soon (from stock moves)
-export function useExpiringProducts(daysAhead: number = 20) {
+export function useExpiringProducts(daysAhead: number = 20, storeId?: string) {
   return useQuery({
-    queryKey: ['expiring-products', daysAhead],
+    queryKey: ['expiring-products', daysAhead, storeId || 'any'],
     queryFn: async () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -176,11 +176,17 @@ export function useExpiringProducts(daysAhead: number = 20) {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + daysAhead);
       
-       // First get current stock levels to filter products with actual stock
-       const { data: stockData, error: stockError } = await supabase
+       // First get current stock levels to filter products with actual stock (store-specific when available)
+       let stockQuery = supabase
          .from('product_stock')
          .select('product_id, quantity')
          .gt('quantity', 0);
+
+       if (storeId) {
+         stockQuery = stockQuery.eq('store_id', storeId);
+       }
+
+       const { data: stockData, error: stockError } = await stockQuery;
        
        if (stockError) throw stockError;
        
@@ -188,9 +194,14 @@ export function useExpiringProducts(daysAhead: number = 20) {
        const productsWithStock = new Set(
          (stockData || []).map((s: any) => s.product_id)
        );
+
+       // No stock => no expiration alerts
+       if (productsWithStock.size === 0) return [];
        
-       // Get all stock moves with expiration dates
-       const { data, error } = await supabase
+       // Get all stock records with expiration dates (store-specific when available)
+       // IMPORTANT: A product can have multiple expiration dates in history.
+       // We must pick the same "nearest FUTURE expiration else most recent PAST" logic used in the inventory UI.
+       let movesQuery = supabase
         .from('product_stock_moves')
         .select(`
           id,
@@ -200,37 +211,75 @@ export function useExpiringProducts(daysAhead: number = 20) {
           product:products(id, name, active)
         `)
         .not('expiration_date', 'is', null)
-        .order('expiration_date', { ascending: true });
+         .order('expiration_date', { ascending: true });
+
+       if (storeId) {
+         movesQuery = movesQuery.eq('store_id', storeId);
+       }
+
+       const { data, error } = await movesQuery;
 
       if (error) throw error;
-      
-      // Group by product and get nearest expiration
-      const productMap = new Map<string, any>();
-      
-      (data || []).forEach((move: any) => {
-        if (!move.product?.active) return;
-         
-         // Skip products that have no stock left
+
+       // For each product: pick nearest FUTURE expiration if any, else most recent PAST
+       const bestByProduct = new Map<
+         string,
+         {
+           id: string;
+           name: string;
+           future?: string;
+           past?: string;
+         }
+       >();
+
+       (data || []).forEach((move: any) => {
+         if (!move.product?.active) return;
          if (!productsWithStock.has(move.product_id)) return;
-         
+         if (!move.expiration_date) return;
+
          const expDate = new Date(move.expiration_date);
          expDate.setHours(0, 0, 0, 0);
-         
-         // Only include expired or expiring within daysAhead
-         if (expDate > futureDate) return;
-        
-        const existing = productMap.get(move.product_id);
-        if (!existing || new Date(move.expiration_date) < new Date(existing.expiration_date)) {
-          productMap.set(move.product_id, {
-            id: move.product_id,
-            name: move.product.name,
-            expiration_date: move.expiration_date,
-            quantity: move.quantity,
-          });
-        }
-      });
-      
-      return Array.from(productMap.values());
+
+         const existing = bestByProduct.get(move.product_id) || {
+           id: move.product_id,
+           name: move.product.name,
+           future: undefined as string | undefined,
+           past: undefined as string | undefined,
+         };
+
+         if (expDate >= today) {
+           if (!existing.future || expDate < new Date(existing.future)) {
+             existing.future = move.expiration_date;
+           }
+         } else {
+           if (!existing.past || expDate > new Date(existing.past)) {
+             existing.past = move.expiration_date;
+           }
+         }
+
+         bestByProduct.set(move.product_id, existing);
+       });
+
+       const results = Array.from(bestByProduct.values())
+         .map((p) => {
+           const chosen = p.future ?? p.past;
+           if (!chosen) return null;
+
+           const chosenDate = new Date(chosen);
+           chosenDate.setHours(0, 0, 0, 0);
+
+           // Alert only when: expired OR within daysAhead
+           if (chosenDate > futureDate) return null;
+
+           return {
+             id: p.id,
+             name: p.name,
+             expiration_date: chosen,
+           };
+         })
+         .filter(Boolean);
+
+       return results as Array<{ id: string; name: string; expiration_date: string }>;
     },
      staleTime: 30000, // 30 seconds
      refetchInterval: 60000, // Refetch every minute to keep data fresh
@@ -299,17 +348,23 @@ export function useProductExpirationDates(storeId?: string) {
 }
 
 // Fetch products with low stock
-export function useLowStockProducts() {
+export function useLowStockProducts(storeId?: string) {
   return useQuery({
-    queryKey: ['low-stock-products'],
+    queryKey: ['low-stock-products', storeId || 'any'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('product_stock')
         .select(`
           *,
           product:products(id, name, base_price, min_stock)
         `)
         .eq('product.track_stock', true);
+
+      if (storeId) {
+        query = query.eq('store_id', storeId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
