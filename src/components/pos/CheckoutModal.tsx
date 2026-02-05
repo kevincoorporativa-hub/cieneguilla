@@ -389,12 +389,26 @@ export function CheckoutModal({
                 <Input
                   type="number"
                   value={extraCharge}
-                  onChange={(e) => setExtraCharge(e.target.value)}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (e.target.value === '' || (!isNaN(val) && val >= 0)) {
+                      setExtraCharge(e.target.value);
+                    }
+                  }}
+                  min="0"
                   placeholder="0.00"
                   className="pl-12 h-12 text-lg font-bold rounded-xl"
                 />
               </div>
               <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`h-10 px-4 font-semibold border-2 ${extraCharge === '' || extraCharge === '0' ? 'bg-amber-100 dark:bg-amber-900 border-amber-500' : 'border-amber-300 dark:border-amber-700'} hover:bg-amber-100 dark:hover:bg-amber-900`}
+                  onClick={() => setExtraCharge('')}
+                >
+                  Sin recargo
+                </Button>
                 {[1, 2, 3, 5, 10].map((amount) => (
                   <Button
                     key={amount}
