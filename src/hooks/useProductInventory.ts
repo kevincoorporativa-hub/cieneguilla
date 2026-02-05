@@ -176,8 +176,21 @@ export function useExpiringProducts(daysAhead: number = 20) {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + daysAhead);
       
-      // Get all stock moves with expiration dates
-      const { data, error } = await supabase
+       // First get current stock levels to filter products with actual stock
+       const { data: stockData, error: stockError } = await supabase
+         .from('product_stock')
+         .select('product_id, quantity')
+         .gt('quantity', 0);
+       
+       if (stockError) throw stockError;
+       
+       // Create a map of products with stock > 0
+       const productsWithStock = new Set(
+         (stockData || []).map((s: any) => s.product_id)
+       );
+       
+       // Get all stock moves with expiration dates
+       const { data, error } = await supabase
         .from('product_stock_moves')
         .select(`
           id,
@@ -196,6 +209,9 @@ export function useExpiringProducts(daysAhead: number = 20) {
       
       (data || []).forEach((move: any) => {
         if (!move.product?.active) return;
+         
+         // Skip products that have no stock left
+         if (!productsWithStock.has(move.product_id)) return;
          
          const expDate = new Date(move.expiration_date);
          expDate.setHours(0, 0, 0, 0);
