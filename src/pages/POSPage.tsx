@@ -405,6 +405,7 @@ export default function POSPage() {
           method: dbPaymentMethod,
           amount: payment.amount,
           reference: payment.reference || null,
+          orderType: dbOrderType, // Pass order type to handle delivery orders differently
         });
       }
 

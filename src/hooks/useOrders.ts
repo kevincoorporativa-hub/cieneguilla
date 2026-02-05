@@ -204,24 +204,43 @@ export function useCreatePayment() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (payment: Omit<Payment, 'id' | 'created_at'>) => {
+    mutationFn: async (payment: Omit<Payment, 'id' | 'created_at'> & { orderType?: string }) => {
       // Create the payment
       const { data, error } = await supabase
         .from('payments')
-        .insert(payment)
+        .insert({
+          order_id: payment.order_id,
+          cash_session_id: payment.cash_session_id,
+          user_id: payment.user_id,
+          method: payment.method,
+          amount: payment.amount,
+          reference: payment.reference,
+        })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Update order status to 'paid'
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ status: 'paid', updated_at: new Date().toISOString() })
-        .eq('id', payment.order_id);
+      // For delivery orders, keep status as 'open' (Pendiente) to enter delivery workflow
+      // For other order types, mark as 'paid' immediately
+      if (payment.orderType !== 'delivery') {
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ status: 'paid', updated_at: new Date().toISOString() })
+          .eq('id', payment.order_id);
 
-      if (updateError) {
-        console.error('Error updating order status:', updateError);
+        if (updateError) {
+          console.error('Error updating order status:', updateError);
+        }
+      } else {
+        // For delivery orders, create a delivery_assignment record
+        const { error: assignmentError } = await supabase
+          .from('delivery_assignments')
+          .insert({ order_id: payment.order_id });
+
+        if (assignmentError) {
+          console.error('Error creating delivery assignment:', assignmentError);
+        }
       }
 
       return data;
@@ -235,6 +254,8 @@ export function useCreatePayment() {
       // Invalidar stock para que el POS se actualice inmediatamente
       queryClient.invalidateQueries({ queryKey: ['product-stock'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      // Invalidar delivery orders para que aparezcan en la página de delivery
+      queryClient.invalidateQueries({ queryKey: ['delivery-orders'] });
     },
   });
 }
