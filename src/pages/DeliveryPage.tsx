@@ -485,18 +485,22 @@ export default function DeliveryPage() {
                   <SelectValue placeholder="Seleccionar repartidor..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {loadingDrivers ? (
-                    <SelectItem value="" disabled>Cargando...</SelectItem>
-                  ) : drivers.length === 0 ? (
-                    <SelectItem value="" disabled>No hay repartidores disponibles</SelectItem>
-                  ) : (
-                    drivers.map(driver => (
-                      <SelectItem key={driver.user_id} value={driver.user_id}>
-                        {driver.first_name} {driver.last_name}
-                        {driver.phone && ` - ${driver.phone}`}
-                      </SelectItem>
-                    ))
+                  {loadingDrivers && (
+                    <div className="p-3 text-center text-muted-foreground text-sm">
+                      Cargando...
+                    </div>
                   )}
+                  {!loadingDrivers && drivers.length === 0 && (
+                    <div className="p-3 text-center text-muted-foreground text-sm">
+                      No hay repartidores disponibles
+                    </div>
+                  )}
+                  {!loadingDrivers && drivers.map(driver => (
+                    <SelectItem key={driver.user_id} value={driver.user_id}>
+                      {driver.first_name} {driver.last_name}
+                      {driver.phone && ` - ${driver.phone}`}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
