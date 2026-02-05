@@ -114,31 +114,149 @@ export function useSalesByPaymentMethod(date?: string) {
 }
 
 // Top products
-export function useTopProducts() {
+export function useTopProducts(startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ['reports', 'top-products'],
+    queryKey: ['reports', 'top-products', startDate, endDate],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_top_products')
-        .select('*');
+      // Get paid orders in date range
+      let ordersQuery = supabase
+        .from('orders')
+        .select('id')
+        .eq('status', 'paid');
 
-      if (error) throw error;
-      return data as TopProduct[];
+      if (startDate) {
+        ordersQuery = ordersQuery.gte('created_at', `${startDate}T00:00:00`);
+      }
+      if (endDate) {
+        ordersQuery = ordersQuery.lte('created_at', `${endDate}T23:59:59`);
+      }
+
+      const { data: orders, error: ordersError } = await ordersQuery;
+      if (ordersError) throw ordersError;
+      if (!orders || orders.length === 0) return [];
+
+      const orderIds = orders.map(o => o.id);
+
+      // Get order items for those orders (excluding combos)
+      const { data: items, error: itemsError } = await supabase
+        .from('order_items')
+        .select('product_id, product_name, quantity, total, order_id')
+        .in('order_id', orderIds)
+        .not('product_id', 'is', null);
+
+      if (itemsError) throw itemsError;
+      if (!items || items.length === 0) return [];
+
+      // Aggregate by product
+      const productTotals: Record<string, { name: string; quantity: number; total: number; orders: Set<string> }> = {};
+      
+      for (const item of items) {
+        const productId = item.product_id as string;
+        if (!productTotals[productId]) {
+          productTotals[productId] = { name: item.product_name, quantity: 0, total: 0, orders: new Set() };
+        }
+        productTotals[productId].quantity += item.quantity;
+        productTotals[productId].total += Number(item.total);
+        productTotals[productId].orders.add(item.order_id);
+      }
+
+      const result: TopProduct[] = Object.entries(productTotals)
+        .map(([productId, data]) => ({
+          product_id: productId,
+          product_name: data.name,
+          total_quantity: data.quantity,
+          total_sales: data.total,
+          order_count: data.orders.size,
+        }))
+        .sort((a, b) => b.total_quantity - a.total_quantity)
+        .slice(0, 10);
+
+      return result;
     },
   });
 }
 
 // Sales by category
-export function useSalesByCategory() {
+export function useSalesByCategory(startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ['reports', 'sales-by-category'],
+    queryKey: ['reports', 'sales-by-category', startDate, endDate],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('v_sales_by_category')
-        .select('*');
+      // Get paid orders in date range
+      let ordersQuery = supabase
+        .from('orders')
+        .select('id')
+        .eq('status', 'paid');
 
-      if (error) throw error;
-      return data as SalesByCategory[];
+      if (startDate) {
+        ordersQuery = ordersQuery.gte('created_at', `${startDate}T00:00:00`);
+      }
+      if (endDate) {
+        ordersQuery = ordersQuery.lte('created_at', `${endDate}T23:59:59`);
+      }
+
+      const { data: orders, error: ordersError } = await ordersQuery;
+      if (ordersError) throw ordersError;
+      if (!orders || orders.length === 0) return [];
+
+      const orderIds = orders.map(o => o.id);
+
+      // Get order items with product info
+      const { data: items, error: itemsError } = await supabase
+        .from('order_items')
+        .select('product_id, quantity, total, order_id')
+        .in('order_id', orderIds)
+        .not('product_id', 'is', null);
+
+      if (itemsError) throw itemsError;
+      if (!items || items.length === 0) return [];
+
+      // Get products with categories
+      const productIds = [...new Set(items.map(i => i.product_id).filter(Boolean))];
+      
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id, category_id')
+        .in('id', productIds as string[]);
+
+      if (productsError) throw productsError;
+
+      // Get categories
+      const categoryIds = [...new Set(products?.map(p => p.category_id).filter(Boolean) || [])];
+      
+      const { data: categories, error: categoriesError } = await supabase
+        .from('categories')
+        .select('id, name')
+        .in('id', categoryIds as string[]);
+
+      if (categoriesError) throw categoriesError;
+
+      // Aggregate by category
+      const categoryTotals: Record<string, { name: string; quantity: number; total: number; orders: Set<string> }> = {};
+      
+      for (const item of items) {
+        const product = products?.find(p => p.id === item.product_id);
+        const categoryId = product?.category_id || 'other';
+        const category = categories?.find(c => c.id === categoryId);
+        
+        if (!categoryTotals[categoryId]) {
+          categoryTotals[categoryId] = { name: category?.name || 'Sin categoría', quantity: 0, total: 0, orders: new Set() };
+        }
+        categoryTotals[categoryId].quantity += item.quantity;
+        categoryTotals[categoryId].total += Number(item.total);
+        categoryTotals[categoryId].orders.add(item.order_id);
+      }
+
+      const result: SalesByCategory[] = Object.entries(categoryTotals)
+        .map(([categoryId, data]) => ({
+          category_id: categoryId,
+          category_name: data.name,
+          order_count: data.orders.size,
+          total_quantity: data.quantity,
+          total_sales: data.total,
+        }))
+        .sort((a, b) => b.total_sales - a.total_sales);
+
+      return result;
     },
   });
 }

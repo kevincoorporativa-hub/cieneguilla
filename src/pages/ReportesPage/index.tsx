@@ -70,8 +70,8 @@
  
    // Fetch all data
    const { data: salesByDay = [], isLoading: loadingSales } = useSalesByDay(dateRanges.start, dateRanges.end);
-   const { data: topProducts = [], isLoading: loadingProducts } = useTopProducts();
-   const { data: salesByCategory = [], isLoading: loadingCategories } = useSalesByCategory();
+  const { data: topProducts = [], isLoading: loadingProducts } = useTopProducts(dateRanges.start, dateRanges.end);
+  const { data: salesByCategory = [], isLoading: loadingCategories } = useSalesByCategory(dateRanges.start, dateRanges.end);
    const { data: summary, isLoading: loadingSummary } = useSalesSummary(dateRange);
    const { data: topCombos = [], isLoading: loadingCombos } = useTopCombos(dateRanges.start, dateRanges.end);
    const { data: deliverySummary, isLoading: loadingDelivery } = useDeliverySummary(dateRanges.start, dateRanges.end);
