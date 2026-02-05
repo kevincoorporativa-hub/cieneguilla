@@ -352,6 +352,8 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
              hourlySales={hourlySales}
              summary={summary}
              isLoading={isLoading}
+            dateRangeOption={dateRangeOption}
+            rangeLabel={rangeLabel}
            />
          )}
  
