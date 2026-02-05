@@ -359,16 +359,20 @@ export function useDeliverySummary(startDate?: string, endDate?: string) {
       if (error) throw error;
 
       const orders = data || [];
-      const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'delivered');
+      // Status 'paid' = Entregado (completed delivery)
+      const paidOrders = orders.filter(o => o.status === 'paid');
       const totalSales = paidOrders.reduce((sum, o) => sum + Number(o.total), 0);
 
       return {
         total_orders: orders.length,
         total_sales: totalSales,
         average_ticket: paidOrders.length > 0 ? totalSales / paidOrders.length : 0,
-        completed_orders: orders.filter(o => o.status === 'delivered' || o.status === 'paid').length,
+        // 'paid' = Entregado (completed)
+        completed_orders: paidOrders.length,
+        // 'cancelled' = Cancelado
         cancelled_orders: orders.filter(o => o.status === 'cancelled').length,
-        pending_orders: orders.filter(o => o.status === 'pending' || o.status === 'preparing' || o.status === 'in_transit').length,
+        // 'open' = Pendiente, 'preparing' = En preparación, 'ready' = En camino
+        pending_orders: orders.filter(o => o.status === 'open' || o.status === 'preparing' || o.status === 'ready').length,
       } as DeliverySummary;
     },
   });
