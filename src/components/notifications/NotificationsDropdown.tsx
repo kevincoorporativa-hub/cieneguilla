@@ -9,6 +9,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useExpiringProducts, useLowStockProducts } from '@/hooks/useProductInventory';
  import { useNavigate } from 'react-router-dom';
+import { useCurrentCashSession } from '@/hooks/useCashSession';
 
 interface NotificationItem {
   id: string;
@@ -21,8 +22,15 @@ interface NotificationItem {
 
 export function NotificationsDropdown() {
    const navigate = useNavigate();
-  const { data: expiringProducts = [], isLoading: loadingExpiring, refetch: refetchExpiring } = useExpiringProducts(20);
-  const { data: lowStockProducts = [], isLoading: loadingLowStock, refetch: refetchLowStock } = useLowStockProducts();
+   const { data: cashSession } = useCurrentCashSession();
+
+   const storeId = useMemo(() => {
+     const terminal = (cashSession as any)?.terminal;
+     return (terminal?.store_id as string | undefined) ?? (terminal?.store?.id as string | undefined);
+   }, [cashSession]);
+
+  const { data: expiringProducts = [], isLoading: loadingExpiring, refetch: refetchExpiring } = useExpiringProducts(20, storeId);
+  const { data: lowStockProducts = [], isLoading: loadingLowStock, refetch: refetchLowStock } = useLowStockProducts(storeId);
 
   // Compute notifications from data (no useState needed)
   const notifications = useMemo(() => {
