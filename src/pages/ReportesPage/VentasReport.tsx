@@ -45,9 +45,9 @@ export function VentasReport({ salesByDay, hourlySales, summary, isLoading, date
  
    const hourlyChartData = useMemo(() => 
     {
-      // Create all hours from 6 to 23
+      // Create all hours from 0 to 23
       const allHours = [];
-      for (let h = 6; h <= 23; h++) {
+      for (let h = 0; h <= 23; h++) {
         const hourData = hourlySales.find(hs => hs.hour === h);
         allHours.push({
           hora: `${h}:00`,
