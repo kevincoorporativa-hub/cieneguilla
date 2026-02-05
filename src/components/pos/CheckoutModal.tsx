@@ -10,7 +10,8 @@ import {
   MapPin,
   User,
   Phone,
-  Printer
+  Printer,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +76,7 @@ export function CheckoutModal({
   const [showTicketPreview, setShowTicketPreview] = useState(false);
   const [ticketNumber, setTicketNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [extraCharge, setExtraCharge] = useState('');
   const [previewSnapshot, setPreviewSnapshot] = useState<{
     items: CartItem[];
     subtotal: number;
@@ -89,8 +91,10 @@ export function CheckoutModal({
   
   const ticketRef = useRef<HTMLDivElement>(null);
 
+  const extraChargeAmount = (orderType === 'para_llevar' || orderType === 'delivery') ? (parseFloat(extraCharge) || 0) : 0;
+  const finalTotal = total + extraChargeAmount;
   const cashAmount = parseFloat(cashReceived) || 0;
-  const change = selectedPayment === 'efectivo' ? Math.max(0, cashAmount - total) : 0;
+  const change = selectedPayment === 'efectivo' ? Math.max(0, cashAmount - finalTotal) : 0;
 
   // Calcular descuentos de stock para productos que lo requieren
   const calculateStockDeductions = (): { productId: string; quantity: number }[] => {
@@ -136,7 +140,7 @@ export function CheckoutModal({
     try {
       const ok = await onConfirm({
         orderType,
-        payments: [{ method: selectedPayment, amount: total }],
+        payments: [{ method: selectedPayment, amount: finalTotal }],
         clientName: finalClientName || 'Cliente Genérico',
         clientPhone: clientPhone || undefined,
         clientAddress: orderType === 'delivery' ? clientAddress : undefined,
@@ -153,7 +157,7 @@ export function CheckoutModal({
       setPreviewSnapshot({
         items: [...items],
         subtotal,
-        total,
+        total: finalTotal,
         discount,
         paymentMethod: selectedPayment,
         cashReceived: selectedPayment === 'efectivo' ? cashAmount : undefined,
@@ -364,6 +368,47 @@ export function CheckoutModal({
             </div>
           )}
 
+          {/* Extra charge for takeaway/delivery */}
+          {(orderType === 'para_llevar' || orderType === 'delivery') && (
+            <div className="space-y-3 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800">
+              <label className="text-sm font-semibold flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                <Plus className="h-4 w-4" />
+                Recargo adicional (empaque, envío, etc.)
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground">
+                  S/
+                </span>
+                <Input
+                  type="number"
+                  value={extraCharge}
+                  onChange={(e) => setExtraCharge(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-12 h-12 text-lg font-bold rounded-xl"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {[1, 2, 3, 5, 10].map((amount) => (
+                  <Button
+                    key={amount}
+                    variant="outline"
+                    size="sm"
+                    className="h-10 px-4 font-semibold border-2 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900"
+                    onClick={() => setExtraCharge(String(amount))}
+                  >
+                    S/ {amount}
+                  </Button>
+                ))}
+              </div>
+              {extraChargeAmount > 0 && (
+                <div className="flex justify-between text-sm pt-2 border-t border-amber-200 dark:border-amber-700">
+                  <span className="text-amber-700 dark:text-amber-300">Subtotal productos:</span>
+                  <span className="font-medium">S/ {total.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Stock deductions preview */}
           {stockDeductionsPreview.length > 0 && (
             <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800">
@@ -443,7 +488,7 @@ export function CheckoutModal({
                 ))}
               </div>
 
-              {cashAmount >= total && (
+              {cashAmount >= finalTotal && (
                 <div className="p-4 bg-success/10 rounded-xl border-2 border-success">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold text-pos-lg">Vuelto:</span>
@@ -456,9 +501,15 @@ export function CheckoutModal({
 
           {/* Total summary */}
           <div className="p-4 bg-primary/10 rounded-xl border-2 border-primary">
+            {extraChargeAmount > 0 && (
+              <div className="flex justify-between items-center text-sm mb-2 pb-2 border-b border-primary/30">
+                <span>Recargo adicional:</span>
+                <span className="font-semibold">+ S/ {extraChargeAmount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between items-center">
               <span className="font-bold text-pos-lg">TOTAL A COBRAR:</span>
-              <span className="font-bold text-pos-2xl text-primary">S/ {total.toFixed(2)}</span>
+              <span className="font-bold text-pos-2xl text-primary">S/ {finalTotal.toFixed(2)}</span>
             </div>
           </div>
 
@@ -475,7 +526,7 @@ export function CheckoutModal({
             <Button
               className="flex-1 btn-pos-xl bg-success hover:bg-success/90"
               onClick={handleConfirm}
-              disabled={isSubmitting || (selectedPayment === 'efectivo' && cashAmount < total)}
+              disabled={isSubmitting || (selectedPayment === 'efectivo' && cashAmount < finalTotal)}
             >
               <Check className="h-6 w-6 mr-2" />
               {isSubmitting ? 'Procesando…' : 'Confirmar Venta'}
