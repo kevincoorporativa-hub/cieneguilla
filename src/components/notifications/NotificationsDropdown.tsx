@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Bell, AlertTriangle, Clock, Package, RefreshCw } from 'lucide-react';
+ import { Bell, AlertTriangle, Clock, Package, RefreshCw, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useExpiringProducts, useLowStockProducts } from '@/hooks/useProductInventory';
+ import { useNavigate } from 'react-router-dom';
 
 interface NotificationItem {
   id: string;
@@ -19,6 +20,7 @@ interface NotificationItem {
 }
 
 export function NotificationsDropdown() {
+   const navigate = useNavigate();
   const { data: expiringProducts = [], isLoading: loadingExpiring, refetch: refetchExpiring } = useExpiringProducts(20);
   const { data: lowStockProducts = [], isLoading: loadingLowStock, refetch: refetchLowStock } = useLowStockProducts();
 
@@ -245,7 +247,13 @@ export function NotificationsDropdown() {
         </ScrollArea>
 
         <div className="p-3 border-t bg-muted/50">
-          <Button variant="outline" size="sm" className="w-full text-sm">
+           <Button 
+             variant="outline" 
+             size="sm" 
+             className="w-full text-sm"
+             onClick={() => navigate('/inventario')}
+           >
+             <ExternalLink className="h-4 w-4 mr-2" />
             Ver inventario completo
           </Button>
         </div>

@@ -187,7 +187,6 @@ export function useExpiringProducts(daysAhead: number = 20) {
           product:products(id, name, active)
         `)
         .not('expiration_date', 'is', null)
-        .lte('expiration_date', futureDate.toISOString().split('T')[0])
         .order('expiration_date', { ascending: true });
 
       if (error) throw error;
@@ -197,6 +196,12 @@ export function useExpiringProducts(daysAhead: number = 20) {
       
       (data || []).forEach((move: any) => {
         if (!move.product?.active) return;
+         
+         const expDate = new Date(move.expiration_date);
+         expDate.setHours(0, 0, 0, 0);
+         
+         // Only include expired or expiring within daysAhead
+         if (expDate > futureDate) return;
         
         const existing = productMap.get(move.product_id);
         if (!existing || new Date(move.expiration_date) < new Date(existing.expiration_date)) {
@@ -211,6 +216,9 @@ export function useExpiringProducts(daysAhead: number = 20) {
       
       return Array.from(productMap.values());
     },
+     staleTime: 30000, // 30 seconds
+     refetchInterval: 60000, // Refetch every minute to keep data fresh
+     refetchOnWindowFocus: true,
   });
 }
 
@@ -295,5 +303,8 @@ export function useLowStockProducts() {
         return item.quantity <= minStock;
       });
     },
+     staleTime: 30000, // 30 seconds
+     refetchInterval: 60000, // Refetch every minute to keep data fresh
+     refetchOnWindowFocus: true,
   });
 }
