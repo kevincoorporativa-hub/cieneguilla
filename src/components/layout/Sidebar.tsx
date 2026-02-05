@@ -33,6 +33,7 @@ const navItems = [
   { to: '/caja', icon: Receipt, label: 'Caja', adminOnly: false },
   { to: '/tickets', icon: FileText, label: 'Tickets', adminOnly: false },
   { to: '/reportes', icon: FileText, label: 'Reportes', adminOnly: false },
+   { to: '/ajustes', icon: Settings, label: 'Ajustes', adminOnly: false },
   { to: '/usuarios', icon: Users, label: 'Usuarios', adminOnly: true },
   { to: '/configuracion', icon: Settings, label: 'Configuración', adminOnly: true },
 ];
