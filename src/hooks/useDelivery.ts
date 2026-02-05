@@ -89,9 +89,17 @@ export function useDeliveryOrders(status?: DeliveryStatus | 'all', dateFilter?: 
 
       // Date filter
       if (dateFilter) {
-        const startOfDay = `${dateFilter}T00:00:00`;
-        const endOfDay = `${dateFilter}T23:59:59`;
-        query = query.gte('created_at', startOfDay).lte('created_at', endOfDay);
+        // IMPORTANT:
+        // created_at is stored in UTC (timestamptz). If we filter by naive strings like
+        // "YYYY-MM-DDT00:00:00" PostgREST will interpret them as UTC, causing an off-by-one-day
+        // for timezones like -05 (e.g., Peru). We therefore build *local* start/end boundaries
+        // and convert them to ISO (UTC) before filtering.
+        const [y, m, d] = dateFilter.split('-').map(Number);
+        const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+        const endLocal = new Date(y, (m || 1) - 1, (d || 1) + 1, 0, 0, 0, 0);
+        query = query
+          .gte('created_at', startLocal.toISOString())
+          .lt('created_at', endLocal.toISOString());
       }
 
       const { data, error } = await query;
