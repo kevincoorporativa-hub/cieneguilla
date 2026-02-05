@@ -1,6 +1,7 @@
  import { useState, useMemo } from 'react';
  import { 
    Calendar, 
+  CalendarRange,
    DollarSign, 
    Package, 
    Truck, 
@@ -15,6 +16,12 @@
  } from 'lucide-react';
  import { MainLayout } from '@/components/layout/MainLayout';
  import { Button } from '@/components/ui/button';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
  import {
    Select,
    SelectContent,
@@ -39,8 +46,10 @@
    useHourlySales,
    usePaymentMethodsSummary,
  } from '@/hooks/useReports';
- import { format, startOfWeek, startOfMonth } from 'date-fns';
+import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from 'date-fns';
  import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+import { DateRange as DateRangeType } from 'react-day-picker';
  
  import { VentasReport } from './VentasReport';
  import { ProductosReport } from './ProductosReport';
@@ -50,29 +59,74 @@
  import { MetodosPagoReport } from './MetodosPagoReport';
  
  type ReportType = 'ventas' | 'productos' | 'categorias' | 'combos' | 'delivery' | 'metodos';
- type DateRange = 'today' | 'week' | 'month';
+type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
  
  export default function ReportesPage() {
    const [selectedReport, setSelectedReport] = useState<ReportType>('ventas');
-   const [dateRange, setDateRange] = useState<DateRange>('today');
+  const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>('today');
+  const [customRange, setCustomRange] = useState<DateRangeType | undefined>(undefined);
+  const [calendarOpen, setCalendarOpen] = useState(false);
  
-   const dateRanges = useMemo(() => {
+  const now = new Date();
+
+  // Calculate date ranges and labels
+  const { dateRanges, rangeLabel } = useMemo(() => {
      const now = new Date();
-     switch (dateRange) {
+    let start: string;
+    let end: string;
+    let label: string;
+
+    switch (dateRangeOption) {
        case 'today':
-         return { start: format(now, 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
-       case 'week':
-         return { start: format(startOfWeek(now, { locale: es }), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
-       case 'month':
-         return { start: format(startOfMonth(now), 'yyyy-MM-dd'), end: format(now, 'yyyy-MM-dd') };
+        start = format(now, 'yyyy-MM-dd');
+        end = format(now, 'yyyy-MM-dd');
+        label = `Hoy, ${format(now, 'd MMM', { locale: es })}`;
+        break;
+      case 'week': {
+        const weekStart = startOfWeek(now, { locale: es });
+        const weekEnd = endOfWeek(now, { locale: es });
+        start = format(weekStart, 'yyyy-MM-dd');
+        end = format(weekEnd, 'yyyy-MM-dd');
+        label = `Semana ${format(weekStart, 'd', { locale: es })} - ${format(weekEnd, 'd MMM', { locale: es })}`;
+        break;
+      }
+      case 'month': {
+        const monthStart = startOfMonth(now);
+        start = format(monthStart, 'yyyy-MM-dd');
+        end = format(now, 'yyyy-MM-dd');
+        label = format(now, 'MMMM yyyy', { locale: es });
+        // Capitalize first letter
+        label = label.charAt(0).toUpperCase() + label.slice(1);
+        break;
+      }
+      case 'custom':
+        if (customRange?.from && customRange?.to) {
+          start = format(customRange.from, 'yyyy-MM-dd');
+          end = format(customRange.to, 'yyyy-MM-dd');
+          label = `${format(customRange.from, 'd MMM', { locale: es })} - ${format(customRange.to, 'd MMM', { locale: es })}`;
+        } else if (customRange?.from) {
+          start = format(customRange.from, 'yyyy-MM-dd');
+          end = format(customRange.from, 'yyyy-MM-dd');
+          label = format(customRange.from, 'd MMM yyyy', { locale: es });
+        } else {
+          start = format(now, 'yyyy-MM-dd');
+          end = format(now, 'yyyy-MM-dd');
+          label = 'Seleccionar fechas';
+        }
+        break;
      }
-   }, [dateRange]);
+
+    return { dateRanges: { start, end }, rangeLabel: label };
+  }, [dateRangeOption, customRange]);
+
+  // For useSalesSummary we need to map custom to a valid option
+  const summaryRange = dateRangeOption === 'custom' ? 'month' : dateRangeOption;
  
    // Fetch all data
    const { data: salesByDay = [], isLoading: loadingSales } = useSalesByDay(dateRanges.start, dateRanges.end);
   const { data: topProducts = [], isLoading: loadingProducts } = useTopProducts(dateRanges.start, dateRanges.end);
   const { data: salesByCategory = [], isLoading: loadingCategories } = useSalesByCategory(dateRanges.start, dateRanges.end);
-   const { data: summary, isLoading: loadingSummary } = useSalesSummary(dateRange);
+  const { data: summary, isLoading: loadingSummary } = useSalesSummary(summaryRange);
    const { data: topCombos = [], isLoading: loadingCombos } = useTopCombos(dateRanges.start, dateRanges.end);
    const { data: deliverySummary, isLoading: loadingDelivery } = useDeliverySummary(dateRanges.start, dateRanges.end);
   // Hourly sales always shows TODAY's data (current local date)
@@ -86,8 +140,7 @@
    const totalVentas = summary?.totalSales || 0;
  
    const getExportData = (): ExportData => {
-     const dateLabel = dateRange === 'today' ? 'Hoy' : 
-                       dateRange === 'week' ? 'Esta semana' : 'Este mes';
+    const dateLabel = rangeLabel;
  
      switch (selectedReport) {
        case 'ventas':
@@ -167,12 +220,12 @@
  
    const handleExportExcel = () => {
      const data = getExportData();
-     exportToExcel(data, `reporte_${selectedReport}_${dateRange}`);
+    exportToExcel(data, `reporte_${selectedReport}_${dateRangeOption}`);
    };
  
    const handleExportPDF = () => {
      const data = getExportData();
-     exportToPDF(data, `reporte_${selectedReport}_${dateRange}`);
+    exportToPDF(data, `reporte_${selectedReport}_${dateRangeOption}`);
    };
  
    const reportTabs = [
@@ -194,17 +247,65 @@
              <p className="text-muted-foreground">Análisis y estadísticas del negocio</p>
            </div>
            <div className="flex gap-3">
-             <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
-               <SelectTrigger className="w-48 h-12">
+            <Select value={dateRangeOption} onValueChange={(v) => {
+              setDateRangeOption(v as DateRangeOption);
+              if (v === 'custom') {
+                setCalendarOpen(true);
+              }
+            }}>
+              <SelectTrigger className="w-56 h-12">
                  <Calendar className="h-4 w-4 mr-2" />
-                 <SelectValue />
+                <SelectValue placeholder={rangeLabel}>{rangeLabel}</SelectValue>
                </SelectTrigger>
                <SelectContent>
-                 <SelectItem value="today">Hoy</SelectItem>
-                 <SelectItem value="week">Esta semana</SelectItem>
-                 <SelectItem value="month">Este mes</SelectItem>
+                <SelectItem value="today">Hoy, {format(now, 'd MMM', { locale: es })}</SelectItem>
+                <SelectItem value="week">
+                  Semana {format(startOfWeek(now, { locale: es }), 'd', { locale: es })} - {format(endOfWeek(now, { locale: es }), 'd MMM', { locale: es })}
+                </SelectItem>
+                <SelectItem value="month">
+                  {format(now, 'MMMM yyyy', { locale: es }).replace(/^\w/, c => c.toUpperCase())}
+                </SelectItem>
+                <SelectItem value="custom">
+                  <CalendarRange className="h-4 w-4 mr-2 inline" />
+                  Rango personalizado
+                </SelectItem>
                </SelectContent>
              </Select>
+
+            {/* Custom Date Range Popover */}
+            {dateRangeOption === 'custom' && (
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="h-12">
+                    <CalendarRange className="h-4 w-4 mr-2" />
+                    {customRange?.from ? (
+                      customRange.to ? (
+                        `${format(customRange.from, 'd MMM', { locale: es })} - ${format(customRange.to, 'd MMM', { locale: es })}`
+                      ) : (
+                        format(customRange.from, 'd MMM yyyy', { locale: es })
+                      )
+                    ) : (
+                      'Seleccionar fechas'
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <CalendarComponent
+                    mode="range"
+                    selected={customRange}
+                    onSelect={(range) => {
+                      setCustomRange(range);
+                      if (range?.from && range?.to) {
+                        setCalendarOpen(false);
+                      }
+                    }}
+                    numberOfMonths={2}
+                    locale={es}
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
              
              <DropdownMenu>
                <DropdownMenuTrigger asChild>
