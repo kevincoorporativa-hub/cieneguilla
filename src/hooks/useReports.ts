@@ -474,8 +474,8 @@ export function useHourlySales(date?: string) {
           hour: parseInt(hour),
           total_orders: data.orders,
           total_sales: data.sales,
-        }))
-        .filter(h => h.hour >= 6 && h.hour <= 23); // Only business hours
+        }));
+      // Return all 24 hours (0-23)
     },
   });
 }
