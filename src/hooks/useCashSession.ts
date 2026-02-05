@@ -35,30 +35,32 @@ export interface CashSessionSummary {
 }
 
 // Fetch current open session for user
-export function useCurrentCashSession() {
-  const { user } = useAuth();
-
+export function useCurrentCashSession(terminalId?: string) {
   return useQuery({
-    queryKey: ['cash-session', 'current', user?.id],
+    queryKey: ['cash-session', 'current', terminalId || 'any'],
     queryFn: async () => {
-      if (!user?.id) return null;
-
-      const { data, error } = await supabase
+      // Find ANY open session (for terminal or any terminal if not specified)
+      let query = supabase
         .from('cash_sessions')
         .select(`
           *,
           terminal:terminals(id, name, store_id, store:stores(id, name))
         `)
-        .eq('user_id', user.id)
         .eq('status', 'open')
-        .maybeSingle();
+        .order('opened_at', { ascending: false });
+
+      if (terminalId) {
+        query = query.eq('terminal_id', terminalId);
+      }
+
+      const { data, error } = await query.limit(1).maybeSingle();
 
       if (error) throw error;
       return data as CashSession | null;
     },
-    enabled: !!user?.id,
     staleTime: 10000, // Cache for 10 seconds
     refetchOnWindowFocus: true,
+    refetchInterval: 15000, // Poll every 15 seconds to sync across users
   });
 }
 
@@ -203,9 +205,12 @@ export function useOpenCashSession() {
       return data as CashSession;
     },
     onSuccess: () => {
+      // Invalidate all cash session related queries to sync across all users
       queryClient.invalidateQueries({ queryKey: ['cash-session'] });
       queryClient.invalidateQueries({ queryKey: ['cash-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['cash-session-summary'] });
+      // Force refetch immediately
+      queryClient.refetchQueries({ queryKey: ['cash-session', 'current'] });
     },
   });
 }
@@ -240,9 +245,12 @@ export function useCloseCashSession() {
       return data as CashSession;
     },
     onSuccess: () => {
+      // Invalidate all cash session related queries to sync across all users
       queryClient.invalidateQueries({ queryKey: ['cash-session'] });
       queryClient.invalidateQueries({ queryKey: ['cash-sessions'] });
       queryClient.invalidateQueries({ queryKey: ['cash-session-summary'] });
+      // Force refetch immediately
+      queryClient.refetchQueries({ queryKey: ['cash-session', 'current'] });
     },
   });
 }
