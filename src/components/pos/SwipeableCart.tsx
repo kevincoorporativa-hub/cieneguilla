@@ -102,35 +102,8 @@ export function SwipeableCart({
         </div>
       </div>
 
-      {/* Swipe hint for touch devices */}
-      <div className="lg:hidden px-3 py-1 bg-muted/50 text-center text-xs text-muted-foreground">
-        ← Desliza para eliminar último item
-      </div>
-
-      {/* Items */}
-      <ScrollArea className="flex-1 p-2 lg:p-3 xl:p-4">
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 lg:h-48 xl:h-56 text-muted-foreground">
-            <ShoppingCart className="h-12 w-12 lg:h-16 lg:w-16 xl:h-20 xl:w-20 mb-3 lg:mb-4 opacity-50" />
-            <p className="text-sm lg:text-base xl:text-xl font-medium">Carrito vacío</p>
-            <p className="text-xs lg:text-sm xl:text-base">Selecciona productos para agregar</p>
-          </div>
-        ) : (
-          <div className="space-y-2 lg:space-y-3 xl:space-y-4">
-            {items.map((item) => (
-              <CartItemRow
-                key={item.id}
-                item={item}
-                onUpdateQuantity={onUpdateQuantity}
-                onRemove={onRemove}
-              />
-            ))}
-          </div>
-        )}
-      </ScrollArea>
-
-      {/* Totals and actions */}
-      <div className="p-3 lg:p-4 xl:p-6 border-t border-border space-y-3 lg:space-y-4 xl:space-y-5 bg-card">
+      {/* Totals and actions - NOW AT TOP */}
+      <div className="p-3 lg:p-4 xl:p-6 border-b border-border space-y-3 lg:space-y-4 xl:space-y-5 bg-card">
         {/* Totals */}
         <div className="space-y-2 lg:space-y-3 xl:space-y-4">
           <div className="flex justify-between text-sm lg:text-base xl:text-xl">
@@ -170,6 +143,33 @@ export function SwipeableCart({
           </Button>
         </div>
       </div>
+
+      {/* Swipe hint for touch devices */}
+      <div className="lg:hidden px-3 py-1 bg-muted/50 text-center text-xs text-muted-foreground">
+        ← Desliza para eliminar último item
+      </div>
+
+      {/* Items - NOW AT BOTTOM */}
+      <ScrollArea className="flex-1 p-2 lg:p-3 xl:p-4">
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 lg:h-48 xl:h-56 text-muted-foreground">
+            <ShoppingCart className="h-12 w-12 lg:h-16 lg:w-16 xl:h-20 xl:w-20 mb-3 lg:mb-4 opacity-50" />
+            <p className="text-sm lg:text-base xl:text-xl font-medium">Carrito vacío</p>
+            <p className="text-xs lg:text-sm xl:text-base">Selecciona productos para agregar</p>
+          </div>
+        ) : (
+          <div className="space-y-2 lg:space-y-3 xl:space-y-4">
+            {items.map((item) => (
+              <CartItemRow
+                key={item.id}
+                item={item}
+                onUpdateQuantity={onUpdateQuantity}
+                onRemove={onRemove}
+              />
+            ))}
+          </div>
+        )}
+      </ScrollArea>
     </div>
   );
 }
