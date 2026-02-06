@@ -183,7 +183,7 @@ export default function InventarioPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-pos-2xl font-bold">Inventario</h1>
+            <h1 className="text-pos-2xl font-bold">Insumos</h1>
             <p className="text-muted-foreground">Control de insumos y materiales</p>
           </div>
           <div className="flex gap-3">
@@ -210,7 +210,7 @@ export default function InventarioPage() {
           <TabsList className="h-14 p-1 bg-muted rounded-xl">
             <TabsTrigger value="inventario" className="h-12 px-6 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Package className="h-5 w-5 mr-2" />
-              Inventario
+              Insumos
             </TabsTrigger>
             <TabsTrigger value="kardex" className="h-12 px-6 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <History className="h-5 w-5 mr-2" />

@@ -28,7 +28,7 @@ const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', adminOnly: false },
   { to: '/productos', icon: Package, label: 'Productos', adminOnly: false },
   { to: '/combos', icon: Layers, label: 'Combos', adminOnly: false },
-  { to: '/inventario', icon: Boxes, label: 'Inventario', adminOnly: false },
+  { to: '/inventario', icon: Boxes, label: 'Insumos', adminOnly: false },
   { to: '/delivery', icon: Truck, label: 'Delivery', adminOnly: false },
   { to: '/caja', icon: Receipt, label: 'Caja', adminOnly: false },
   { to: '/tickets', icon: FileText, label: 'Tickets', adminOnly: false },
