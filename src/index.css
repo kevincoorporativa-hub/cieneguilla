@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* POS System Design - Optimized for accessibility and touch interfaces */
+/* POS System Design - Optimized for 1024x768 touch monitors */
 
 @layer base {
   :root {
@@ -73,27 +73,47 @@
     --pos-category: 215 25% 27%;
     --pos-product: 0 0% 100%;
     --pos-cart: 220 15% 96%;
+    
+    /* Touch optimization */
+    --touch-min-target: 48px;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    /* Prevent text selection on touch for better UX */
+    -webkit-user-select: none;
+    user-select: none;
+    /* Disable touch callout (iOS long-press menu) */
+    -webkit-touch-callout: none;
+    /* Faster touch response */
+    touch-action: manipulation;
+  }
+  
+  /* Allow text selection in input fields */
+  input, textarea, [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
   }
 
-  /* Responsive font sizing based on screen size */
+  /* Base font size optimized for 1024x768 */
   html {
-    font-size: 14px; /* Base for 1024x768 */
+    font-size: 13px;
+    /* Prevent zoom on double tap */
+    touch-action: manipulation;
+    /* Prevent pull-to-refresh */
+    overscroll-behavior: none;
   }
 
-  /* 15" screens (1366x768) */
+  /* 15" screens (1280x720+) */
   @media (min-width: 1280px) {
     html {
-      font-size: 15px;
+      font-size: 14px;
     }
   }
 
-  /* 20" screens (1600x900) */
+  /* 20" screens (1536x864+) */
   @media (min-width: 1536px) {
     html {
       font-size: 16px;
@@ -110,16 +130,28 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    /* Prevent overscroll bounce */
+    overscroll-behavior: none;
+    /* Prevent text size adjust on orientation change */
+    -webkit-text-size-adjust: 100%;
   }
 
-  /* Large touch-friendly buttons - responsive */
+  /* ========== TOUCH-OPTIMIZED BUTTONS ========== */
+  
+  /* Standard POS button - minimum 48px for touch */
   .btn-pos {
-    @apply min-h-[44px] px-4 text-base font-semibold rounded-xl transition-all duration-150 active:scale-95;
+    @apply min-h-[48px] px-4 text-base font-semibold rounded-xl;
+    /* Touch-optimized transitions */
+    transition: transform 100ms ease-out, background-color 100ms ease-out;
+  }
+  
+  .btn-pos:active {
+    transform: scale(0.96);
   }
 
   @media (min-width: 1280px) {
     .btn-pos {
-      @apply min-h-[48px] px-5 text-lg;
+      @apply min-h-[52px] px-5 text-lg;
     }
   }
 
@@ -129,8 +161,14 @@
     }
   }
 
+  /* Extra large POS button */
   .btn-pos-xl {
-    @apply min-h-[56px] px-6 text-lg font-bold rounded-2xl transition-all duration-150 active:scale-95;
+    @apply min-h-[56px] px-6 text-lg font-bold rounded-2xl;
+    transition: transform 100ms ease-out, background-color 100ms ease-out;
+  }
+  
+  .btn-pos-xl:active {
+    transform: scale(0.96);
   }
 
   @media (min-width: 1536px) {
@@ -139,50 +177,62 @@
     }
   }
 
-  /* Product grid cards - responsive */
+  /* ========== PRODUCT CARDS - TOUCH OPTIMIZED ========== */
+  
   .product-card {
     @apply bg-card rounded-xl p-3 shadow-sm border-2 border-transparent 
-           hover:border-primary hover:shadow-lg transition-all duration-150 
-           cursor-pointer active:scale-95 min-h-[100px];
+           hover:border-primary hover:shadow-lg cursor-pointer min-h-[90px];
+    transition: transform 100ms ease-out, border-color 150ms ease-out, box-shadow 150ms ease-out;
+  }
+  
+  .product-card:active {
+    transform: scale(0.97);
+    @apply border-primary;
   }
 
   @media (min-width: 1280px) {
     .product-card {
-      @apply rounded-2xl p-4 min-h-[120px];
+      @apply rounded-2xl p-4 min-h-[110px];
     }
   }
 
   @media (min-width: 1536px) {
     .product-card {
-      @apply min-h-[140px];
+      @apply min-h-[130px];
     }
   }
 
-  /* Category buttons - responsive */
+  /* ========== CATEGORY BUTTONS - TOUCH OPTIMIZED ========== */
+  
   .category-btn {
-    @apply min-h-[52px] px-3 text-sm font-bold rounded-lg transition-all duration-150 
-           active:scale-95 flex items-center justify-center gap-2;
+    @apply min-h-[48px] px-3 text-sm font-bold rounded-lg 
+           flex items-center justify-center gap-2;
+    transition: transform 100ms ease-out, background-color 100ms ease-out;
+  }
+  
+  .category-btn:active {
+    transform: scale(0.95);
   }
 
   @media (min-width: 1280px) {
     .category-btn {
-      @apply min-h-[60px] px-4 text-base rounded-xl gap-2;
+      @apply min-h-[56px] px-4 text-base rounded-xl gap-2;
     }
   }
 
   @media (min-width: 1536px) {
     .category-btn {
-      @apply min-h-[72px] px-6 text-lg gap-3;
+      @apply min-h-[64px] px-6 text-lg gap-3;
     }
   }
 
-  /* Stock color indicators */
+  /* ========== STOCK INDICATORS ========== */
+  
   .stock-high { @apply bg-[hsl(var(--stock-high))] text-white; }
   .stock-medium { @apply bg-[hsl(var(--stock-medium))] text-black; }
   .stock-low { @apply bg-[hsl(var(--stock-low))] text-white; }
   .stock-empty { @apply bg-[hsl(var(--stock-empty))] text-white; }
 
-  /* Online/Offline indicator */
   .status-online {
     @apply bg-[hsl(var(--success))] text-white;
   }
@@ -190,11 +240,16 @@
     @apply bg-[hsl(var(--warning))] text-black;
   }
 
-  /* Number pad buttons - responsive */
+  /* ========== NUMPAD - TOUCH OPTIMIZED ========== */
+  
   .numpad-btn {
-    @apply min-h-[48px] min-w-[48px] text-xl font-bold rounded-lg 
-           bg-secondary text-secondary-foreground hover:bg-secondary/90 
-           active:scale-95 transition-all duration-100;
+    @apply min-h-[52px] min-w-[52px] text-xl font-bold rounded-lg 
+           bg-secondary text-secondary-foreground hover:bg-secondary/90;
+    transition: transform 100ms ease-out;
+  }
+  
+  .numpad-btn:active {
+    transform: scale(0.94);
   }
 
   @media (min-width: 1536px) {
@@ -203,43 +258,21 @@
     }
   }
 
-  /* Cart item */
+  /* ========== CART ITEMS ========== */
+  
   .cart-item {
     @apply flex items-center justify-between p-2 bg-card rounded-lg 
-           border border-border hover:bg-muted/50 transition-colors;
+           border border-border hover:bg-muted/50 transition-colors min-h-[48px];
   }
 
   @media (min-width: 1280px) {
     .cart-item {
-      @apply p-3 rounded-xl;
+      @apply p-3 rounded-xl min-h-[52px];
     }
   }
 
-  /* Tablet/Touch Mode Styles */
-  .touch-mode {
-    /* Larger tap targets for touch interfaces */
-    .btn-pos {
-      @apply min-h-[56px] text-lg;
-    }
-
-    .product-card {
-      @apply min-h-[130px] p-4;
-    }
-
-    .category-btn {
-      @apply min-h-[64px] text-base;
-    }
-
-    .cart-item {
-      @apply p-4;
-    }
-
-    .numpad-btn {
-      @apply min-h-[64px] min-w-[64px] text-2xl;
-    }
-  }
-
-  /* Swipeable cart container */
+  /* ========== SWIPEABLE CART ========== */
+  
   .cart-swipeable {
     @apply transition-transform duration-300 ease-out;
   }
@@ -252,12 +285,17 @@
     @apply translate-x-2 opacity-90;
   }
 
-  /* Floating sidebar button */
+  /* ========== FLOATING SIDEBAR BUTTON ========== */
+  
   .floating-sidebar-btn {
     @apply fixed left-4 top-1/2 -translate-y-1/2 z-50 
-           w-12 h-12 rounded-full bg-primary text-primary-foreground 
-           shadow-xl flex items-center justify-center 
-           transition-all duration-300 hover:scale-110 active:scale-95;
+           w-14 h-14 rounded-full bg-primary text-primary-foreground 
+           shadow-xl flex items-center justify-center;
+    transition: transform 100ms ease-out;
+  }
+  
+  .floating-sidebar-btn:active {
+    transform: translateY(-50%) scale(0.92);
   }
 
   @media (min-width: 1280px) {
@@ -266,7 +304,8 @@
     }
   }
 
-  /* Mobile sidebar overlay */
+  /* ========== MOBILE SIDEBAR ========== */
+  
   .sidebar-overlay {
     @apply fixed inset-0 bg-black/50 z-40 transition-opacity duration-300;
   }
@@ -283,29 +322,97 @@
     @apply translate-x-0;
   }
 
-  /* Touch feedback */
+  /* ========== TOUCH FEEDBACK ========== */
+  
   .touch-active {
-    @apply active:bg-primary/20 active:scale-[0.98] transition-all duration-100;
+    transition: transform 100ms ease-out, background-color 100ms ease-out;
+  }
+  
+  .touch-active:active {
+    transform: scale(0.96);
+    @apply bg-primary/20;
   }
 
-  /* Kiosk mode styles */
+  /* ========== KIOSK MODE ========== */
+  
   .kiosk-mode {
     @apply fixed inset-0 z-[100];
   }
 
+  /* ========== TOUCH MODE OVERRIDES (1024x768) ========== */
+  
   .touch-mode .product-card {
-    @apply min-h-[160px] p-5;
+    @apply min-h-[100px] p-4;
   }
 
   .touch-mode .category-btn {
-    @apply min-h-[72px] text-lg;
+    @apply min-h-[52px] text-base;
   }
 
   .touch-mode .btn-pos {
-    @apply min-h-[64px] text-xl;
+    @apply min-h-[52px] text-lg;
   }
 
   .touch-mode .cart-item {
-    @apply p-5 text-lg;
+    @apply p-4 text-base min-h-[56px];
+  }
+  
+  .touch-mode .numpad-btn {
+    @apply min-h-[56px] min-w-[56px] text-xl;
+  }
+
+  /* ========== SCROLLBAR OPTIMIZATION FOR TOUCH ========== */
+  
+  /* Hide scrollbars on touch but keep functionality */
+  .touch-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  
+  .touch-scroll::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  
+  .touch-scroll::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+  
+  /* ========== PREVENT ZOOM ON INPUT FOCUS ========== */
+  
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="date"],
+  input[type="tel"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+  
+  /* ========== DIALOG/MODAL TOUCH OPTIMIZATION ========== */
+  
+  [role="dialog"] {
+    /* Ensure dialogs are touchable */
+    touch-action: auto;
+  }
+  
+  /* ========== QUANTITY BUTTONS IN CART ========== */
+  
+  .qty-btn {
+    @apply min-w-[40px] min-h-[40px] rounded-lg flex items-center justify-center 
+           font-bold text-lg;
+    transition: transform 80ms ease-out;
+  }
+  
+  .qty-btn:active {
+    transform: scale(0.88);
+  }
+  
+  @media (min-width: 1280px) {
+    .qty-btn {
+      @apply min-w-[44px] min-h-[44px];
+    }
   }
 }

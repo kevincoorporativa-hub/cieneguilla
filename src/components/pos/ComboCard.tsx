@@ -1,6 +1,5 @@
 import { Plus, Package, TrendingDown } from 'lucide-react';
 import { ComboCompleto } from '@/types/pos';
-import { Button } from '@/components/ui/button';
 
 interface ComboCardProps {
   combo: ComboCompleto;
@@ -18,8 +17,16 @@ export function ComboCard({ combo, onAdd, products = [] }: ComboCardProps) {
   const ahorro = precioOriginal - combo.precio;
   const porcentajeAhorro = precioOriginal > 0 ? Math.round((ahorro / precioOriginal) * 100) : 0;
 
+  const handleClick = () => {
+    onAdd(combo);
+  };
+
   return (
-    <div className="relative bg-card border-2 rounded-xl p-4 hover:shadow-lg transition-all duration-200 hover:border-primary/50 group">
+    <button
+      onClick={handleClick}
+      className="relative bg-card border-2 rounded-xl p-3 hover:shadow-lg hover:border-primary/50 group w-full text-left select-none transition-transform duration-100 active:scale-[0.97]"
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+    >
       {/* Combo badge */}
       <div className="absolute -top-2 -right-2">
         <div className="bg-primary text-primary-foreground rounded-full p-1.5">
@@ -33,8 +40,8 @@ export function ComboCard({ combo, onAdd, products = [] }: ComboCardProps) {
       </div>
 
       {/* Content */}
-      <div className="space-y-2">
-        <h3 className="font-bold text-pos-base pr-6 line-clamp-2">{combo.nombre}</h3>
+      <div className="space-y-1.5">
+        <h3 className="font-bold text-sm lg:text-base pr-6 line-clamp-2">{combo.nombre}</h3>
         
         {combo.descripcion && (
           <p className="text-xs text-muted-foreground line-clamp-1">{combo.descripcion}</p>
@@ -70,26 +77,22 @@ export function ComboCard({ combo, onAdd, products = [] }: ComboCardProps) {
         )}
       </div>
 
-      {/* Price and add button */}
-      <div className="flex items-center justify-between mt-3 pt-3 border-t">
+      {/* Price and add indicator */}
+      <div className="flex items-center justify-between mt-2 pt-2 border-t">
         <div className="flex flex-col">
           {precioOriginal > combo.precio && (
             <span className="text-xs text-muted-foreground line-through">
               S/ {precioOriginal.toFixed(2)}
             </span>
           )}
-          <span className="font-bold text-lg text-primary">
+          <span className="font-bold text-base lg:text-lg text-primary">
             S/ {combo.precio.toFixed(2)}
           </span>
         </div>
-        <Button
-          size="icon"
-          className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 shadow-lg"
-          onClick={() => onAdd(combo)}
-        >
+        <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-md transition-transform duration-100 group-active:scale-90">
           <Plus className="h-5 w-5" />
-        </Button>
+        </div>
       </div>
-    </div>
+    </button>
   );
 }

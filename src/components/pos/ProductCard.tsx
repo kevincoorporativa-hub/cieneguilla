@@ -27,43 +27,51 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
   const stockLevel = getStockLevel(product.stock, product.stockMinimo);
   const isDisabled = stockLevel === 'empty';
 
+  const handleClick = () => {
+    if (!isDisabled) {
+      onAdd(product);
+    }
+  };
+
   return (
     <button
-      onClick={() => !isDisabled && onAdd(product)}
+      onClick={handleClick}
       disabled={isDisabled}
       className={cn(
-        'product-card flex flex-col items-center justify-center text-center gap-1 lg:gap-2 relative',
+        'product-card flex flex-col items-center justify-center text-center gap-1 relative w-full',
+        'touch-action-manipulation select-none',
         isDisabled && 'opacity-50 cursor-not-allowed hover:border-transparent hover:shadow-sm'
       )}
+      style={{ WebkitTapHighlightColor: 'transparent' }}
     >
       {/* Stock indicator */}
       <div
         className={cn(
-          'absolute top-2 lg:top-3 right-2 lg:right-3 w-3 h-3 lg:w-4 lg:h-4 rounded-full',
+          'absolute top-2 right-2 w-3 h-3 lg:w-4 lg:h-4 rounded-full',
           getStockColor(stockLevel)
         )}
         title={`Stock: ${product.stock}`}
       />
 
       {/* Product name */}
-      <h3 className="text-sm lg:text-base xl:text-lg font-bold text-foreground leading-tight line-clamp-2">
+      <h3 className="text-sm lg:text-base font-bold text-foreground leading-tight line-clamp-2 px-1">
         {product.nombre}
       </h3>
 
       {/* Price */}
-      <p className="text-base lg:text-lg xl:text-xl font-bold text-primary">
+      <p className="text-base lg:text-lg font-bold text-primary">
         S/ {product.precio.toFixed(2)}
       </p>
 
-      {/* Add indicator */}
+      {/* Add indicator - larger for touch */}
       {!isDisabled && (
-        <div className="absolute bottom-2 lg:bottom-3 right-2 lg:right-3 w-7 h-7 lg:w-8 lg:h-8 xl:w-10 xl:h-10 bg-primary rounded-full flex items-center justify-center text-primary-foreground">
-          <Plus className="h-4 w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
+        <div className="absolute bottom-2 right-2 w-8 h-8 lg:w-9 lg:h-9 bg-primary rounded-full flex items-center justify-center text-primary-foreground shadow-md">
+          <Plus className="h-5 w-5 lg:h-6 lg:w-6" />
         </div>
       )}
 
       {isDisabled && (
-        <span className="text-xs lg:text-sm text-muted-foreground font-medium">Sin stock</span>
+        <span className="text-xs text-muted-foreground font-medium">Sin stock</span>
       )}
     </button>
   );

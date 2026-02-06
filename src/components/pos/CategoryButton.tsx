@@ -14,15 +14,18 @@ export function CategoryButton({ nombre, icon: Icon, isActive, onClick, color }:
     <button
       onClick={onClick}
       className={cn(
-        'category-btn w-full',
+        'category-btn w-full select-none',
         isActive
           ? 'bg-primary text-primary-foreground shadow-lg'
           : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
       )}
-      style={color && isActive ? { backgroundColor: color } : undefined}
+      style={{
+        ...(color && isActive ? { backgroundColor: color } : {}),
+        WebkitTapHighlightColor: 'transparent'
+      }}
     >
-      <Icon className="h-4 w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
-      <span className="truncate text-xs lg:text-sm xl:text-base">{nombre}</span>
+      <Icon className="h-5 w-5 lg:h-5 lg:w-5" />
+      <span className="truncate text-xs lg:text-sm">{nombre}</span>
     </button>
   );
 }
