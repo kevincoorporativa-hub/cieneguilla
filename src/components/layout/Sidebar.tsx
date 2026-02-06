@@ -18,6 +18,7 @@ import {
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { OnlineIndicator } from '@/components/pos/OnlineIndicator';
+import { StorageBar } from '@/components/pos/StorageBar';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebarContext } from '@/contexts/SidebarContext';
@@ -149,6 +150,7 @@ export function Sidebar() {
 
       {/* Footer */}
       <div className="p-2 lg:p-3 border-t border-sidebar-border space-y-1 lg:space-y-2">
+        {(!isCollapsed || isFloating) && <StorageBar />}
         {(!isCollapsed || isFloating) && <OnlineIndicator />}
         <button 
           onClick={handleLogout}
