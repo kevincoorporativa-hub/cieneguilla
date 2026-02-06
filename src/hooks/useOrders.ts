@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type OrderType = 'local' | 'takeaway' | 'delivery';
 export type OrderStatus = 'open' | 'preparing' | 'ready' | 'paid' | 'cancelled';
-export type PaymentMethod = 'cash' | 'card' | 'yape' | 'plin' | 'transfer';
+export type PaymentMethod = 'cash' | 'card' | 'yape' | 'plin' | 'transfer' | 'pos';
 
 export interface CreateOrderData {
   store_id?: string | null;

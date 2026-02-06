@@ -28,6 +28,8 @@ export interface CashSessionSummary {
   closed_at: string | null;
   cash_total: number;
   card_total: number;
+  pos_total: number;
+  transfer_total: number;
   yape_total: number;
   plin_total: number;
   total_sales: number;
@@ -93,7 +95,9 @@ export function useCashSessionSummary(sessionId: string | null) {
 
       // Calculate totals by payment method
       const cash_total = payments?.filter(p => p.method === 'cash').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-      const card_total = payments?.filter(p => p.method === 'card' || p.method === 'transfer').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      const card_total = payments?.filter(p => p.method === 'card').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      const pos_total = payments?.filter(p => p.method === 'pos').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+      const transfer_total = payments?.filter(p => p.method === 'transfer').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
       const yape_total = payments?.filter(p => p.method === 'yape').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
       const plin_total = payments?.filter(p => p.method === 'plin').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
       const total_sales = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
@@ -110,6 +114,8 @@ export function useCashSessionSummary(sessionId: string | null) {
         closed_at: session.closed_at,
         cash_total,
         card_total,
+        pos_total,
+        transfer_total,
         yape_total,
         plin_total,
         total_sales,
@@ -153,7 +159,9 @@ export function useCashSessionHistory() {
       return sessions.map(session => {
         const sessionPayments = payments?.filter(p => p.cash_session_id === session.id) || [];
         const cash_total = sessionPayments.filter(p => p.method === 'cash').reduce((sum, p) => sum + Number(p.amount), 0);
-        const card_total = sessionPayments.filter(p => p.method === 'card' || p.method === 'transfer').reduce((sum, p) => sum + Number(p.amount), 0);
+        const card_total = sessionPayments.filter(p => p.method === 'card').reduce((sum, p) => sum + Number(p.amount), 0);
+        const pos_total = sessionPayments.filter(p => p.method === 'pos').reduce((sum, p) => sum + Number(p.amount), 0);
+        const transfer_total = sessionPayments.filter(p => p.method === 'transfer').reduce((sum, p) => sum + Number(p.amount), 0);
         const yape_total = sessionPayments.filter(p => p.method === 'yape').reduce((sum, p) => sum + Number(p.amount), 0);
         const plin_total = sessionPayments.filter(p => p.method === 'plin').reduce((sum, p) => sum + Number(p.amount), 0);
         const total_sales = sessionPayments.reduce((sum, p) => sum + Number(p.amount), 0);
@@ -170,6 +178,8 @@ export function useCashSessionHistory() {
           closed_at: session.closed_at,
           cash_total,
           card_total,
+          pos_total,
+          transfer_total,
           yape_total,
           plin_total,
           total_sales,

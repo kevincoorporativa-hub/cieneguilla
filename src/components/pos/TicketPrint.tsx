@@ -47,6 +47,7 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
       efectivo: 'Efectivo',
       yape: 'Yape',
       plin: 'Plin',
+      pos: 'POS',
       transferencia: 'Transferencia',
     };
 

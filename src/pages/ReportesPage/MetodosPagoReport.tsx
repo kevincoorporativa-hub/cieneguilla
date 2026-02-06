@@ -26,31 +26,34 @@
    isLoading: boolean;
  }
  
- const methodColors: Record<string, string> = {
-   cash: 'hsl(142, 76%, 36%)',
-   card: 'hsl(215, 25%, 40%)',
-   transfer: 'hsl(24, 95%, 53%)',
-   yape: 'hsl(280, 65%, 55%)',
-   plin: 'hsl(190, 75%, 45%)',
-   other: 'hsl(220, 15%, 60%)',
- };
- 
- const methodLabels: Record<string, string> = {
-   cash: 'Efectivo',
-   card: 'Tarjeta',
-   transfer: 'Transferencia',
-   yape: 'Yape',
-   plin: 'Plin',
-   other: 'Otro',
- };
- 
- const methodIcons: Record<string, React.ReactNode> = {
-   cash: <Banknote className="h-5 w-5" />,
-   card: <CreditCard className="h-5 w-5" />,
-   transfer: <Building2 className="h-5 w-5" />,
-   yape: <Smartphone className="h-5 w-5" />,
-   plin: <Smartphone className="h-5 w-5" />,
- };
+const methodColors: Record<string, string> = {
+  cash: 'hsl(142, 76%, 36%)',
+  pos: 'hsl(215, 70%, 50%)',
+  card: 'hsl(215, 25%, 40%)',
+  transfer: 'hsl(24, 95%, 53%)',
+  yape: 'hsl(280, 65%, 55%)',
+  plin: 'hsl(190, 75%, 45%)',
+  other: 'hsl(220, 15%, 60%)',
+};
+
+const methodLabels: Record<string, string> = {
+  cash: 'Efectivo',
+  pos: 'POS',
+  card: 'Tarjeta',
+  transfer: 'Transferencia',
+  yape: 'Yape',
+  plin: 'Plin',
+  other: 'Otro',
+};
+
+const methodIcons: Record<string, React.ReactNode> = {
+  cash: <Banknote className="h-5 w-5" />,
+  pos: <CreditCard className="h-5 w-5" />,
+  card: <CreditCard className="h-5 w-5" />,
+  transfer: <Building2 className="h-5 w-5" />,
+  yape: <Smartphone className="h-5 w-5" />,
+  plin: <Smartphone className="h-5 w-5" />,
+};
  
  export function MetodosPagoReport({ paymentMethods, isLoading }: MetodosPagoReportProps) {
    const chartData = useMemo(() => 
