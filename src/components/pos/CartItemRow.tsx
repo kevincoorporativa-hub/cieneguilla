@@ -21,27 +21,25 @@ export function CartItemRow({ item, onUpdateQuantity, onRemove }: CartItemRowPro
 
       {/* Row 2: Quantity controls, subtotal, and remove */}
       <div className="flex items-center justify-between w-full gap-2">
-        {/* Quantity controls - compact */}
-        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-md"
+        {/* Quantity controls - touch optimized with larger targets */}
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          <button
+            className="qty-btn bg-background hover:bg-muted-foreground/10 text-foreground"
             onClick={() => onUpdateQuantity(item.id, item.cantidad - 1)}
+            aria-label="Disminuir cantidad"
           >
-            <Minus className="h-4 w-4" />
-          </Button>
-          <span className="w-8 text-center font-bold text-pos-base">
+            <Minus className="h-5 w-5" />
+          </button>
+          <span className="w-10 text-center font-bold text-pos-lg">
             {item.cantidad}
           </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 rounded-md"
+          <button
+            className="qty-btn bg-primary text-primary-foreground"
             onClick={() => onUpdateQuantity(item.id, item.cantidad + 1)}
+            aria-label="Aumentar cantidad"
           >
-            <Plus className="h-4 w-4" />
-          </Button>
+            <Plus className="h-5 w-5" />
+          </button>
         </div>
 
         {/* Subtotal */}
@@ -49,15 +47,14 @@ export function CartItemRow({ item, onUpdateQuantity, onRemove }: CartItemRowPro
           S/ {item.subtotal.toFixed(2)}
         </span>
 
-        {/* Remove button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-md"
+        {/* Remove button - touch optimized */}
+        <button
+          className="qty-btn bg-destructive/10 text-destructive hover:bg-destructive/20"
           onClick={() => onRemove(item.id)}
+          aria-label="Eliminar producto"
         >
-          <Trash2 className="h-4 w-4" />
-        </Button>
+          <Trash2 className="h-5 w-5" />
+        </button>
       </div>
     </div>
   );
