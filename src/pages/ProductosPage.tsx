@@ -550,16 +550,6 @@ export default function ProductosPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
-                                {product.track_stock && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleOpenStockModal(product)}
-                                    title="Gestionar Stock"
-                                  >
-                                    <ArrowUpDown className="h-5 w-5 text-primary" />
-                                  </Button>
-                                )}
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -936,27 +926,7 @@ export default function ProductosPage() {
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <div>
-                    <Label>Producto Vence</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Habilitar si el producto tiene fecha de vencimiento
-                    </p>
-                  </div>
-                  <Switch checked={formExpires} onCheckedChange={setFormExpires} />
-                </div>
-
-                {formExpires && (
-                  <div className="space-y-2">
-                    <Label>Fecha de Vencimiento</Label>
-                    <Input
-                      type="date"
-                      value={formExpirationDate}
-                      onChange={(e) => setFormExpirationDate(e.target.value)}
-                      className="h-12"
-                    />
-                  </div>
-                )}
+                {/* Producto Vence toggle is only shown in Stock Movement Modal (Ingreso de Producto) */}
               </>
             )}
 
