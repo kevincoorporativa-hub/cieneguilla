@@ -82,7 +82,7 @@ export interface Combo {
   createdAt: Date;
 }
 
-export type PaymentMethod = 'efectivo' | 'yape' | 'plin' | 'transferencia';
+export type PaymentMethod = 'efectivo' | 'yape' | 'plin' | 'transferencia' | 'pos';
 
 export interface PaymentSplit {
   metodo: PaymentMethod;

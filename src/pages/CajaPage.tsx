@@ -16,7 +16,8 @@ import {
   PlayCircle,
   AlertCircle,
   Plus,
-  Store
+  Store,
+  Building2
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
@@ -155,7 +156,8 @@ export default function CajaPage() {
     efectivo: sessionSummary?.cash_total || 0,
     yape: sessionSummary?.yape_total || 0,
     plin: sessionSummary?.plin_total || 0,
-    transferencia: sessionSummary?.card_total || 0, // card includes transfers
+    pos: (sessionSummary?.pos_total || 0) + (sessionSummary?.card_total || 0), // POS + legacy card
+    transferencia: sessionSummary?.transfer_total || 0,
   };
 
   const totalVentas = sessionSummary?.total_sales || 0;
@@ -207,7 +209,8 @@ export default function CajaPage() {
         ['Ventas Efectivo', `S/ ${resumenVentas.efectivo.toFixed(2)}`],
         ['Ventas Yape', `S/ ${resumenVentas.yape.toFixed(2)}`],
         ['Ventas Plin', `S/ ${resumenVentas.plin.toFixed(2)}`],
-        ['Ventas Tarjeta/Transferencia', `S/ ${resumenVentas.transferencia.toFixed(2)}`],
+        ['Ventas POS', `S/ ${resumenVentas.pos.toFixed(2)}`],
+        ['Ventas Transferencia', `S/ ${resumenVentas.transferencia.toFixed(2)}`],
         ['Total Ventas', `S/ ${totalVentas.toFixed(2)}`],
         ['Efectivo Esperado', `S/ ${efectivoEsperado.toFixed(2)}`],
         ['Efectivo Contado', `S/ ${parseFloat(efectivoContado || '0').toFixed(2)}`],
@@ -226,7 +229,11 @@ export default function CajaPage() {
         format(new Date(p.created_at), 'HH:mm', { locale: es }),
         'Venta',
         p.order?.order_number || '-',
-        p.method === 'cash' ? 'Efectivo' : p.method === 'yape' ? 'Yape' : p.method === 'plin' ? 'Plin' : 'Otro',
+        p.method === 'cash' ? 'Efectivo' : 
+        p.method === 'yape' ? 'Yape' : 
+        p.method === 'plin' ? 'Plin' : 
+        p.method === 'pos' || p.method === 'card' ? 'POS' : 
+        p.method === 'transfer' ? 'Transferencia' : 'Otro',
         `S/ ${Number(p.amount).toFixed(2)}`,
       ])
     };
@@ -446,7 +453,14 @@ export default function CajaPage() {
                         <div className="flex justify-between items-center p-3 bg-muted rounded-xl">
                           <span className="font-medium flex items-center gap-2">
                             <CreditCard className="h-5 w-5 text-blue-500" />
-                            Tarjeta/Transferencia
+                            POS
+                          </span>
+                          <span className="font-bold text-pos-lg">S/ {resumenVentas.pos.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center p-3 bg-muted rounded-xl">
+                          <span className="font-medium flex items-center gap-2">
+                            <Building2 className="h-5 w-5 text-orange-500" />
+                            Transferencia
                           </span>
                           <span className="font-bold text-pos-lg">S/ {resumenVentas.transferencia.toFixed(2)}</span>
                         </div>

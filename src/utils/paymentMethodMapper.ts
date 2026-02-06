@@ -8,6 +8,7 @@ export function mapPaymentMethodToDb(frontendMethod: POSPaymentMethod): DBPaymen
     'yape': 'yape',
     'plin': 'plin',
     'transferencia': 'transfer',
+    'pos': 'pos',
   };
   return mapping[frontendMethod] || 'cash';
 }
@@ -16,10 +17,11 @@ export function mapPaymentMethodToDb(frontendMethod: POSPaymentMethod): DBPaymen
 export function mapPaymentMethodFromDb(dbMethod: DBPaymentMethod): POSPaymentMethod {
   const mapping: Record<DBPaymentMethod, POSPaymentMethod> = {
     'cash': 'efectivo',
-    'card': 'efectivo', // Card is not in frontend, fallback to cash
+    'card': 'pos', // Legacy card -> POS
     'yape': 'yape',
     'plin': 'plin',
     'transfer': 'transferencia',
+    'pos': 'pos',
   };
   return mapping[dbMethod] || 'efectivo';
 }

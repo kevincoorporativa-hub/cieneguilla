@@ -53,6 +53,7 @@ const paymentMethods: { id: PaymentMethod; label: string; icon: typeof Banknote 
   { id: 'efectivo', label: 'Efectivo', icon: Banknote },
   { id: 'yape', label: 'Yape', icon: Smartphone },
   { id: 'plin', label: 'Plin', icon: Smartphone },
+  { id: 'pos', label: 'POS', icon: CreditCard },
   { id: 'transferencia', label: 'Transferencia', icon: Building },
 ];
 
