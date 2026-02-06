@@ -261,8 +261,8 @@ export function NotificationsDropdown() {
              className="w-full text-sm"
              onClick={() => navigate('/inventario')}
            >
-             <ExternalLink className="h-4 w-4 mr-2" />
-            Ver inventario completo
+              <ExternalLink className="h-4 w-4 mr-2" />
+            Ver insumos
           </Button>
         </div>
       </PopoverContent>
