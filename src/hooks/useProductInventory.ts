@@ -165,7 +165,7 @@ export function useCreateProductStockMove() {
   });
 }
 
-// Fetch products expiring soon (from stock moves)
+// Fetch products expiring soon (uses FIFO logic to calculate remaining batches)
 export function useExpiringProducts(daysAhead: number = 20, storeId?: string) {
   return useQuery({
     queryKey: ['expiring-products', daysAhead, storeId || 'any'],
@@ -176,133 +176,156 @@ export function useExpiringProducts(daysAhead: number = 20, storeId?: string) {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + daysAhead);
       
-       // First get current stock levels to filter products with actual stock (store-specific when available)
-       let stockQuery = supabase
-         .from('product_stock')
-         .select('product_id, quantity')
-         .gt('quantity', 0);
+      // Get current stock levels per product
+      let stockQuery = supabase
+        .from('product_stock')
+        .select('product_id, quantity')
+        .gt('quantity', 0);
 
-       if (storeId) {
-         stockQuery = stockQuery.eq('store_id', storeId);
-       }
+      if (storeId) {
+        stockQuery = stockQuery.eq('store_id', storeId);
+      }
 
-       const { data: stockData, error: stockError } = await stockQuery;
-       
-       if (stockError) throw stockError;
-       
-       // Create a map of products with stock > 0
-       const productsWithStock = new Set(
-         (stockData || []).map((s: any) => s.product_id)
-       );
+      const { data: stockData, error: stockError } = await stockQuery;
+      if (stockError) throw stockError;
+      
+      const currentStock = new Map<string, number>();
+      (stockData || []).forEach((s: any) => {
+        currentStock.set(s.product_id, s.quantity);
+      });
 
-       // No stock => no expiration alerts
-       if (productsWithStock.size === 0) return [];
-       
-       // Get all stock records with expiration dates (store-specific when available)
-       // IMPORTANT: A product can have multiple expiration dates in history.
-       // We must pick the same "nearest FUTURE expiration else most recent PAST" logic used in the inventory UI.
-       let movesQuery = supabase
+      if (currentStock.size === 0) return [];
+      
+      // Get all stock moves with expiration dates
+      let movesQuery = supabase
         .from('product_stock_moves')
         .select(`
-          id,
           product_id,
           expiration_date,
           quantity,
           product:products(id, name, active)
         `)
         .not('expiration_date', 'is', null)
-         .order('expiration_date', { ascending: true });
+        .order('expiration_date', { ascending: true });
 
-       if (storeId) {
-         movesQuery = movesQuery.eq('store_id', storeId);
-       }
+      if (storeId) {
+        movesQuery = movesQuery.eq('store_id', storeId);
+      }
 
-       const { data, error } = await movesQuery;
-
+      const { data, error } = await movesQuery;
       if (error) throw error;
 
-       // For each product: pick nearest FUTURE expiration if any, else most recent PAST
-       const bestByProduct = new Map<
-         string,
-         {
-           id: string;
-           name: string;
-           future?: string;
-           past?: string;
-         }
-       >();
+      // Group by product: collect batches
+      const productBatches = new Map<string, { 
+        name: string;
+        active: boolean;
+        batches: Array<{ date: string; qty: number }>;
+      }>();
+      
+      (data || []).forEach((move: any) => {
+        if (!move.product?.active) return;
+        if (!currentStock.has(move.product_id)) return;
+        if (!move.expiration_date) return;
 
-       (data || []).forEach((move: any) => {
-         if (!move.product?.active) return;
-         if (!productsWithStock.has(move.product_id)) return;
-         if (!move.expiration_date) return;
+        const existing = productBatches.get(move.product_id) || {
+          name: move.product.name,
+          active: move.product.active,
+          batches: []
+        };
+        
+        const existingBatch = existing.batches.find(b => b.date === move.expiration_date);
+        if (existingBatch) {
+          existingBatch.qty += move.quantity;
+        } else {
+          existing.batches.push({ date: move.expiration_date, qty: move.quantity });
+        }
+        productBatches.set(move.product_id, existing);
+      });
 
-         const expDate = new Date(move.expiration_date);
-         expDate.setHours(0, 0, 0, 0);
+      // Use FIFO to find effective expiration per product
+      const results: Array<{ id: string; name: string; expiration_date: string }> = [];
+      
+      productBatches.forEach((product, productId) => {
+        const totalStock = currentStock.get(productId) || 0;
+        if (totalStock <= 0) return;
+        
+        // Sort batches by expiration date ASC (FIFO)
+        product.batches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        // Calculate which batch has remaining stock
+        const totalPurchased = product.batches.reduce((sum, b) => sum + Math.max(0, b.qty), 0);
+        let soldFromBatches = totalPurchased - totalStock;
+        
+        let effectiveExpiration: string | null = null;
+        
+        for (const batch of product.batches) {
+          const batchQty = Math.max(0, batch.qty);
+          if (soldFromBatches >= batchQty) {
+            soldFromBatches -= batchQty;
+          } else {
+            effectiveExpiration = batch.date;
+            break;
+          }
+        }
+        
+        // Fallback
+        if (!effectiveExpiration && product.batches.length > 0) {
+          effectiveExpiration = product.batches[product.batches.length - 1].date;
+        }
+        
+        if (!effectiveExpiration) return;
+        
+        const expDate = new Date(effectiveExpiration);
+        expDate.setHours(0, 0, 0, 0);
+        
+        // Alert only if expired or within daysAhead
+        if (expDate > futureDate) return;
+        
+        results.push({
+          id: productId,
+          name: product.name,
+          expiration_date: effectiveExpiration,
+        });
+      });
 
-         const existing = bestByProduct.get(move.product_id) || {
-           id: move.product_id,
-           name: move.product.name,
-           future: undefined as string | undefined,
-           past: undefined as string | undefined,
-         };
-
-         if (expDate >= today) {
-           if (!existing.future || expDate < new Date(existing.future)) {
-             existing.future = move.expiration_date;
-           }
-         } else {
-           if (!existing.past || expDate > new Date(existing.past)) {
-             existing.past = move.expiration_date;
-           }
-         }
-
-         bestByProduct.set(move.product_id, existing);
-       });
-
-       const results = Array.from(bestByProduct.values())
-         .map((p) => {
-           const chosen = p.future ?? p.past;
-           if (!chosen) return null;
-
-           const chosenDate = new Date(chosen);
-           chosenDate.setHours(0, 0, 0, 0);
-
-           // Alert only when: expired OR within daysAhead
-           if (chosenDate > futureDate) return null;
-
-           return {
-             id: p.id,
-             name: p.name,
-             expiration_date: chosen,
-           };
-         })
-         .filter(Boolean);
-
-       return results as Array<{ id: string; name: string; expiration_date: string }>;
+      return results;
     },
-     staleTime: 30000, // 30 seconds
-     refetchInterval: 60000, // Refetch every minute to keep data fresh
-     refetchOnWindowFocus: true,
+    staleTime: 30000,
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
   });
 }
 
 // Fetch nearest expiration date per product from stock moves
-// Logic: Show the nearest FUTURE expiration if any, otherwise show the most recent expired
+// Uses FIFO logic: calculates remaining stock per expiration batch
+// Shows the nearest FUTURE expiration with remaining stock, else most recent PAST
 export function useProductExpirationDates(storeId?: string) {
   return useQuery({
     queryKey: ['product-expiration-dates', storeId],
     queryFn: async () => {
+      // Get current stock levels per product
+      let stockQuery = supabase
+        .from('product_stock')
+        .select('product_id, quantity');
+      
+      if (storeId) {
+        stockQuery = stockQuery.eq('store_id', storeId);
+      }
+      
+      const { data: stockData, error: stockError } = await stockQuery;
+      if (stockError) throw stockError;
+      
+      // Map of current stock by product
+      const currentStock = new Map<string, number>();
+      (stockData || []).forEach((s: any) => {
+        currentStock.set(s.product_id, s.quantity);
+      });
+      
+      // Get all stock moves with expiration dates (purchases only have positive qty and expiration)
       let query = supabase
         .from('product_stock_moves')
-        .select(
-          `
-          product_id,
-          expiration_date
-        `
-        )
+        .select('product_id, expiration_date, quantity')
         .not('expiration_date', 'is', null)
-        .gt('quantity', 0)
         .order('expiration_date', { ascending: true });
 
       if (storeId) {
@@ -310,35 +333,63 @@ export function useProductExpirationDates(storeId?: string) {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
       
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // Group expirations by product
-      const productExpirations = new Map<string, string[]>();
+      // Group by product: collect all batches with their expiration dates and quantities
+      const productBatches = new Map<string, Array<{ date: string; qty: number }>>();
       
       (data || []).forEach((move: any) => {
-        const existing = productExpirations.get(move.product_id) || [];
-        existing.push(move.expiration_date);
-        productExpirations.set(move.product_id, existing);
+        if (!move.expiration_date) return;
+        
+        const existing = productBatches.get(move.product_id) || [];
+        // Find if we already have this expiration date
+        const existingBatch = existing.find(b => b.date === move.expiration_date);
+        if (existingBatch) {
+          existingBatch.qty += move.quantity;
+        } else {
+          existing.push({ date: move.expiration_date, qty: move.quantity });
+        }
+        productBatches.set(move.product_id, existing);
       });
       
-      // For each product, find the best expiration to show
+      // For each product, use FIFO to determine which batches still have stock
       const expirationMap = new Map<string, string>();
       
-      productExpirations.forEach((dates, productId) => {
-        // Separate future and past dates
-        const futureDates = dates.filter(d => new Date(d) >= today);
-        const pastDates = dates.filter(d => new Date(d) < today);
+      productBatches.forEach((batches, productId) => {
+        const totalStock = currentStock.get(productId) || 0;
         
-        if (futureDates.length > 0) {
-          // Show nearest future expiration (first one since sorted ASC)
-          expirationMap.set(productId, futureDates[0]);
-        } else if (pastDates.length > 0) {
-          // All expired: show the most recent expired (last one since sorted ASC)
-          expirationMap.set(productId, pastDates[pastDates.length - 1]);
+        if (totalStock <= 0) {
+          // No stock = no expiration to show
+          return;
+        }
+        
+        // Sort batches by expiration date ASC (FIFO - oldest first)
+        batches.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        // Calculate which batches still have stock using FIFO
+        // Total sold = sum of all batch entries - current stock
+        const totalPurchased = batches.reduce((sum, b) => sum + Math.max(0, b.qty), 0);
+        let soldFromBatches = totalPurchased - totalStock;
+        
+        // Find the first batch with remaining stock
+        for (const batch of batches) {
+          const batchQty = Math.max(0, batch.qty);
+          if (soldFromBatches >= batchQty) {
+            // This entire batch was sold
+            soldFromBatches -= batchQty;
+          } else {
+            // This batch has remaining stock - this is our expiration date
+            expirationMap.set(productId, batch.date);
+            return;
+          }
+        }
+        
+        // Fallback: if logic doesn't find any, use the last batch
+        if (batches.length > 0) {
+          expirationMap.set(productId, batches[batches.length - 1].date);
         }
       });
       
