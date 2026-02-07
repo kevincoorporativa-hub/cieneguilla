@@ -39,6 +39,7 @@ import {
   useUpdateProduct,
   useDeleteProduct,
   useCreateCategory,
+  useUpdateCategory,
   Category,
   Product,
 } from '@/hooks/useProducts';
@@ -57,6 +58,7 @@ export default function ProductosPage() {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedProductForStock, setSelectedProductForStock] = useState<Product | null>(null);
 
   // Form state for products
@@ -135,6 +137,7 @@ export default function ProductosPage() {
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
   const createStockMove = useCreateProductStockMove();
 
   const filteredProducts = products.filter((p) => {
@@ -305,25 +308,51 @@ export default function ProductosPage() {
     }
   };
 
-  const handleCreateCategory = async () => {
+  const handleOpenCategoryModal = (category?: Category) => {
+    if (category) {
+      setEditingCategory(category);
+      setNewCategoryName(category.name);
+      setNewCategoryColor(category.color || '#3b82f6');
+      setNewCategoryIcon(category.icon || 'package');
+    } else {
+      setEditingCategory(null);
+      setNewCategoryName('');
+      setNewCategoryColor('#3b82f6');
+      setNewCategoryIcon('package');
+    }
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategory = async () => {
     if (!newCategoryName.trim()) {
       toast.error('Ingrese un nombre para la categoría');
       return;
     }
 
     try {
-      await createCategory.mutateAsync({
-        name: newCategoryName,
-        color: newCategoryColor,
-        icon: newCategoryIcon,
-        sort_order: categories.length + 1,
-      });
-      toast.success('Categoría creada');
+      if (editingCategory) {
+        await updateCategory.mutateAsync({
+          id: editingCategory.id,
+          name: newCategoryName,
+          color: newCategoryColor,
+          icon: newCategoryIcon,
+        });
+        toast.success('Categoría actualizada');
+      } else {
+        await createCategory.mutateAsync({
+          name: newCategoryName,
+          color: newCategoryColor,
+          icon: newCategoryIcon,
+          sort_order: categories.length + 1,
+        });
+        toast.success('Categoría creada');
+      }
       setNewCategoryName('');
       setNewCategoryIcon('package');
+      setEditingCategory(null);
       setIsCategoryModalOpen(false);
     } catch (error: any) {
-      toast.error('Error al crear categoría', { description: error.message });
+      toast.error('Error al guardar categoría', { description: error.message });
     }
   };
 
@@ -362,7 +391,7 @@ export default function ProductosPage() {
             <p className="text-muted-foreground">Gestiona productos, inventario y kardex</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="btn-pos" onClick={() => setIsCategoryModalOpen(true)}>
+            <Button variant="outline" className="btn-pos" onClick={() => handleOpenCategoryModal()}>
               <FolderPlus className="h-5 w-5 mr-2" />
               Nueva Categoría
             </Button>
@@ -424,11 +453,29 @@ export default function ProductosPage() {
                   <SelectItem value="all">Todas las categorías</SelectItem>
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
+                      <div className="flex items-center gap-2">
+                        <span>{cat.name}</span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Category edit chips */}
+              <div className="flex gap-1.5 flex-wrap">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleOpenCategoryModal(cat)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border hover:bg-accent/50 transition-colors"
+                    style={{ borderColor: cat.color, color: cat.color }}
+                    title={`Editar ${cat.name}`}
+                  >
+                    <Edit className="h-3 w-3" />
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Products Table */}
@@ -1116,13 +1163,13 @@ export default function ProductosPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Category Modal */}
+      {/* Category Modal (Create / Edit) */}
       <Dialog open={isCategoryModalOpen} onOpenChange={setIsCategoryModalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FolderPlus className="h-5 w-5" />
-              Nueva Categoría
+              {editingCategory ? 'Editar Categoría' : 'Nueva Categoría'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1168,10 +1215,12 @@ export default function ProductosPage() {
               </Button>
               <Button 
                 className="flex-1 bg-primary"
-                onClick={handleCreateCategory}
-                disabled={createCategory.isPending}
+                onClick={handleSaveCategory}
+                disabled={createCategory.isPending || updateCategory.isPending}
               >
-                {createCategory.isPending ? 'Creando...' : 'Crear Categoría'}
+                {(createCategory.isPending || updateCategory.isPending) 
+                  ? 'Guardando...' 
+                  : editingCategory ? 'Guardar Cambios' : 'Crear Categoría'}
               </Button>
             </div>
           </div>
