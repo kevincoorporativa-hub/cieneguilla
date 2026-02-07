@@ -36,6 +36,8 @@ import { useCreateOrder, useCreatePayment } from '@/hooks/useOrders';
 import { useCurrentCashSession } from '@/hooks/useCashSession';
 import { useProductStock } from '@/hooks/useProductStock';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLicenseStatus } from '@/hooks/useLicense';
+import { LicenseBlocker } from '@/components/license/LicenseBlocker';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHapticFeedback } from '@/hooks/useHapticFeedback';
@@ -96,6 +98,7 @@ function transformProduct(dbProduct: any, stockData?: { current_stock: number; t
 
 export default function POSPage() {
   const { user } = useAuth();
+  const { isExpired: isLicenseExpired, isLoading: isLicenseLoading } = useLicenseStatus();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showCombos, setShowCombos] = useState(false);
   const [comboFilter, setComboFilter] = useState<'all' | 'permanent' | 'temporary'>('all');
@@ -449,6 +452,15 @@ export default function POSPage() {
   }, [toggleFullscreen, lightTap]);
 
   const isLoading = loadingCategories || loadingProducts || loadingCombos;
+
+  // Block POS if license expired
+  if (!isLicenseLoading && isLicenseExpired) {
+    return (
+      <MainLayout>
+        <LicenseBlocker />
+      </MainLayout>
+    );
+  }
 
   // Conditional layout based on kiosk mode
   if (isKioskMode) {
