@@ -31,6 +31,9 @@ const LICENSE_OPTIONS = [
   { value: '90', label: '3 meses', days: 90 },
   { value: '180', label: '6 meses', days: 180 },
   { value: '365', label: '1 año', days: 365 },
+  { value: '730', label: '2 años', days: 730 },
+  { value: '1825', label: '5 años', days: 1825 },
+  { value: '3650', label: '10 años', days: 3650 },
 ];
 
 export function LicenseCard() {
