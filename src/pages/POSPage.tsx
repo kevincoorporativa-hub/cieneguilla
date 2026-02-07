@@ -37,6 +37,7 @@ import { useCurrentCashSession } from '@/hooks/useCashSession';
 import { useProductStock } from '@/hooks/useProductStock';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLicenseStatus } from '@/hooks/useLicense';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { LicenseBlocker } from '@/components/license/LicenseBlocker';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,16 +45,6 @@ import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { cn } from '@/lib/utils';
 import { mapPaymentMethodToDb, mapOrderTypeToDb } from '@/utils/paymentMethodMapper';
-
-// Default ticket config
-const defaultTicketConfig: TicketConfig = {
-  businessName: 'PizzaPOS',
-  businessAddress: 'Av. Principal 123, Lima',
-  businessPhone: '01-234-5678',
-  businessRuc: '20123456789',
-  promoText: '¡Pide 2 pizzas y llévate una gaseosa gratis!',
-  footerText: '¡Gracias por su preferencia!',
-};
 
 // Icon mapping for categories
 const categoryIcons: Record<string, typeof Pizza> = {
@@ -99,6 +90,18 @@ function transformProduct(dbProduct: any, stockData?: { current_stock: number; t
 export default function POSPage() {
   const { user } = useAuth();
   const { isExpired: isLicenseExpired, isLoading: isLicenseLoading } = useLicenseStatus();
+  const { settings } = useBusinessSettings();
+
+  // Build ticket config from saved business settings
+  const ticketConfig: TicketConfig = useMemo(() => ({
+    businessName: settings.businessName,
+    businessAddress: settings.businessAddress,
+    businessPhone: settings.businessPhone,
+    businessRuc: settings.businessRuc,
+    logoUrl: settings.ticketLogoUrl,
+    promoText: settings.ticketPromoText,
+    footerText: settings.ticketFooterText,
+  }), [settings]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [showCombos, setShowCombos] = useState(false);
   const [comboFilter, setComboFilter] = useState<'all' | 'permanent' | 'temporary'>('all');
@@ -553,7 +556,7 @@ export default function POSPage() {
           discount={discount}
           products={products}
           combos={combos}
-          ticketConfig={defaultTicketConfig}
+          ticketConfig={ticketConfig}
           onConfirm={handleCheckoutConfirm}
         />
 
@@ -788,7 +791,7 @@ export default function POSPage() {
         discount={discount}
         products={products}
         combos={combos}
-        ticketConfig={defaultTicketConfig}
+        ticketConfig={ticketConfig}
         onConfirm={handleCheckoutConfirm}
       />
 
