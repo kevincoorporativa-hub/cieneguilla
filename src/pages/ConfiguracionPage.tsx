@@ -50,7 +50,7 @@ export default function ConfiguracionPage() {
     customSidebarColor,
     setCustomSidebar
   } = useTheme();
-  const { settings, updateSettings } = useBusinessSettings();
+  const { settings, updateSettings, uploadLogo, removeLogo } = useBusinessSettings();
   
   const [printerEnabled, setPrinterEnabled] = useState(true);
   const [printerName, setPrinterName] = useState('Ticketera-80mm');
@@ -74,24 +74,14 @@ export default function ConfiguracionPage() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateSettings({ ticketLogoUrl: reader.result as string });
-        toast.success('Logo cargado');
-      };
-      reader.readAsDataURL(file);
+      uploadLogo(file, 'ticket');
     }
   };
 
   const handleSystemLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        updateSettings({ systemLogoUrl: reader.result as string });
-        toast.success('Logo del sistema actualizado');
-      };
-      reader.readAsDataURL(file);
+      uploadLogo(file, 'system');
     }
   };
 
@@ -190,7 +180,7 @@ export default function ConfiguracionPage() {
                             variant="ghost"
                             size="icon"
                             className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
-                            onClick={() => updateSettings({ systemLogoUrl: '' })}
+                            onClick={() => removeLogo('system')}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -529,7 +519,7 @@ export default function ConfiguracionPage() {
                             variant="ghost"
                             size="icon"
                             className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
-                            onClick={() => updateSettings({ ticketLogoUrl: '' })}
+                            onClick={() => removeLogo('ticket')}
                           >
                             <X className="h-4 w-4" />
                           </Button>
