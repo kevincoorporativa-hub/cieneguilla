@@ -211,6 +211,20 @@ export default function ProductosPage() {
       return;
     }
 
+    // Validar nombre duplicado
+    const duplicateExists = products.some(
+      (p) =>
+        p.name.trim().toLowerCase() === formName.trim().toLowerCase() &&
+        p.id !== editingProduct?.id
+    );
+
+    if (duplicateExists) {
+      toast.error('Ya existe un producto con ese nombre', {
+        description: `"${formName.trim()}" ya está registrado. Use otro nombre.`,
+      });
+      return;
+    }
+
     try {
       const productData = {
         name: formName,
