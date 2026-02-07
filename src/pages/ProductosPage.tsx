@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, Edit, Trash2, Package, Eye, EyeOff, FolderPlus, Check, X, Calendar, ArrowUpDown, AlertTriangle, Clock } from 'lucide-react';
+import { ExportDropdown } from '@/components/shared/ExportDropdown';
+import { exportToExcel, exportToPDF, exportChartsToPDF } from '@/utils/exportUtils';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -392,6 +394,136 @@ export default function ProductosPage() {
     return colors[type] || 'bg-muted';
   };
 
+  // === EXPORT HANDLERS ===
+  const handleExportProductsExcel = useCallback(() => {
+    exportToExcel({
+      title: 'Lista de Productos',
+      subtitle: `Total: ${filteredProducts.length} productos`,
+      headers: ['Producto', 'Descripción', 'Categoría', 'Precio', 'Stock', 'Estado'],
+      rows: filteredProducts.map(p => [
+        p.name,
+        p.description || '',
+        p.category?.name || 'Sin categoría',
+        `S/ ${Number(p.base_price).toFixed(2)}`,
+        p.track_stock ? getProductStock(p.id) : '-',
+        p.active ? 'Activo' : 'Inactivo',
+      ]),
+    }, 'productos');
+  }, [filteredProducts, productStock]);
+
+  const handleExportProductsPDF = useCallback(() => {
+    exportToPDF({
+      title: 'Lista de Productos',
+      subtitle: `Total: ${filteredProducts.length} productos`,
+      headers: ['Producto', 'Descripción', 'Categoría', 'Precio', 'Stock', 'Estado'],
+      rows: filteredProducts.map(p => [
+        p.name,
+        p.description || '',
+        p.category?.name || 'Sin categoría',
+        `S/ ${Number(p.base_price).toFixed(2)}`,
+        p.track_stock ? getProductStock(p.id) : '-',
+        p.active ? 'Activo' : 'Inactivo',
+      ]),
+    }, 'productos');
+  }, [filteredProducts, productStock]);
+
+  const handleExportProductsDesignPDF = useCallback(async () => {
+    await exportChartsToPDF('#products-table-container', 'Lista de Productos', `Total: ${filteredProducts.length} productos`, 'productos-diseño');
+  }, [filteredProducts]);
+
+  const handleExportInventoryExcel = useCallback(() => {
+    const inventoryProducts = products.filter(p => p.track_stock);
+    exportToExcel({
+      title: 'Inventario de Productos',
+      subtitle: `Total: ${inventoryProducts.length} productos`,
+      headers: ['Producto', 'Stock Actual', 'Stock Mínimo', 'Fecha Ingreso', 'Fecha Vencimiento', 'Estado'],
+      rows: inventoryProducts.map(p => {
+        const stock = getProductStock(p.id);
+        const minStock = (p as any).min_stock || 5;
+        const nearestExp = getNearestExpiration(p.id);
+        const daysLeft = nearestExp ? getDaysUntilExpiration(nearestExp) : null;
+        const isExpired = daysLeft !== null && daysLeft < 0;
+        const isLowStock = stock <= minStock;
+        return [
+          p.name,
+          stock,
+          minStock,
+          (p as any).entry_date ? new Date((p as any).entry_date).toLocaleDateString('es-PE') : '-',
+          nearestExp ? new Date(nearestExp).toLocaleDateString('es-PE') : '-',
+          isExpired ? 'Vencido' : isLowStock ? 'Stock Bajo' : 'OK',
+        ];
+      }),
+    }, 'inventario');
+  }, [products, productStock, expirationDatesMap]);
+
+  const handleExportInventoryPDF = useCallback(() => {
+    const inventoryProducts = products.filter(p => p.track_stock);
+    exportToPDF({
+      title: 'Inventario de Productos',
+      subtitle: `Total: ${inventoryProducts.length} productos`,
+      headers: ['Producto', 'Stock Actual', 'Stock Mín.', 'F. Ingreso', 'F. Vencimiento', 'Estado'],
+      rows: inventoryProducts.map(p => {
+        const stock = getProductStock(p.id);
+        const minStock = (p as any).min_stock || 5;
+        const nearestExp = getNearestExpiration(p.id);
+        const daysLeft = nearestExp ? getDaysUntilExpiration(nearestExp) : null;
+        const isExpired = daysLeft !== null && daysLeft < 0;
+        const isLowStock = stock <= minStock;
+        return [
+          p.name,
+          stock,
+          minStock,
+          (p as any).entry_date ? new Date((p as any).entry_date).toLocaleDateString('es-PE') : '-',
+          nearestExp ? new Date(nearestExp).toLocaleDateString('es-PE') : '-',
+          isExpired ? 'Vencido' : isLowStock ? 'Stock Bajo' : 'OK',
+        ];
+      }),
+    }, 'inventario');
+  }, [products, productStock, expirationDatesMap]);
+
+  const handleExportInventoryDesignPDF = useCallback(async () => {
+    await exportChartsToPDF('#inventory-table-container', 'Inventario de Productos', `Total: ${products.filter(p => p.track_stock).length} productos`, 'inventario-diseño');
+  }, [products]);
+
+  const handleExportKardexExcel = useCallback(() => {
+    if (!selectedProductForStock || stockMoves.length === 0) return;
+    exportToExcel({
+      title: `Kardex - ${selectedProductForStock.name}`,
+      subtitle: `Movimientos registrados: ${stockMoves.length}`,
+      headers: ['Fecha', 'Tipo', 'Cantidad', 'Costo Unit.', 'F. Vencimiento', 'Notas'],
+      rows: stockMoves.map(m => [
+        new Date(m.created_at).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
+        getMoveTypeLabel(m.move_type),
+        m.quantity,
+        m.unit_cost ? `S/ ${Number(m.unit_cost).toFixed(2)}` : '-',
+        m.expiration_date ? new Date(m.expiration_date).toLocaleDateString('es-PE') : '-',
+        m.notes || '-',
+      ]),
+    }, `kardex-${selectedProductForStock.name}`);
+  }, [selectedProductForStock, stockMoves]);
+
+  const handleExportKardexPDF = useCallback(() => {
+    if (!selectedProductForStock || stockMoves.length === 0) return;
+    exportToPDF({
+      title: `Kardex - ${selectedProductForStock.name}`,
+      subtitle: `Movimientos registrados: ${stockMoves.length}`,
+      headers: ['Fecha', 'Tipo', 'Cantidad', 'Costo Unit.', 'F. Vencimiento', 'Notas'],
+      rows: stockMoves.map(m => [
+        new Date(m.created_at).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }),
+        getMoveTypeLabel(m.move_type),
+        m.quantity,
+        m.unit_cost ? `S/ ${Number(m.unit_cost).toFixed(2)}` : '-',
+        m.expiration_date ? new Date(m.expiration_date).toLocaleDateString('es-PE') : '-',
+        m.notes || '-',
+      ]),
+    }, `kardex-${selectedProductForStock.name}`);
+  }, [selectedProductForStock, stockMoves]);
+
+  const handleExportKardexDesignPDF = useCallback(async () => {
+    if (!selectedProductForStock) return;
+    await exportChartsToPDF('#kardex-table-container', `Kardex - ${selectedProductForStock.name}`, `Movimientos: ${stockMoves.length}`, `kardex-diseño-${selectedProductForStock.name}`);
+  }, [selectedProductForStock, stockMoves]);
+
   const isLoading = loadingCategories || loadingProducts;
   const isSaving = createProduct.isPending || updateProduct.isPending;
 
@@ -493,12 +625,18 @@ export default function ProductosPage() {
             </div>
 
             {/* Products Table */}
-            <Card className="border-2">
-              <CardHeader>
+            <Card className="border-2" id="products-table-container">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
                   Lista de Productos ({filteredProducts.length})
                 </CardTitle>
+                <ExportDropdown
+                  onExportExcel={handleExportProductsExcel}
+                  onExportPDF={handleExportProductsPDF}
+                  onExportDesignPDF={handleExportProductsDesignPDF}
+                  disabled={filteredProducts.length === 0}
+                />
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -663,17 +801,25 @@ export default function ProductosPage() {
 
           {/* Inventory Tab */}
           <TabsContent value="inventory" className="space-y-4">
-            <Card className="border-2">
+            <Card className="border-2" id="inventory-table-container">
               <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5" />
                   Inventario de Productos
                 </CardTitle>
 
-                <Button onClick={handleOpenStockEntryModal}>
-                  <ArrowUpDown className="h-4 w-4 mr-2" />
-                  Ingreso de producto
-                </Button>
+                <div className="flex gap-2">
+                  <ExportDropdown
+                    onExportExcel={handleExportInventoryExcel}
+                    onExportPDF={handleExportInventoryPDF}
+                    onExportDesignPDF={handleExportInventoryDesignPDF}
+                    disabled={products.filter(p => p.track_stock).length === 0}
+                  />
+                  <Button onClick={handleOpenStockEntryModal}>
+                    <ArrowUpDown className="h-4 w-4 mr-2" />
+                    Ingreso de producto
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 {loadingStock ? (
@@ -811,8 +957,8 @@ export default function ProductosPage() {
               </Select>
             </div>
 
-            <Card className="border-2">
-              <CardHeader>
+            <Card className="border-2" id="kardex-table-container">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="flex items-center gap-2">
                   <ArrowUpDown className="h-5 w-5" />
                   Kardex / Movimientos
@@ -822,6 +968,12 @@ export default function ProductosPage() {
                     </span>
                   )}
                 </CardTitle>
+                <ExportDropdown
+                  onExportExcel={handleExportKardexExcel}
+                  onExportPDF={handleExportKardexPDF}
+                  onExportDesignPDF={handleExportKardexDesignPDF}
+                  disabled={!selectedProductForStock || stockMoves.length === 0}
+                />
               </CardHeader>
               <CardContent>
                 {!selectedProductForStock ? (
