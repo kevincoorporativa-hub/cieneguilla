@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   Pizza, 
   Beef, 
@@ -143,11 +143,12 @@ export default function POSPage() {
   );
 
   // Set first category as selected when categories load
-  useMemo(() => {
+  useEffect(() => {
     if (categories.length > 0 && !selectedCategoryId && !showCombos) {
       setSelectedCategoryId(categories[0].id);
     }
   }, [categories, selectedCategoryId, showCombos]);
+
 
   // Filter products by selected category
   const filteredProducts = useMemo(() => {
