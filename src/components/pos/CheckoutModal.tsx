@@ -33,7 +33,7 @@ interface CheckoutModalProps {
   subtotal: number;
   products: Product[];
   combos: ComboCompleto[];
-  onConfirm: (data: CheckoutData) => Promise<boolean>;
+  onConfirm: (data: CheckoutData) => Promise<number | false>;
   ticketConfig: TicketConfig;
 }
 
@@ -142,7 +142,7 @@ export function CheckoutModal({
     const finalClientName = useGenericClient ? 'Cliente Genérico' : clientName;
 
     try {
-      const ok = await onConfirm({
+      const orderNumber = await onConfirm({
         orderType,
         payments: [{ method: selectedPayment, amount: finalTotal }],
         clientName: finalClientName || 'Cliente Genérico',
@@ -154,10 +154,9 @@ export function CheckoutModal({
         finalTotal,
       });
 
-      if (!ok) return;
+      if (orderNumber === false) return;
 
-      const newTicketNumber = `T${Date.now().toString().slice(-6)}`;
-      setTicketNumber(newTicketNumber);
+      setTicketNumber(`T-${orderNumber}`);
 
       // Guardar snapshot para que el ticket no se “vacíe” si el carrito se limpia en el padre
       setPreviewSnapshot({

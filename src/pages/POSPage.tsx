@@ -360,7 +360,7 @@ export default function POSPage() {
     toast.success(`Descuento de S/ ${newDiscount.monto.toFixed(2)} aplicado`);
   }, []);
 
-  const handleCheckoutConfirm = useCallback(async (data: any): Promise<boolean> => {
+  const handleCheckoutConfirm = useCallback(async (data: any): Promise<number | false> => {
     if (!cashSession) {
       toast.error('Debe abrir una sesión de caja primero');
       return false;
@@ -434,11 +434,11 @@ export default function POSPage() {
 
       successFeedback(); // Haptic feedback on success
       toast.success('¡Venta completada!', {
-        description: `Ticket #${newOrder.order_number}. Vuelto: S/ ${data.change?.toFixed(2) || '0.00'}`,
+        description: `Ticket T-${newOrder.order_number}. Vuelto: S/ ${data.change?.toFixed(2) || '0.00'}`,
       });
       setCartItems([]);
       setDiscount(undefined);
-      return true;
+      return newOrder.order_number;
     } catch (error: any) {
       errorFeedback(); // Haptic feedback on error
       toast.error('Error al procesar la venta', {
