@@ -23,6 +23,7 @@ import { LicenseSidebarBadge } from '@/components/license/LicenseSidebarBadge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSidebarContext } from '@/contexts/SidebarContext';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { toast } from 'sonner';
 
 const navItems = [
@@ -44,6 +45,7 @@ export function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, isAdmin } = useAuth();
+  const { settings } = useBusinessSettings();
   const { 
     isCollapsed, 
     isFloating, 
@@ -81,12 +83,16 @@ export function Sidebar() {
       {/* Logo */}
       <div className="p-2 lg:p-3 xl:p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2 lg:gap-3">
-          <div className="w-8 h-8 lg:w-10 lg:h-10 xl:w-12 xl:h-12 rounded-lg xl:rounded-xl bg-primary flex items-center justify-center shrink-0">
-            <Pizza className="h-5 w-5 lg:h-6 lg:w-6 xl:h-7 xl:w-7 text-primary-foreground" />
+          <div className="w-8 h-8 lg:w-10 lg:h-10 xl:w-12 xl:h-12 rounded-lg xl:rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
+            {settings.systemLogoUrl ? (
+              <img src={settings.systemLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <Pizza className="h-5 w-5 lg:h-6 lg:w-6 xl:h-7 xl:w-7 text-primary-foreground" />
+            )}
           </div>
           {(!isCollapsed || isFloating) && (
             <div className="overflow-hidden flex-1">
-              <h1 className="text-base lg:text-lg xl:text-xl font-bold text-sidebar-foreground">PizzaPOS</h1>
+              <h1 className="text-base lg:text-lg xl:text-xl font-bold text-sidebar-foreground truncate">{settings.businessName}</h1>
               <p className="text-[10px] lg:text-xs text-sidebar-foreground/70">Sistema de Ventas</p>
             </div>
           )}

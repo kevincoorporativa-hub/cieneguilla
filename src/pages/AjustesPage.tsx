@@ -1,16 +1,17 @@
- import { useState } from 'react';
- import { 
-   Settings, 
-   Palette,
-   FileText,
-   Bell,
-   Save,
-   Upload,
-   ImageIcon,
-   X,
-   Eye,
-   Check
- } from 'lucide-react';
+  import { useState } from 'react';
+  import { 
+    Settings, 
+    Palette,
+    FileText,
+    Bell,
+    Save,
+    Upload,
+    ImageIcon,
+    X,
+    Eye,
+    Check,
+    Store
+  } from 'lucide-react';
  import { MainLayout } from '@/components/layout/MainLayout';
  import { Button } from '@/components/ui/button';
  import { Input } from '@/components/ui/input';
@@ -26,63 +27,69 @@
  } from '@/components/ui/dialog';
  import { toast } from 'sonner';
  import { TicketPrint, TicketConfig } from '@/components/pos/TicketPrint';
- import { useTheme, themeColors, sidebarColors } from '@/hooks/useTheme';
+  import { useTheme, themeColors, sidebarColors } from '@/hooks/useTheme';
+  import { useBusinessSettings } from '@/hooks/useBusinessSettings';
  import { ThemeColor } from '@/types/pos';
  
- export default function AjustesPage() {
-   const { 
-     currentTheme, 
-     setTheme, 
-     currentSidebarColor, 
-     setSidebarColor,
-     customPrimaryColor,
-     setCustomPrimary,
-     customSidebarColor,
-     setCustomSidebar
-   } = useTheme();
- 
-   // Business info (would be loaded from settings/context)
-   const [businessName] = useState('PizzaPOS');
-   const [businessAddress] = useState('Av. Principal 123, Lima');
-   const [businessPhone] = useState('01-234-5678');
-   const [businessRuc] = useState('20123456789');
- 
-   // Notifications
-   const [notifyLowStock, setNotifyLowStock] = useState(true);
-   const [notifyLicenseExpiry, setNotifyLicenseExpiry] = useState(true);
-   const [notifySales, setNotifySales] = useState(false);
- 
-   // Ticket configuration
-   const [ticketLogoUrl, setTicketLogoUrl] = useState('');
-   const [ticketPromoText, setTicketPromoText] = useState('¡Pide 2 pizzas y llévate una gaseosa gratis!');
-   const [ticketFooterText, setTicketFooterText] = useState('¡Gracias por su preferencia!');
-   const [showTicketPreview, setShowTicketPreview] = useState(false);
- 
-   const handleSave = () => {
-     toast.success('Ajustes guardados');
-   };
- 
-   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-     const file = e.target.files?.[0];
-     if (file) {
-       const reader = new FileReader();
-       reader.onloadend = () => {
-         setTicketLogoUrl(reader.result as string);
-         toast.success('Logo cargado');
-       };
-       reader.readAsDataURL(file);
-     }
-   };
- 
-   const ticketConfig: TicketConfig = {
-     logoUrl: ticketLogoUrl,
-     businessName,
-     businessAddress,
-     businessPhone,
-     businessRuc,
-     promoText: ticketPromoText,
-     footerText: ticketFooterText,
-   };
+  export default function AjustesPage() {
+    const { 
+      currentTheme, 
+      setTheme, 
+      currentSidebarColor, 
+      setSidebarColor,
+      customPrimaryColor,
+      setCustomPrimary,
+      customSidebarColor,
+      setCustomSidebar
+    } = useTheme();
+
+    const { settings, updateSettings } = useBusinessSettings();
+  
+    // Notifications
+    const [notifyLowStock, setNotifyLowStock] = useState(true);
+    const [notifyLicenseExpiry, setNotifyLicenseExpiry] = useState(true);
+    const [notifySales, setNotifySales] = useState(false);
+  
+    // Ticket configuration
+    const [showTicketPreview, setShowTicketPreview] = useState(false);
+  
+    const handleSave = () => {
+      toast.success('Ajustes guardados');
+    };
+  
+    const handleTicketLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          updateSettings({ ticketLogoUrl: reader.result as string });
+          toast.success('Logo del ticket cargado');
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+
+    const handleSystemLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          updateSettings({ systemLogoUrl: reader.result as string });
+          toast.success('Logo del sistema actualizado');
+        };
+        reader.readAsDataURL(file);
+      }
+    };
+  
+    const ticketConfig: TicketConfig = {
+      logoUrl: settings.ticketLogoUrl,
+      businessName: settings.businessName,
+      businessAddress: settings.businessAddress,
+      businessPhone: settings.businessPhone,
+      businessRuc: settings.businessRuc,
+      promoText: settings.ticketPromoText,
+      footerText: settings.ticketFooterText,
+    };
  
    // Demo data for preview
    const demoItems = [
@@ -105,21 +112,132 @@
            </Button>
          </div>
  
-         <Tabs defaultValue="apariencia" className="space-y-6">
-           <TabsList className="h-14 p-1 bg-muted rounded-xl">
-             <TabsTrigger value="apariencia" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-               <Palette className="h-5 w-5 mr-2" />
-               Apariencia
-             </TabsTrigger>
-             <TabsTrigger value="ticket" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-               <FileText className="h-5 w-5 mr-2" />
-               Ticket
-             </TabsTrigger>
-             <TabsTrigger value="notificaciones" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-               <Bell className="h-5 w-5 mr-2" />
-               Notificaciones
-             </TabsTrigger>
-           </TabsList>
+          <Tabs defaultValue="negocio" className="space-y-6">
+            <TabsList className="h-14 p-1 bg-muted rounded-xl">
+              <TabsTrigger value="negocio" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Store className="h-5 w-5 mr-2" />
+                Negocio
+              </TabsTrigger>
+              <TabsTrigger value="apariencia" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Palette className="h-5 w-5 mr-2" />
+                Apariencia
+              </TabsTrigger>
+              <TabsTrigger value="ticket" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <FileText className="h-5 w-5 mr-2" />
+                Ticket
+              </TabsTrigger>
+              <TabsTrigger value="notificaciones" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <Bell className="h-5 w-5 mr-2" />
+                Notificaciones
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Tab: Negocio */}
+            <TabsContent value="negocio">
+              <div className="max-w-2xl space-y-6">
+                <Card className="border-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Store className="h-5 w-5" />
+                      Información del Negocio
+                    </CardTitle>
+                    <CardDescription>
+                      Logo y nombre que aparecen en el sidebar, login y tickets
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Logo del Sistema */}
+                    <div className="space-y-2">
+                      <label className="text-pos-base font-semibold">Logo del Sistema</label>
+                      <div className="flex items-start gap-4">
+                        {settings.systemLogoUrl ? (
+                          <div className="relative">
+                            <img 
+                              src={settings.systemLogoUrl} 
+                              alt="Logo Sistema" 
+                              className="w-24 h-24 object-contain border-2 rounded-xl bg-white"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
+                              onClick={() => updateSettings({ systemLogoUrl: '' })}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="w-24 h-24 border-2 border-dashed rounded-xl flex items-center justify-center bg-muted">
+                            <ImageIcon className="h-10 w-10 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <label className="cursor-pointer">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleSystemLogoUpload}
+                            />
+                            <div className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl transition-colors">
+                              <Upload className="h-4 w-4" />
+                              <span className="text-sm font-medium">Subir logo del sistema</span>
+                            </div>
+                          </label>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Este logo aparecerá en el sidebar y login
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Business Name */}
+                    <div className="space-y-2">
+                      <label className="text-pos-base font-semibold">Nombre del negocio</label>
+                      <Input
+                        value={settings.businessName}
+                        onChange={(e) => updateSettings({ businessName: e.target.value })}
+                        className="h-12 text-pos-base rounded-xl"
+                        placeholder="Ej: PizzaPOS"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Este nombre aparece en el sidebar, login y tickets
+                      </p>
+                    </div>
+
+                    {/* Address */}
+                    <div className="space-y-2">
+                      <label className="text-pos-base font-semibold">Dirección</label>
+                      <Input
+                        value={settings.businessAddress}
+                        onChange={(e) => updateSettings({ businessAddress: e.target.value })}
+                        className="h-12 text-pos-base rounded-xl"
+                      />
+                    </div>
+
+                    {/* Phone */}
+                    <div className="space-y-2">
+                      <label className="text-pos-base font-semibold">Teléfono</label>
+                      <Input
+                        value={settings.businessPhone}
+                        onChange={(e) => updateSettings({ businessPhone: e.target.value })}
+                        className="h-12 text-pos-base rounded-xl"
+                      />
+                    </div>
+
+                    {/* RUC */}
+                    <div className="space-y-2">
+                      <label className="text-pos-base font-semibold">RUC</label>
+                      <Input
+                        value={settings.businessRuc}
+                        onChange={(e) => updateSettings({ businessRuc: e.target.value })}
+                        className="h-12 text-pos-base rounded-xl"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
  
            {/* Tab: Apariencia / Tema */}
            <TabsContent value="apariencia">
@@ -380,71 +498,71 @@
                    <div className="space-y-2">
                      <label className="text-pos-base font-semibold">Logo de la empresa</label>
                      <div className="flex items-start gap-4">
-                       {ticketLogoUrl ? (
-                         <div className="relative">
-                           <img 
-                             src={ticketLogoUrl} 
-                             alt="Logo" 
-                             className="w-20 h-20 object-contain border-2 rounded-xl bg-white"
-                           />
-                           <Button
-                             variant="ghost"
-                             size="icon"
-                             className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
-                             onClick={() => setTicketLogoUrl('')}
-                           >
-                             <X className="h-4 w-4" />
-                           </Button>
-                         </div>
-                       ) : (
-                         <div className="w-20 h-20 border-2 border-dashed rounded-xl flex items-center justify-center bg-muted">
-                           <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                         </div>
-                       )}
-                       <div className="flex-1">
-                         <label className="cursor-pointer">
-                           <Input
-                             type="file"
-                             accept="image/*"
-                             className="hidden"
-                             onChange={handleLogoUpload}
-                           />
-                           <div className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl transition-colors">
-                             <Upload className="h-4 w-4" />
-                             <span className="text-sm font-medium">Subir logo</span>
-                           </div>
-                         </label>
-                         <p className="text-xs text-muted-foreground mt-2">
-                           Recomendado: 200x200px, PNG o JPG
-                         </p>
-                       </div>
-                     </div>
-                   </div>
- 
-                   {/* Promotion text */}
-                   <div className="space-y-2">
-                     <label className="text-pos-base font-semibold">Texto de promoción</label>
-                     <Textarea
-                       value={ticketPromoText}
-                       onChange={(e) => setTicketPromoText(e.target.value)}
-                       placeholder="Ej: ¡Pide 2 pizzas y lleva la 3ra gratis!"
-                       className="min-h-[80px] rounded-xl"
-                     />
-                     <p className="text-xs text-muted-foreground">
-                       Deja vacío para no mostrar promoción
-                     </p>
-                   </div>
- 
-                   {/* Footer text */}
-                   <div className="space-y-2">
-                     <label className="text-pos-base font-semibold">Texto de pie de ticket</label>
-                     <Input
-                       value={ticketFooterText}
-                       onChange={(e) => setTicketFooterText(e.target.value)}
-                       placeholder="¡Gracias por su preferencia!"
-                       className="h-12 text-pos-base rounded-xl"
-                     />
-                   </div>
+                        {settings.ticketLogoUrl ? (
+                          <div className="relative">
+                            <img 
+                              src={settings.ticketLogoUrl} 
+                              alt="Logo" 
+                              className="w-20 h-20 object-contain border-2 rounded-xl bg-white"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
+                              onClick={() => updateSettings({ ticketLogoUrl: '' })}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="w-20 h-20 border-2 border-dashed rounded-xl flex items-center justify-center bg-muted">
+                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <label className="cursor-pointer">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={handleTicketLogoUpload}
+                            />
+                            <div className="flex items-center gap-2 px-4 py-2 bg-muted hover:bg-muted/80 rounded-xl transition-colors">
+                              <Upload className="h-4 w-4" />
+                              <span className="text-sm font-medium">Subir logo</span>
+                            </div>
+                          </label>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Recomendado: 200x200px, PNG o JPG
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+  
+                    {/* Promotion text */}
+                    <div className="space-y-2">
+                      <label className="text-pos-base font-semibold">Texto de promoción</label>
+                      <Textarea
+                        value={settings.ticketPromoText}
+                        onChange={(e) => updateSettings({ ticketPromoText: e.target.value })}
+                        placeholder="Ej: ¡Pide 2 pizzas y lleva la 3ra gratis!"
+                        className="min-h-[80px] rounded-xl"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Deja vacío para no mostrar promoción
+                      </p>
+                    </div>
+  
+                    {/* Footer text */}
+                    <div className="space-y-2">
+                      <label className="text-pos-base font-semibold">Texto de pie de ticket</label>
+                      <Input
+                        value={settings.ticketFooterText}
+                        onChange={(e) => updateSettings({ ticketFooterText: e.target.value })}
+                        placeholder="¡Gracias por su preferencia!"
+                        className="h-12 text-pos-base rounded-xl"
+                      />
+                    </div>
  
                    <Button 
                      variant="outline" 
