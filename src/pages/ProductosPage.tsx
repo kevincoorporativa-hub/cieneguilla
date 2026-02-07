@@ -42,6 +42,7 @@ import {
   Category,
   Product,
 } from '@/hooks/useProducts';
+import { CategoryIconPicker } from '@/components/pos/CategoryIconPicker';
 import { useProductStock, useProductStockMoves, useCreateProductStockMove, useProductExpirationDates } from '@/hooks/useProductInventory';
 import { useStores } from '@/hooks/useStores';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,6 +82,7 @@ export default function ProductosPage() {
   // Category form
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('#3b82f6');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('package');
 
   // Fetch data
   const { data: categories = [], isLoading: loadingCategories } = useCategories(true);
@@ -313,10 +315,12 @@ export default function ProductosPage() {
       await createCategory.mutateAsync({
         name: newCategoryName,
         color: newCategoryColor,
+        icon: newCategoryIcon,
         sort_order: categories.length + 1,
       });
       toast.success('Categoría creada');
       setNewCategoryName('');
+      setNewCategoryIcon('package');
       setIsCategoryModalOpen(false);
     } catch (error: any) {
       toast.error('Error al crear categoría', { description: error.message });
@@ -1132,10 +1136,16 @@ export default function ProductosPage() {
               />
             </div>
 
+            <CategoryIconPicker
+              value={newCategoryIcon}
+              onChange={setNewCategoryIcon}
+              color={newCategoryColor}
+            />
+
             <div className="space-y-2">
               <Label>Color</Label>
-              <div className="flex gap-2">
-                {['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'].map((color) => (
+              <div className="flex gap-2 flex-wrap">
+                {['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'].map((color) => (
                   <button
                     key={color}
                     className={`w-10 h-10 rounded-full border-2 transition-all ${

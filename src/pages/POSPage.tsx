@@ -1,14 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
-  Pizza, 
-  Beef, 
-  UtensilsCrossed, 
-  Cake, 
-  Beer, 
-  Wine, 
-  GlassWater,
-  Martini,
-  IceCream2,
   Package,
   MoreHorizontal,
   AlertCircle,
@@ -31,6 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { TicketConfig } from '@/components/pos/TicketPrint';
 import { useCategories, useProducts, Category } from '@/hooks/useProducts';
+import { getIconByName } from '@/components/pos/CategoryIconPicker';
 import { useCombos } from '@/hooks/useCombos';
 import { useCreateOrder, useCreatePayment } from '@/hooks/useOrders';
 import { useCurrentCashSession } from '@/hooks/useCashSession';
@@ -46,24 +38,9 @@ import { useFullscreen } from '@/hooks/useFullscreen';
 import { cn } from '@/lib/utils';
 import { mapPaymentMethodToDb, mapOrderTypeToDb } from '@/utils/paymentMethodMapper';
 
-// Icon mapping for categories
-const categoryIcons: Record<string, typeof Pizza> = {
-  pizzas: Pizza,
-  carnes: Beef,
-  menus: UtensilsCrossed,
-  postres: Cake,
-  cervezas: Beer,
-  vinos: Wine,
-  gaseosas: GlassWater,
-  cocteles: Martini,
-  cremoladas: IceCream2,
-  combos: Package,
-  otros: MoreHorizontal,
-};
-
-function getCategoryIcon(name: string): typeof Pizza {
-  const key = name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  return categoryIcons[key] || MoreHorizontal;
+// Get category icon from DB or fallback to name-based guess
+function getCategoryIcon(cat: Category) {
+  return getIconByName(cat.icon);
 }
 
 // Transform DB product to POS product - stock will be added separately
@@ -492,7 +469,7 @@ export default function POSPage() {
               <CategoryButton
                 key={cat.id}
                 nombre={cat.name}
-                icon={getCategoryIcon(cat.name)}
+                icon={getCategoryIcon(cat)}
                 isActive={selectedCategoryId === cat.id && !showCombos}
                 onClick={() => handleSelectCategory(cat.id)}
               />
@@ -618,7 +595,7 @@ export default function POSPage() {
                   <CategoryButton
                     key={cat.id}
                     nombre={cat.name}
-                    icon={getCategoryIcon(cat.name)}
+                    icon={getCategoryIcon(cat)}
                     isActive={selectedCategoryId === cat.id && !showCombos}
                     onClick={() => handleSelectCategory(cat.id)}
                   />
@@ -639,7 +616,7 @@ export default function POSPage() {
                     <CategoryButton
                       key={cat.id}
                       nombre={cat.name}
-                      icon={getCategoryIcon(cat.name)}
+                      icon={getCategoryIcon(cat)}
                       isActive={selectedCategoryId === cat.id && !showCombos}
                       onClick={() => handleSelectCategory(cat.id)}
                     />
