@@ -35,6 +35,7 @@ import {
 import { toast } from 'sonner';
 import { TicketPrint, TicketConfig } from '@/components/pos/TicketPrint';
 import { useTheme, themeColors, sidebarColors, hslToHex } from '@/hooks/useTheme';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { ThemeColor } from '@/types/pos';
 import { Separator } from '@/components/ui/separator';
 
@@ -49,10 +50,7 @@ export default function ConfiguracionPage() {
     customSidebarColor,
     setCustomSidebar
   } = useTheme();
-  const [businessName, setBusinessName] = useState('PizzaPOS');
-  const [businessAddress, setBusinessAddress] = useState('Av. Principal 123, Lima');
-  const [businessPhone, setBusinessPhone] = useState('01-234-5678');
-  const [businessRuc, setBusinessRuc] = useState('20123456789');
+  const { settings, updateSettings } = useBusinessSettings();
   
   const [printerEnabled, setPrinterEnabled] = useState(true);
   const [printerName, setPrinterName] = useState('Ticketera-80mm');
@@ -67,13 +65,7 @@ export default function ConfiguracionPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // Ticket configuration
-  const [ticketLogoUrl, setTicketLogoUrl] = useState('');
-  const [ticketPromoText, setTicketPromoText] = useState('¡Pide 2 pizzas y llévate una gaseosa gratis!');
-  const [ticketFooterText, setTicketFooterText] = useState('¡Gracias por su preferencia!');
   const [showTicketPreview, setShowTicketPreview] = useState(false);
-  
-  // System logo
-  const [systemLogoUrl, setSystemLogoUrl] = useState('');
 
   const handleSave = () => {
     toast.success('Configuración guardada');
@@ -84,7 +76,7 @@ export default function ConfiguracionPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setTicketLogoUrl(reader.result as string);
+        updateSettings({ ticketLogoUrl: reader.result as string });
         toast.success('Logo cargado');
       };
       reader.readAsDataURL(file);
@@ -96,7 +88,7 @@ export default function ConfiguracionPage() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSystemLogoUrl(reader.result as string);
+        updateSettings({ systemLogoUrl: reader.result as string });
         toast.success('Logo del sistema actualizado');
       };
       reader.readAsDataURL(file);
@@ -104,13 +96,13 @@ export default function ConfiguracionPage() {
   };
 
   const ticketConfig: TicketConfig = {
-    logoUrl: ticketLogoUrl,
-    businessName,
-    businessAddress,
-    businessPhone,
-    businessRuc,
-    promoText: ticketPromoText,
-    footerText: ticketFooterText,
+    logoUrl: settings.ticketLogoUrl,
+    businessName: settings.businessName,
+    businessAddress: settings.businessAddress,
+    businessPhone: settings.businessPhone,
+    businessRuc: settings.businessRuc,
+    promoText: settings.ticketPromoText,
+    footerText: settings.ticketFooterText,
   };
 
   // Demo data for preview
@@ -187,10 +179,10 @@ export default function ConfiguracionPage() {
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Logo del Sistema</label>
                     <div className="flex items-start gap-4">
-                      {systemLogoUrl ? (
+                      {settings.systemLogoUrl ? (
                         <div className="relative">
                           <img 
-                            src={systemLogoUrl} 
+                            src={settings.systemLogoUrl} 
                             alt="Logo Sistema" 
                             className="w-24 h-24 object-contain border-2 rounded-xl bg-white"
                           />
@@ -198,7 +190,7 @@ export default function ConfiguracionPage() {
                             variant="ghost"
                             size="icon"
                             className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
-                            onClick={() => setSystemLogoUrl('')}
+                            onClick={() => updateSettings({ systemLogoUrl: '' })}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -231,32 +223,32 @@ export default function ConfiguracionPage() {
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Nombre del negocio</label>
                     <Input
-                      value={businessName}
-                      onChange={(e) => setBusinessName(e.target.value)}
+                      value={settings.businessName}
+                      onChange={(e) => updateSettings({ businessName: e.target.value })}
                       className="h-12 text-pos-base rounded-xl"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Dirección</label>
                     <Input
-                      value={businessAddress}
-                      onChange={(e) => setBusinessAddress(e.target.value)}
+                      value={settings.businessAddress}
+                      onChange={(e) => updateSettings({ businessAddress: e.target.value })}
                       className="h-12 text-pos-base rounded-xl"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Teléfono</label>
                     <Input
-                      value={businessPhone}
-                      onChange={(e) => setBusinessPhone(e.target.value)}
+                      value={settings.businessPhone}
+                      onChange={(e) => updateSettings({ businessPhone: e.target.value })}
                       className="h-12 text-pos-base rounded-xl"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">RUC</label>
                     <Input
-                      value={businessRuc}
-                      onChange={(e) => setBusinessRuc(e.target.value)}
+                      value={settings.businessRuc}
+                      onChange={(e) => updateSettings({ businessRuc: e.target.value })}
                       className="h-12 text-pos-base rounded-xl"
                     />
                   </div>
@@ -526,10 +518,10 @@ export default function ConfiguracionPage() {
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Logo de la empresa</label>
                     <div className="flex items-start gap-4">
-                      {ticketLogoUrl ? (
+                      {settings.ticketLogoUrl ? (
                         <div className="relative">
                           <img 
-                            src={ticketLogoUrl} 
+                            src={settings.ticketLogoUrl} 
                             alt="Logo" 
                             className="w-20 h-20 object-contain border-2 rounded-xl bg-white"
                           />
@@ -537,7 +529,7 @@ export default function ConfiguracionPage() {
                             variant="ghost"
                             size="icon"
                             className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-destructive-foreground"
-                            onClick={() => setTicketLogoUrl('')}
+                            onClick={() => updateSettings({ ticketLogoUrl: '' })}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -571,8 +563,8 @@ export default function ConfiguracionPage() {
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Texto de promoción</label>
                     <Textarea
-                      value={ticketPromoText}
-                      onChange={(e) => setTicketPromoText(e.target.value)}
+                      value={settings.ticketPromoText}
+                      onChange={(e) => updateSettings({ ticketPromoText: e.target.value })}
                       placeholder="Ej: ¡Pide 2 pizzas y lleva la 3ra gratis!"
                       className="min-h-[80px] rounded-xl"
                     />
@@ -585,8 +577,8 @@ export default function ConfiguracionPage() {
                   <div className="space-y-2">
                     <label className="text-pos-base font-semibold">Texto de pie de ticket</label>
                     <Input
-                      value={ticketFooterText}
-                      onChange={(e) => setTicketFooterText(e.target.value)}
+                      value={settings.ticketFooterText}
+                      onChange={(e) => updateSettings({ ticketFooterText: e.target.value })}
                       placeholder="¡Gracias por su preferencia!"
                       className="h-12 text-pos-base rounded-xl"
                     />

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
   const navigate = useNavigate();
   const { signIn, signUp } = useAuth();
+  const { settings } = useBusinessSettings();
 
   const handleResendConfirmation = async () => {
     if (!email) {
@@ -79,11 +81,15 @@ export default function LoginPage() {
     <div className="min-h-screen bg-sidebar flex items-center justify-center p-6">
       <Card className="w-full max-w-lg border-2">
         <CardHeader className="text-center space-y-4 pb-8">
-          <div className="mx-auto w-20 h-20 rounded-2xl bg-primary flex items-center justify-center">
-            <Pizza className="h-12 w-12 text-primary-foreground" />
+          <div className="mx-auto w-20 h-20 rounded-2xl bg-primary flex items-center justify-center overflow-hidden">
+            {settings.systemLogoUrl ? (
+              <img src={settings.systemLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+            ) : (
+              <Pizza className="h-12 w-12 text-primary-foreground" />
+            )}
           </div>
           <div>
-            <CardTitle className="text-pos-2xl">PizzaPOS</CardTitle>
+            <CardTitle className="text-pos-2xl">{settings.businessName}</CardTitle>
             <p className="text-muted-foreground mt-2">Sistema de Punto de Venta</p>
           </div>
         </CardHeader>
