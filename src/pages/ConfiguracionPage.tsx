@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { SetupWizard } from '@/components/setup/SetupWizard';
+import { LicenseCard } from '@/components/license/LicenseCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -262,44 +263,7 @@ export default function ConfiguracionPage() {
                 </CardContent>
               </Card>
 
-              <Card className="border-2">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Key className="h-5 w-5" />
-                    Licencia del Sistema
-                  </CardTitle>
-                  <CardDescription>
-                    Estado de tu licencia actual
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="p-4 bg-success/10 rounded-xl border-2 border-success">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-semibold">Estado:</span>
-                      <span className="px-3 py-1 rounded-full text-sm font-bold bg-success text-success-foreground">
-                        ACTIVA
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-muted-foreground">Tipo:</span>
-                      <span className="font-semibold">Mensual</span>
-                    </div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-muted-foreground">Vence:</span>
-                      <span className="font-semibold">15/02/2026</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Días restantes:</span>
-                      <span className="font-bold text-success">29 días</span>
-                    </div>
-                  </div>
-
-                  <Button variant="outline" className="w-full btn-pos">
-                    <RefreshCw className="h-5 w-5 mr-2" />
-                    Renovar Licencia
-                  </Button>
-                </CardContent>
-              </Card>
+              <LicenseCard />
             </div>
           </TabsContent>
 
