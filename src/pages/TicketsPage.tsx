@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { exportToExcel, exportToPDF, ExportData } from '@/utils/exportUtils';
 import { useTickets, Ticket } from '@/hooks/useTickets';
+import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 
 type FilterPeriod = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
@@ -48,46 +49,64 @@ function getPaymentMethodLabel(method: string | null) {
   return labels[method] || method;
 }
 
-// Helper to trigger browser print
-const handlePrintTicket = (ticket: Ticket) => {
+// Helper to trigger browser print - now receives business settings
+const buildPrintHtml = (ticket: Ticket, settings: { businessName: string; businessAddress: string; businessPhone: string; businessRuc: string; ticketLogoUrl: string; ticketPromoText: string; ticketFooterText: string }) => {
   const fecha = new Date(ticket.created_at);
-  const printWindow = window.open('', '_blank', 'width=400,height=600');
-  if (printWindow) {
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Ticket T-${ticket.order_number}</title>
-          <style>
-            body { font-family: monospace; padding: 20px; font-size: 12px; }
-            .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; }
-            .items { margin: 10px 0; }
-            .total { border-top: 1px dashed #000; padding-top: 10px; font-weight: bold; }
-            .footer { text-align: center; margin-top: 20px; font-size: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h2>🍕 PIZZAPOS</h2>
-            <p>Ticket: T-${ticket.order_number}</p>
-            <p>${fecha.toLocaleDateString('es-PE')} ${fecha.toLocaleTimeString('es-PE')}</p>
-          </div>
-          <div class="items">
-            ${ticket.items.map(item => `<p>${item.quantity}x ${item.product_name} - S/ ${item.total.toFixed(2)}</p>`).join('')}
-          </div>
-          <div class="total">
-            <p>TOTAL: S/ ${ticket.total.toFixed(2)}</p>
-            <p>Pago: ${getPaymentMethodLabel(ticket.payment_method)}</p>
-          </div>
-          <div class="footer">
-            <p>¡Gracias por su preferencia!</p>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.print();
-  }
-  toast.success('Enviado a impresora');
+  const logoHtml = settings.ticketLogoUrl 
+    ? `<img src="${settings.ticketLogoUrl}" alt="Logo" style="width:60px;height:60px;object-fit:contain;margin:0 auto 8px;display:block;" />`
+    : '';
+  const promoHtml = settings.ticketPromoText
+    ? `<div style="text-align:center;margin:12px 0;padding:8px;border:1px dashed #000;border-radius:4px;">
+        <div style="font-size:10px;font-weight:bold;">🎉 PROMOCIÓN 🎉</div>
+        <div style="font-size:10px;">${settings.ticketPromoText}</div>
+      </div>`
+    : '';
+  const rucHtml = settings.businessRuc ? `<p style="font-size:10px;">RUC: ${settings.businessRuc}</p>` : '';
+
+  return `
+    <html>
+      <head>
+        <title>Ticket T-${ticket.order_number}</title>
+        <style>
+          @page { size: 80mm auto; margin: 0; }
+          body { font-family: 'Courier New', monospace; padding: 10px; font-size: 12px; line-height: 1.4; }
+          .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
+          .items { margin: 10px 0; }
+          .item-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+          .separator { border-top: 1px dashed #000; margin: 8px 0; }
+          .total { font-weight: bold; font-size: 14px; }
+          .footer { text-align: center; margin-top: 16px; font-size: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          ${logoHtml}
+          <h2 style="margin:0 0 4px;font-size:16px;">${settings.businessName}</h2>
+          <p style="margin:2px 0;font-size:10px;">${settings.businessAddress}</p>
+          <p style="margin:2px 0;font-size:10px;">Tel: ${settings.businessPhone}</p>
+          ${rucHtml}
+        </div>
+        <div>
+          <div class="item-row"><span>Ticket:</span><span style="font-weight:bold;">T-${ticket.order_number}</span></div>
+          <div class="item-row"><span>Fecha:</span><span>${fecha.toLocaleDateString('es-PE')}</span></div>
+          <div class="item-row"><span>Hora:</span><span>${fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span></div>
+          ${ticket.customer_name ? `<div class="item-row"><span>Cliente:</span><span>${ticket.customer_name}</span></div>` : ''}
+        </div>
+        <div class="separator"></div>
+        <div class="items">
+          ${ticket.items.map(item => `<div class="item-row"><span>${item.quantity}x ${item.product_name}</span><span>S/${item.total.toFixed(2)}</span></div>`).join('')}
+        </div>
+        <div class="separator"></div>
+        <div class="item-row total"><span>TOTAL:</span><span>S/${ticket.total.toFixed(2)}</span></div>
+        <div class="item-row"><span>Pago:</span><span>${getPaymentMethodLabel(ticket.payment_method)}</span></div>
+        ${promoHtml}
+        <div class="footer">
+          <p>${settings.ticketFooterText || '¡Gracias por su preferencia!'}</p>
+          <p style="margin-top:4px;">Conserve este ticket</p>
+        </div>
+      </body>
+    </html>
+  `;
 };
 
 export default function TicketsPage() {
@@ -96,6 +115,18 @@ export default function TicketsPage() {
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+
+  const { settings } = useBusinessSettings();
+
+  const handlePrintTicket = (ticket: Ticket) => {
+    const printWindow = window.open('', '_blank', 'width=320,height=600');
+    if (printWindow) {
+      printWindow.document.write(buildPrintHtml(ticket, settings));
+      printWindow.document.close();
+      printWindow.print();
+    }
+    toast.success('Enviado a impresora');
+  };
 
   // Calculate date range based on filter period
   const dateRange = useMemo(() => {
@@ -403,12 +434,23 @@ export default function TicketsPage() {
             {selectedTicket && (
               <div className="space-y-4 p-4 bg-muted rounded-xl font-mono text-sm">
                 <div className="text-center border-b border-dashed border-border pb-4">
-                  <h3 className="text-lg font-bold">🍕 PIZZAPOS</h3>
-                  <p>{new Date(selectedTicket.created_at).toLocaleDateString('es-PE')}</p>
-                  <p>{new Date(selectedTicket.created_at).toLocaleTimeString('es-PE')}</p>
+                  {settings.ticketLogoUrl && (
+                    <img src={settings.ticketLogoUrl} alt="Logo" className="w-14 h-14 object-contain mx-auto mb-2" />
+                  )}
+                  <h3 className="text-lg font-bold">{settings.businessName}</h3>
+                  <p className="text-xs">{settings.businessAddress}</p>
+                  <p className="text-xs">Tel: {settings.businessPhone}</p>
+                  {settings.businessRuc && <p className="text-xs">RUC: {settings.businessRuc}</p>}
                 </div>
-                
-                <div className="space-y-2">
+
+                <div className="space-y-1">
+                  <div className="flex justify-between"><span>Ticket:</span><span className="font-bold">T-{selectedTicket.order_number}</span></div>
+                  <div className="flex justify-between"><span>Fecha:</span><span>{new Date(selectedTicket.created_at).toLocaleDateString('es-PE')}</span></div>
+                  <div className="flex justify-between"><span>Hora:</span><span>{new Date(selectedTicket.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                  {selectedTicket.customer_name && <div className="flex justify-between"><span>Cliente:</span><span>{selectedTicket.customer_name}</span></div>}
+                </div>
+
+                <div className="border-t border-dashed border-border pt-2 space-y-2">
                   {selectedTicket.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between">
                       <span>{item.quantity}x {item.product_name}</span>
@@ -427,9 +469,16 @@ export default function TicketsPage() {
                     <span>{getPaymentMethodLabel(selectedTicket.payment_method)}</span>
                   </div>
                 </div>
+
+                {settings.ticketPromoText && (
+                  <div className="text-center p-2 border border-dashed border-border rounded">
+                    <p className="text-xs font-bold">🎉 PROMOCIÓN 🎉</p>
+                    <p className="text-xs">{settings.ticketPromoText}</p>
+                  </div>
+                )}
                 
                 <div className="text-center text-muted-foreground text-xs pt-4 border-t border-dashed border-border">
-                  <p>¡Gracias por su preferencia!</p>
+                  <p>{settings.ticketFooterText || '¡Gracias por su preferencia!'}</p>
                 </div>
               </div>
             )}
