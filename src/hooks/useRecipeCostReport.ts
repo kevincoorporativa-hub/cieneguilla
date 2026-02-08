@@ -105,12 +105,17 @@ export function useIngredientConsumption(startDate?: string, endDate?: string) {
 /**
  * Actual sales data for products with recipes in a date range.
  * Combines order_items sales with recipe costs to show real profitability.
+ * Tracks direct vs combo sales separately.
  */
 export interface RecipeProductSale {
   product_id: string;
   product_name: string;
   units_sold: number;
+  direct_units: number;
+  combo_units: number;
   total_revenue: number;
+  direct_revenue: number;
+  combo_revenue: number;
   unit_recipe_cost: number;
   total_recipe_cost: number;
   total_profit: number;
@@ -195,16 +200,21 @@ export function useRecipeProductSales(startDate?: string, endDate?: string) {
       }
 
       // 6. Aggregate sales per recipe product (direct + combo components)
-      const salesAgg: Record<string, { units: number; revenue: number }> = {};
+      const salesAgg: Record<string, {
+        direct_units: number;
+        direct_revenue: number;
+        combo_units: number;
+        combo_revenue: number;
+      }> = {};
 
       for (const item of orderItems) {
-        // Direct product sale
+        // Direct product sale (has product_id, no combo_id)
         if (item.product_id && !item.combo_id && recipeMap[item.product_id]) {
           if (!salesAgg[item.product_id]) {
-            salesAgg[item.product_id] = { units: 0, revenue: 0 };
+            salesAgg[item.product_id] = { direct_units: 0, direct_revenue: 0, combo_units: 0, combo_revenue: 0 };
           }
-          salesAgg[item.product_id].units += item.quantity;
-          salesAgg[item.product_id].revenue += Number(item.total);
+          salesAgg[item.product_id].direct_units += item.quantity;
+          salesAgg[item.product_id].direct_revenue += Number(item.total);
         }
 
         // Combo sale → expand into component products
@@ -220,18 +230,18 @@ export function useRecipeProductSales(startDate?: string, endDate?: string) {
 
             for (const comp of recipeComponents) {
               if (!salesAgg[comp.product_id]) {
-                salesAgg[comp.product_id] = { units: 0, revenue: 0 };
+                salesAgg[comp.product_id] = { direct_units: 0, direct_revenue: 0, combo_units: 0, combo_revenue: 0 };
               }
               const compUnits = comp.quantity * item.quantity;
-              salesAgg[comp.product_id].units += compUnits;
+              salesAgg[comp.product_id].combo_units += compUnits;
 
               // Proportional revenue based on recipe cost weight
               if (totalComponentCost > 0) {
                 const costWeight = (recipeMap[comp.product_id].cost * comp.quantity) / totalComponentCost;
-                salesAgg[comp.product_id].revenue += Number(item.total) * costWeight * item.quantity / item.quantity;
+                salesAgg[comp.product_id].combo_revenue += Number(item.total) * costWeight;
               } else {
                 // Fallback: distribute evenly
-                salesAgg[comp.product_id].revenue += Number(item.total) / components.length;
+                salesAgg[comp.product_id].combo_revenue += Number(item.total) / components.length;
               }
             }
           }
@@ -241,15 +251,21 @@ export function useRecipeProductSales(startDate?: string, endDate?: string) {
       // 7. Build result
       const result: RecipeProductSale[] = Object.entries(salesAgg).map(([productId, sales]) => {
         const recipe = recipeMap[productId];
-        const totalCost = recipe.cost * sales.units;
-        const totalProfit = sales.revenue - totalCost;
-        const margin = sales.revenue > 0 ? (totalProfit / sales.revenue) * 100 : 0;
+        const totalUnits = sales.direct_units + sales.combo_units;
+        const totalRevenue = sales.direct_revenue + sales.combo_revenue;
+        const totalCost = recipe.cost * totalUnits;
+        const totalProfit = totalRevenue - totalCost;
+        const margin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
         return {
           product_id: productId,
           product_name: recipe.name,
-          units_sold: sales.units,
-          total_revenue: sales.revenue,
+          units_sold: totalUnits,
+          direct_units: sales.direct_units,
+          combo_units: sales.combo_units,
+          total_revenue: totalRevenue,
+          direct_revenue: sales.direct_revenue,
+          combo_revenue: sales.combo_revenue,
           unit_recipe_cost: recipe.cost,
           total_recipe_cost: totalCost,
           total_profit: totalProfit,
