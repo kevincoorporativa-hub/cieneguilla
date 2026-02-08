@@ -8,7 +8,7 @@ import {
   Users,
   Settings,
   LogOut,
-  Pizza,
+  
   ChevronLeft,
   ChevronRight,
   Boxes,
@@ -84,11 +84,11 @@ export function Sidebar() {
       <div className="p-2 lg:p-3 xl:p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2 lg:gap-3">
           <div className="w-8 h-8 lg:w-10 lg:h-10 xl:w-12 xl:h-12 rounded-lg xl:rounded-xl bg-primary flex items-center justify-center shrink-0 overflow-hidden">
-            {settings.systemLogoUrl ? (
-              <img src={settings.systemLogoUrl} alt="Logo" className="w-full h-full object-contain" />
-            ) : (
-              <Pizza className="h-5 w-5 lg:h-6 lg:w-6 xl:h-7 xl:w-7 text-primary-foreground" />
-            )}
+            <img 
+              src={settings.systemLogoUrl || '/logo-coopvibisc.ico'} 
+              alt="Coopvibisc Logo" 
+              className="w-full h-full object-contain" 
+            />
           </div>
           {(!isCollapsed || isFloating) && (
             <div className="overflow-hidden flex-1">

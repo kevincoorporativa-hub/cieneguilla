@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, EyeOff, Pizza, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -82,11 +82,11 @@ export default function LoginPage() {
       <Card className="w-full max-w-lg border-2">
         <CardHeader className="text-center space-y-4 pb-8">
           <div className="mx-auto w-20 h-20 rounded-2xl bg-primary flex items-center justify-center overflow-hidden">
-            {settings.systemLogoUrl ? (
-              <img src={settings.systemLogoUrl} alt="Logo" className="w-full h-full object-contain" />
-            ) : (
-              <Pizza className="h-12 w-12 text-primary-foreground" />
-            )}
+            <img 
+              src={settings.systemLogoUrl || '/logo-coopvibisc.ico'} 
+              alt="Coopvibisc Logo" 
+              className="w-full h-full object-contain" 
+            />
           </div>
           <div>
             <CardTitle className="text-pos-2xl">{settings.businessName}</CardTitle>
