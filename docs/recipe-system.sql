@@ -3,11 +3,12 @@
 -- Ejecutar en Supabase SQL Editor (una sola vez)
 -- =====================================================
 -- Este script:
---   1. Crea la tabla product_recipes
---   2. Agrega has_recipes a categories
+--   1. Agrega has_recipes a categories
+--   2. Recrea la tabla product_recipes (limpia)
 --   3. Crea función auxiliar para descontar insumos
 --   4. Actualiza el trigger de pago para usar recetas
 --   5. Crea vista de costo de receta por producto
+--   6. Crea función de porciones disponibles
 -- =====================================================
 
 -- =====================================================
@@ -19,9 +20,23 @@ ALTER TABLE public.categories
 
 -- =====================================================
 -- 2. TABLA DE RECETAS (Producto → Insumos)
+--    Se eliminan dependencias primero para recrear limpio
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS public.product_recipes (
+-- Eliminar vista que depende de product_recipes
+DROP VIEW IF EXISTS public.v_product_recipe_cost CASCADE;
+
+-- Eliminar funciones que dependen de product_recipes
+DROP FUNCTION IF EXISTS public.get_recipe_available_servings(UUID, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.deduct_ingredients_for_product(UUID, INT, UUID, UUID, INT, TEXT, BOOLEAN, UUID) CASCADE;
+
+-- Eliminar trigger antes de recrear la función del trigger
+DROP TRIGGER IF EXISTS trg_deduct_product_stock_on_payment ON public.payments;
+
+-- Recrear tabla limpia
+DROP TABLE IF EXISTS public.product_recipes CASCADE;
+
+CREATE TABLE public.product_recipes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
     ingredient_id UUID NOT NULL REFERENCES public.ingredients(id) ON DELETE CASCADE,
@@ -36,35 +51,21 @@ CREATE INDEX IF NOT EXISTS idx_product_recipes_ingredient ON public.product_reci
 -- RLS
 ALTER TABLE public.product_recipes ENABLE ROW LEVEL SECURITY;
 
-DO $$ BEGIN
-    CREATE POLICY "auth_select_recipes" ON public.product_recipes
-        FOR SELECT TO authenticated USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+CREATE POLICY "auth_select_recipes" ON public.product_recipes
+    FOR SELECT TO authenticated USING (true);
 
-DO $$ BEGIN
-    CREATE POLICY "auth_insert_recipes" ON public.product_recipes
-        FOR INSERT TO authenticated WITH CHECK (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+CREATE POLICY "auth_insert_recipes" ON public.product_recipes
+    FOR INSERT TO authenticated WITH CHECK (true);
 
-DO $$ BEGIN
-    CREATE POLICY "auth_update_recipes" ON public.product_recipes
-        FOR UPDATE TO authenticated USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+CREATE POLICY "auth_update_recipes" ON public.product_recipes
+    FOR UPDATE TO authenticated USING (true);
 
-DO $$ BEGIN
-    CREATE POLICY "auth_delete_recipes" ON public.product_recipes
-        FOR DELETE TO authenticated USING (true);
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+CREATE POLICY "auth_delete_recipes" ON public.product_recipes
+    FOR DELETE TO authenticated USING (true);
 
 -- =====================================================
 -- 3. FUNCIÓN AUXILIAR: Descontar insumos por receta
 -- =====================================================
-
-DROP FUNCTION IF EXISTS public.deduct_ingredients_for_product(UUID, INT, UUID, UUID, INT, TEXT, BOOLEAN, UUID);
 
 CREATE OR REPLACE FUNCTION public.deduct_ingredients_for_product(
     p_product_id UUID,
@@ -85,13 +86,11 @@ DECLARE
     v_has_recipe BOOLEAN;
     v_ingredient_qty DECIMAL;
 BEGIN
-    -- ¿Tiene receta este producto?
     SELECT EXISTS(
         SELECT 1 FROM public.product_recipes WHERE product_id = p_product_id
     ) INTO v_has_recipe;
 
     IF v_has_recipe THEN
-        -- ========== DESCONTAR INSUMOS POR RECETA ==========
         FOR v_recipe IN
             SELECT pr.ingredient_id, pr.quantity_needed, i.name as ingredient_name
             FROM public.product_recipes pr
@@ -100,7 +99,6 @@ BEGIN
         LOOP
             v_ingredient_qty := v_recipe.quantity_needed * p_quantity;
 
-            -- Actualizar stock del insumo
             IF EXISTS (
                 SELECT 1 FROM public.ingredient_stock 
                 WHERE ingredient_id = v_recipe.ingredient_id 
@@ -116,7 +114,6 @@ BEGIN
                 VALUES (v_recipe.ingredient_id, p_store_id, 0);
             END IF;
 
-            -- Registrar movimiento en kardex de insumos
             INSERT INTO public.stock_moves 
                 (ingredient_id, store_id, move_type, quantity, reference_id, notes, user_id, unit_cost, total_cost)
             VALUES (
@@ -133,7 +130,6 @@ BEGIN
         END LOOP;
 
     ELSIF p_track_stock = true THEN
-        -- ========== DESCONTAR STOCK DIRECTO (productos sin receta, ej: bebidas) ==========
         IF EXISTS (
             SELECT 1 FROM public.product_stock 
             WHERE product_id = p_product_id 
@@ -167,8 +163,6 @@ $$;
 -- =====================================================
 -- 4. TRIGGER MEJORADO: DESCONTAR AL PAGAR
 -- =====================================================
-
-DROP TRIGGER IF EXISTS trg_deduct_product_stock_on_payment ON public.payments;
 
 CREATE OR REPLACE FUNCTION public.deduct_product_stock_on_payment()
 RETURNS TRIGGER
@@ -205,7 +199,6 @@ BEGIN
             LEFT JOIN public.products p ON p.id = oi.product_id
             WHERE oi.order_id = NEW.order_id
         LOOP
-            -- COMBO: descontar insumos de cada componente
             IF v_item.combo_id IS NOT NULL THEN
                 FOR v_combo_component IN
                     SELECT ci.product_id, ci.quantity, p.name as product_name, p.track_stock
@@ -221,7 +214,6 @@ BEGIN
                     );
                 END LOOP;
             
-            -- PRODUCTO INDIVIDUAL
             ELSIF v_item.product_id IS NOT NULL THEN
                 PERFORM deduct_ingredients_for_product(
                     v_item.product_id, v_item.quantity,
@@ -268,8 +260,6 @@ GRANT SELECT ON public.v_product_recipe_cost TO authenticated;
 
 -- =====================================================
 -- 6. FUNCIÓN: Porciones disponibles por receta
--- Calcula cuántas unidades se pueden preparar de un
--- producto basándose en el stock de sus insumos.
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.get_recipe_available_servings(
@@ -293,7 +283,7 @@ BEGIN
     ) INTO v_has_recipe;
 
     IF NOT v_has_recipe THEN
-        RETURN -1; -- No tiene receta, usar stock directo
+        RETURN -1;
     END IF;
 
     FOR v_recipe IN
