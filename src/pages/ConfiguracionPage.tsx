@@ -15,7 +15,8 @@ import {
   Eye,
   Palette,
   Check,
-  Rocket
+  Rocket,
+  Database
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { SetupWizard } from '@/components/setup/SetupWizard';
@@ -38,6 +39,7 @@ import { useTheme, themeColors, sidebarColors, hslToHex } from '@/hooks/useTheme
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { ThemeColor } from '@/types/pos';
 import { Separator } from '@/components/ui/separator';
+import { SystemManagementTab } from '@/components/configuracion/SystemManagementTab';
 
 export default function ConfiguracionPage() {
   const { 
@@ -145,6 +147,10 @@ export default function ConfiguracionPage() {
             <TabsTrigger value="seguridad" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Shield className="h-5 w-5 mr-2" />
               Seguridad
+            </TabsTrigger>
+            <TabsTrigger value="sistema" className="h-12 px-4 text-pos-base font-semibold rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Database className="h-5 w-5 mr-2" />
+              Sistema
             </TabsTrigger>
           </TabsList>
 
@@ -768,6 +774,10 @@ export default function ConfiguracionPage() {
                 </Button>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="sistema">
+            <SystemManagementTab />
           </TabsContent>
         </Tabs>
 
