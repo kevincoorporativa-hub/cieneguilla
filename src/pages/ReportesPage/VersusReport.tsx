@@ -33,7 +33,8 @@ interface VersusReportProps {
 export function VersusReport({ sales, isLoadingSales, globalStartDate, globalEndDate }: VersusReportProps) {
   const [tab, setTab] = useState<string>('compras');
 
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const firstOfMonth = `${today.substring(0, 7)}-01`;
 
   // Independent date range for purchases
@@ -91,9 +92,10 @@ export function VersusReport({ sales, isLoadingSales, globalStartDate, globalEnd
                   const d = new Date();
                   const day = d.getDay();
                   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-                  const monday = new Date(d.setDate(diff));
-                  setPurchaseStart(monday.toISOString().split('T')[0]);
-                  setPurchaseEnd(new Date().toISOString().split('T')[0]);
+                  const monday = new Date(d.getFullYear(), d.getMonth(), diff);
+                  const monStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+                  setPurchaseStart(monStr);
+                  setPurchaseEnd(today);
                 }}>
                   Semana
                 </Button>
