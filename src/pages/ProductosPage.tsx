@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Plus, Search, Edit, Trash2, Package, Eye, EyeOff, FolderPlus, Check, X, Calendar, ArrowUpDown, AlertTriangle, Clock } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Package, Eye, EyeOff, FolderPlus, Check, X, Calendar, ArrowUpDown, AlertTriangle, Clock, ChefHat } from 'lucide-react';
 import { ExportDropdown } from '@/components/shared/ExportDropdown';
 import { exportToExcel, exportToPDF, exportChartsToPDF } from '@/utils/exportUtils';
 import { MainLayout } from '@/components/layout/MainLayout';
@@ -49,6 +49,8 @@ import { CategoryIconPicker } from '@/components/pos/CategoryIconPicker';
 import { useProductStock, useProductStockMoves, useCreateProductStockMove, useProductExpirationDates } from '@/hooks/useProductInventory';
 import { useStores } from '@/hooks/useStores';
 import { useAuth } from '@/contexts/AuthContext';
+import { RecipeEditor } from '@/components/productos/RecipeEditor';
+import { useProductRecipe } from '@/hooks/useRecipes';
 
 export default function ProductosPage() {
   const { user } = useAuth();
@@ -62,6 +64,9 @@ export default function ProductosPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [selectedProductForStock, setSelectedProductForStock] = useState<Product | null>(null);
+  const [recipeProductId, setRecipeProductId] = useState<string | null>(null);
+  const [recipeProductName, setRecipeProductName] = useState('');
+  const [recipeProductPrice, setRecipeProductPrice] = useState(0);
 
   // Form state for products
   const [formName, setFormName] = useState('');
@@ -655,6 +660,7 @@ export default function ProductosPage() {
                         <TableHead className="text-center">Stock</TableHead>
                         <TableHead className="text-center">Vence</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-center">Receta</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -750,6 +756,21 @@ export default function ProductosPage() {
                               }`}>
                                 {product.active ? 'Activo' : 'Inactivo'}
                               </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-1"
+                                onClick={() => {
+                                  setRecipeProductId(product.id);
+                                  setRecipeProductName(product.name);
+                                  setRecipeProductPrice(Number(product.base_price));
+                                }}
+                              >
+                                <ChefHat className="h-4 w-4" />
+                                Receta
+                              </Button>
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
@@ -1392,6 +1413,17 @@ export default function ProductosPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Recipe Editor Modal */}
+      {recipeProductId && (
+        <RecipeEditor
+          isOpen={!!recipeProductId}
+          onClose={() => setRecipeProductId(null)}
+          productId={recipeProductId}
+          productName={recipeProductName}
+          productPrice={recipeProductPrice}
+        />
+      )}
     </MainLayout>
   );
 }
