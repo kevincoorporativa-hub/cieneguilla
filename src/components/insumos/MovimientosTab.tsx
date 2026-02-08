@@ -18,6 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Ingredient, useCreateStockMove } from '@/hooks/useIngredients';
 import { useStores } from '@/hooks/useStores';
@@ -122,23 +129,32 @@ export function MovimientosTab({ ingredients }: Props) {
         </CardContent>
       </Card>
 
-      {/* Action Cards */}
+      {/* Action Cards - clickable */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-2 border-success/30 bg-success/5 hover:bg-success/10 transition-colors cursor-default">
+        <Card
+          className="border-2 border-success/30 bg-success/5 hover:bg-success/10 transition-colors cursor-pointer active:scale-[0.98]"
+          onClick={() => { setMovementType('purchase'); setSelectedItem(null); setQuantity(''); setUnitCost(''); setReason(''); setSupplier(''); setPurchaseDate(new Date().toISOString().split('T')[0]); setIsModalOpen(true); }}
+        >
           <CardContent className="p-5 text-center">
             <ArrowDownCircle className="h-10 w-10 text-success mx-auto mb-2" />
             <h3 className="font-bold text-lg text-success">Ingreso</h3>
             <p className="text-sm text-muted-foreground">Compras y entradas de stock</p>
           </CardContent>
         </Card>
-        <Card className="border-2 border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors cursor-default">
+        <Card
+          className="border-2 border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors cursor-pointer active:scale-[0.98]"
+          onClick={() => { setMovementType('waste'); setSelectedItem(null); setQuantity(''); setUnitCost(''); setReason(''); setIsModalOpen(true); }}
+        >
           <CardContent className="p-5 text-center">
             <ArrowUpCircle className="h-10 w-10 text-destructive mx-auto mb-2" />
             <h3 className="font-bold text-lg text-destructive">Salida</h3>
             <p className="text-sm text-muted-foreground">Merma y pérdidas</p>
           </CardContent>
         </Card>
-        <Card className="border-2 border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors cursor-default">
+        <Card
+          className="border-2 border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors cursor-pointer active:scale-[0.98]"
+          onClick={() => { setMovementType('adjustment'); setSelectedItem(null); setQuantity(''); setUnitCost(''); setReason(''); setIsModalOpen(true); }}
+        >
           <CardContent className="p-5 text-center">
             <RefreshCw className="h-10 w-10 text-warning mx-auto mb-2" />
             <h3 className="font-bold text-lg text-warning">Ajuste</h3>
@@ -230,13 +246,37 @@ export function MovimientosTab({ ingredients }: Props) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            {/* Current info */}
-            <div className="p-4 bg-muted rounded-xl">
-              <p className="font-semibold text-pos-lg">{selectedItem?.name}</p>
-              <p className="text-muted-foreground">
-                Stock actual: {selectedItem?.current_stock} {selectedItem?.unit}
-              </p>
-            </div>
+            {/* Ingredient selector (when opened from card buttons) */}
+            {!selectedItem ? (
+              <div className="space-y-2">
+                <label className="text-pos-base font-semibold">Seleccione un insumo *</label>
+                <Select onValueChange={(id) => {
+                  const found = ingredients.find(i => i.id === id);
+                  if (found) {
+                    setSelectedItem(found);
+                    setSupplier(found.supplier || '');
+                  }
+                }}>
+                  <SelectTrigger className="h-12 text-pos-base rounded-xl">
+                    <SelectValue placeholder="Elegir insumo..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-background z-50">
+                    {ingredients.map((ing) => (
+                      <SelectItem key={ing.id} value={ing.id}>
+                        {ing.name} — {ing.current_stock} {ing.unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="p-4 bg-muted rounded-xl">
+                <p className="font-semibold text-pos-lg">{selectedItem.name}</p>
+                <p className="text-muted-foreground">
+                  Stock actual: {selectedItem.current_stock} {selectedItem.unit}
+                </p>
+              </div>
+            )}
 
             {/* Quantity */}
             <div className="space-y-2">
