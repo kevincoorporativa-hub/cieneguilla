@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Package, ShoppingCart } from 'lucide-react';
-import { PurchaseItem, SaleItem } from '@/hooks/useCuadre';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Package, ShoppingCart, Calendar } from 'lucide-react';
+import { PurchaseItem, SaleItem, useAllPurchases } from '@/hooks/useCuadre';
 
 function getOrderTypeBadge(type: string) {
   switch (type) {
@@ -22,14 +24,23 @@ function getSourceBadge(source: 'insumo' | 'producto') {
 }
 
 interface VersusReportProps {
-  purchases: PurchaseItem[];
   sales: SaleItem[];
-  isLoadingPurchases: boolean;
   isLoadingSales: boolean;
+  globalStartDate: string;
+  globalEndDate: string;
 }
 
-export function VersusReport({ purchases, sales, isLoadingPurchases, isLoadingSales }: VersusReportProps) {
+export function VersusReport({ sales, isLoadingSales, globalStartDate, globalEndDate }: VersusReportProps) {
   const [tab, setTab] = useState<string>('compras');
+
+  const today = new Date().toISOString().split('T')[0];
+  const firstOfMonth = `${today.substring(0, 7)}-01`;
+
+  // Independent date range for purchases
+  const [purchaseStart, setPurchaseStart] = useState(firstOfMonth);
+  const [purchaseEnd, setPurchaseEnd] = useState(today);
+
+  const { data: purchases = [], isLoading: isLoadingPurchases } = useAllPurchases(purchaseStart, purchaseEnd);
 
   const totalCompras = purchases.reduce((sum, p) => sum + p.total_cost, 0);
   const totalVentas = sales.reduce((sum, s) => sum + s.total, 0);
@@ -48,7 +59,52 @@ export function VersusReport({ purchases, sales, isLoadingPurchases, isLoadingSa
       </TabsList>
 
       {/* Purchases Tab */}
-      <TabsContent value="compras">
+      <TabsContent value="compras" className="space-y-4">
+        {/* Purchase-specific date range filter */}
+        <Card className="border-2">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold text-sm">Rango de compras:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  value={purchaseStart}
+                  onChange={(e) => setPurchaseStart(e.target.value)}
+                  className="h-10 rounded-lg w-40"
+                />
+                <span className="text-muted-foreground text-sm">hasta</span>
+                <Input
+                  type="date"
+                  value={purchaseEnd}
+                  onChange={(e) => setPurchaseEnd(e.target.value)}
+                  className="h-10 rounded-lg w-40"
+                />
+              </div>
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" size="sm" onClick={() => { setPurchaseStart(today); setPurchaseEnd(today); }}>
+                  Hoy
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => {
+                  const d = new Date();
+                  const day = d.getDay();
+                  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                  const monday = new Date(d.setDate(diff));
+                  setPurchaseStart(monday.toISOString().split('T')[0]);
+                  setPurchaseEnd(new Date().toISOString().split('T')[0]);
+                }}>
+                  Semana
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setPurchaseStart(firstOfMonth); setPurchaseEnd(today); }}>
+                  Mes
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="border-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
