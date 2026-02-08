@@ -91,6 +91,9 @@ export default function InventarioPage() {
     unidad: 'kg',
     stockMinimo: '',
     costoUnitario: '',
+    categoria: 'general',
+    proveedor: '',
+    fechaCompra: '',
   });
 
   // Hooks
@@ -112,8 +115,12 @@ export default function InventarioPage() {
     setMovementType(type);
     setMovementQuantity('');
     setMovementReason('');
+    setMovementUnitCost('');
     setIsMovementModalOpen(true);
   };
+
+  // Movement cost
+  const [movementUnitCost, setMovementUnitCost] = useState('');
 
   const handleSaveMovement = async () => {
     if (!selectedItem || !movementQuantity || !movementReason) {
@@ -134,9 +141,10 @@ export default function InventarioPage() {
       if (movementType === 'waste') {
         quantity = -cantidad;
       } else if (movementType === 'adjustment') {
-        // For adjustment, the quantity can be positive or negative
         quantity = cantidad;
       }
+
+      const unitCost = parseFloat(movementUnitCost) || 0;
 
       await createStockMove.mutateAsync({
         ingredient_id: selectedItem.id,
@@ -144,6 +152,7 @@ export default function InventarioPage() {
         move_type: movementType,
         quantity: quantity,
         notes: movementReason,
+        unit_cost: unitCost,
       });
 
       toast.success('Movimiento registrado correctamente');
@@ -165,11 +174,14 @@ export default function InventarioPage() {
         unit: newItemForm.unidad,
         min_stock: parseFloat(newItemForm.stockMinimo) || 0,
         cost_per_unit: parseFloat(newItemForm.costoUnitario) || 0,
+        category: newItemForm.categoria,
+        supplier: newItemForm.proveedor || undefined,
+        purchase_date: newItemForm.fechaCompra || undefined,
       });
 
       toast.success('Insumo creado correctamente');
       setIsNewItemModalOpen(false);
-      setNewItemForm({ nombre: '', unidad: 'kg', stockMinimo: '', costoUnitario: '' });
+      setNewItemForm({ nombre: '', unidad: 'kg', stockMinimo: '', costoUnitario: '', categoria: 'general', proveedor: '', fechaCompra: '' });
     } catch (error: any) {
       toast.error('Error al crear insumo', { description: error.message });
     }
@@ -282,10 +294,13 @@ export default function InventarioPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="text-pos-base font-bold">Insumo</TableHead>
+                        <TableHead className="text-pos-base font-bold">Categoría</TableHead>
                         <TableHead className="text-pos-base font-bold">Stock</TableHead>
                         <TableHead className="text-pos-base font-bold">Unidad</TableHead>
                         <TableHead className="text-pos-base font-bold">Mínimo</TableHead>
                         <TableHead className="text-pos-base font-bold">Costo Unit.</TableHead>
+                        <TableHead className="text-pos-base font-bold">Precio Total</TableHead>
+                        <TableHead className="text-pos-base font-bold">Proveedor</TableHead>
                         <TableHead className="text-pos-base font-bold text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -293,10 +308,15 @@ export default function InventarioPage() {
                       {filteredInventory.map((item) => (
                         <TableRow key={item.id} className="hover:bg-muted/50">
                           <TableCell className="font-semibold text-pos-base">{item.name}</TableCell>
+                          <TableCell>
+                            <span className="px-2 py-1 rounded-full text-xs font-bold bg-muted">{item.category}</span>
+                          </TableCell>
                           <TableCell>{getStockBadge(item.current_stock, item.min_stock)}</TableCell>
                           <TableCell>{item.unit}</TableCell>
                           <TableCell className="text-muted-foreground">{item.min_stock}</TableCell>
                           <TableCell className="text-muted-foreground">S/ {item.cost_per_unit.toFixed(2)}</TableCell>
+                          <TableCell className="font-semibold">S/ {(item.current_stock * item.cost_per_unit).toFixed(2)}</TableCell>
+                          <TableCell className="text-muted-foreground">{item.supplier || '—'}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button 
@@ -332,7 +352,7 @@ export default function InventarioPage() {
                       ))}
                       {filteredInventory.length === 0 && (
                         <TableRow>
-                          <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                             No se encontraron insumos
                           </TableCell>
                         </TableRow>
@@ -446,6 +466,25 @@ export default function InventarioPage() {
                 />
               </div>
 
+              {movementType === 'purchase' && (
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Costo Unitario (S/)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={movementUnitCost}
+                    onChange={(e) => setMovementUnitCost(e.target.value)}
+                    placeholder="0.00"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                  {movementQuantity && movementUnitCost && (
+                    <p className="text-sm text-muted-foreground">
+                      Total: S/ {(parseFloat(movementQuantity) * parseFloat(movementUnitCost)).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-pos-base font-semibold">Motivo / Descripción</label>
                 <Textarea
@@ -502,6 +541,27 @@ export default function InventarioPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Categoría</label>
+                  <Select value={newItemForm.categoria} onValueChange={(v) => setNewItemForm({ ...newItemForm, categoria: v })}>
+                    <SelectTrigger className="h-12 text-pos-base rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="lacteos">Lácteos</SelectItem>
+                      <SelectItem value="carnes">Carnes</SelectItem>
+                      <SelectItem value="verduras">Verduras</SelectItem>
+                      <SelectItem value="frutas">Frutas</SelectItem>
+                      <SelectItem value="harinas">Harinas</SelectItem>
+                      <SelectItem value="salsas">Salsas</SelectItem>
+                      <SelectItem value="bebidas">Bebidas</SelectItem>
+                      <SelectItem value="especias">Especias</SelectItem>
+                      <SelectItem value="empaques">Empaques</SelectItem>
+                      <SelectItem value="limpieza">Limpieza</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <label className="text-pos-base font-semibold">Unidad</label>
                   <Select value={newItemForm.unidad} onValueChange={(v) => setNewItemForm({ ...newItemForm, unidad: v })}>
                     <SelectTrigger className="h-12 text-pos-base rounded-xl">
@@ -516,6 +576,9 @@ export default function InventarioPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-pos-base font-semibold">Stock Mínimo</label>
                   <Input
@@ -526,18 +589,38 @@ export default function InventarioPage() {
                     className="h-12 text-pos-base rounded-xl"
                   />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Costo Unitario (S/)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={newItemForm.costoUnitario}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, costoUnitario: e.target.value })}
+                    placeholder="0.00"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-pos-base font-semibold">Costo Unitario (S/)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={newItemForm.costoUnitario}
-                  onChange={(e) => setNewItemForm({ ...newItemForm, costoUnitario: e.target.value })}
-                  placeholder="0.00"
-                  className="h-12 text-pos-base rounded-xl"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Proveedor (opcional)</label>
+                  <Input
+                    value={newItemForm.proveedor}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, proveedor: e.target.value })}
+                    placeholder="Nombre del proveedor"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold">Fecha de compra</label>
+                  <Input
+                    type="date"
+                    value={newItemForm.fechaCompra}
+                    onChange={(e) => setNewItemForm({ ...newItemForm, fechaCompra: e.target.value })}
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">
