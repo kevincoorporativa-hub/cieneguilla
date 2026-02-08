@@ -138,7 +138,7 @@ export function useRecipeProductSales(startDate?: string, endDate?: string) {
         };
       }
 
-      // 2. Get orders in date range
+      // 2. Get paid orders in date range
       let orderQuery = supabase
         .from('orders')
         .select('id')
@@ -156,28 +156,89 @@ export function useRecipeProductSales(startDate?: string, endDate?: string) {
       const { data: orders } = await orderQuery;
       if (!orders || orders.length === 0) return [];
 
-      // 3. Get order items for these orders
       const orderIds = orders.map(o => o.id);
+
+      // 3. Get ALL order items (both direct products and combos)
       const { data: orderItems } = await supabase
         .from('order_items')
-        .select('product_id, quantity, total')
+        .select('product_id, combo_id, quantity, total')
         .in('order_id', orderIds);
 
       if (!orderItems) return [];
 
-      // 4. Aggregate sales per recipe product
+      // 4. Collect combo_ids to look up their components
+      const comboIds = [...new Set(
+        orderItems
+          .filter(item => item.combo_id)
+          .map(item => item.combo_id!)
+      )];
+
+      // 5. Fetch combo components if any
+      let comboComponentsMap: Record<string, { product_id: string; quantity: number }[]> = {};
+      if (comboIds.length > 0) {
+        const { data: comboItems } = await supabase
+          .from('combo_items')
+          .select('combo_id, product_id, quantity')
+          .in('combo_id', comboIds);
+
+        if (comboItems) {
+          for (const ci of comboItems) {
+            if (!comboComponentsMap[ci.combo_id]) {
+              comboComponentsMap[ci.combo_id] = [];
+            }
+            comboComponentsMap[ci.combo_id].push({
+              product_id: ci.product_id,
+              quantity: ci.quantity,
+            });
+          }
+        }
+      }
+
+      // 6. Aggregate sales per recipe product (direct + combo components)
       const salesAgg: Record<string, { units: number; revenue: number }> = {};
 
       for (const item of orderItems) {
-        if (!item.product_id || !recipeMap[item.product_id]) continue;
-        if (!salesAgg[item.product_id]) {
-          salesAgg[item.product_id] = { units: 0, revenue: 0 };
+        // Direct product sale
+        if (item.product_id && !item.combo_id && recipeMap[item.product_id]) {
+          if (!salesAgg[item.product_id]) {
+            salesAgg[item.product_id] = { units: 0, revenue: 0 };
+          }
+          salesAgg[item.product_id].units += item.quantity;
+          salesAgg[item.product_id].revenue += Number(item.total);
         }
-        salesAgg[item.product_id].units += item.quantity;
-        salesAgg[item.product_id].revenue += Number(item.total);
+
+        // Combo sale → expand into component products
+        if (item.combo_id && comboComponentsMap[item.combo_id]) {
+          const components = comboComponentsMap[item.combo_id];
+          const recipeComponents = components.filter(c => recipeMap[c.product_id]);
+
+          if (recipeComponents.length > 0) {
+            // Distribute the combo's revenue proportionally by recipe cost
+            const totalComponentCost = recipeComponents.reduce(
+              (sum, c) => sum + recipeMap[c.product_id].cost * c.quantity, 0
+            );
+
+            for (const comp of recipeComponents) {
+              if (!salesAgg[comp.product_id]) {
+                salesAgg[comp.product_id] = { units: 0, revenue: 0 };
+              }
+              const compUnits = comp.quantity * item.quantity;
+              salesAgg[comp.product_id].units += compUnits;
+
+              // Proportional revenue based on recipe cost weight
+              if (totalComponentCost > 0) {
+                const costWeight = (recipeMap[comp.product_id].cost * comp.quantity) / totalComponentCost;
+                salesAgg[comp.product_id].revenue += Number(item.total) * costWeight * item.quantity / item.quantity;
+              } else {
+                // Fallback: distribute evenly
+                salesAgg[comp.product_id].revenue += Number(item.total) / components.length;
+              }
+            }
+          }
+        }
       }
 
-      // 5. Build result
+      // 7. Build result
       const result: RecipeProductSale[] = Object.entries(salesAgg).map(([productId, sales]) => {
         const recipe = recipeMap[productId];
         const totalCost = recipe.cost * sales.units;
