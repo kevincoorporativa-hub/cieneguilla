@@ -69,36 +69,46 @@ const buildPrintHtml = (ticket: Ticket, settings: { businessName: string; busine
         <title>Ticket T-${ticket.order_number}</title>
         <style>
           @page { size: 80mm auto; margin: 0; }
-          body { font-family: 'Courier New', monospace; padding: 10px; font-size: 12px; line-height: 1.4; }
+          body { font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace; padding: 10px; font-size: 11px; line-height: 1.5; font-weight: bold; }
           .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 10px; margin-bottom: 10px; }
           .items { margin: 10px 0; }
           .item-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
           .separator { border-top: 1px dashed #000; margin: 8px 0; }
-          .total { font-weight: bold; font-size: 14px; }
+          .total { font-weight: bold; font-size: 16px; border-top: 2px solid #000; border-bottom: 1px solid #000; padding: 6px 0; margin: 4px 0; }
           .footer { text-align: center; margin-top: 16px; font-size: 10px; }
         </style>
       </head>
       <body>
         <div class="header">
           ${logoHtml}
-          <h2 style="margin:0 0 4px;font-size:16px;">${settings.businessName}</h2>
-          <p style="margin:2px 0;font-size:10px;">${settings.businessAddress}</p>
-          <p style="margin:2px 0;font-size:10px;">Tel: ${settings.businessPhone}</p>
+          <div style="font-size:14px;font-weight:900;margin-bottom:2px;text-transform:uppercase;">${settings.businessName}</div>
+          <p style="margin:2px 0;font-size:11px;">${settings.businessAddress}</p>
+          <p style="margin:2px 0;font-size:11px;">Tel: ${settings.businessPhone}</p>
           ${rucHtml}
         </div>
-        <div>
-          <div class="item-row"><span>Ticket:</span><span style="font-weight:bold;">T-${ticket.order_number}</span></div>
-          <div class="item-row"><span>Fecha:</span><span>${fecha.toLocaleDateString('es-PE')}</span></div>
-          <div class="item-row"><span>Hora:</span><span>${fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span></div>
-          ${ticket.customer_name ? `<div class="item-row"><span>Cliente:</span><span>${ticket.customer_name}</span></div>` : ''}
+        <div style="text-align:center;margin:8px 0;font-weight:900;font-size:12px;">TICKET DE VENTA</div>
+        <div style="text-align:center;margin-bottom:6px;font-size:11px;">T-${ticket.order_number}</div>
+        <div class="separator"></div>
+        <div style="margin-bottom:4px;font-size:11px;">
+          <div>FECHA  : ${fecha.toLocaleDateString('es-PE')} ${fecha.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
         </div>
         <div class="separator"></div>
+        <div style="margin-bottom:4px;font-size:11px;">
+          ${ticket.customer_name ? `<div>CLIENTE : ${ticket.customer_name}</div>` : ''}
+          <div>PAGO    : ${getPaymentMethodLabel(ticket.payment_method)}</div>
+        </div>
+        <div class="separator"></div>
+        <div style="display:flex;font-size:11px;font-weight:900;margin-bottom:2px;">
+          <span style="width:30px;">CANT</span>
+          <span style="flex:1;">DESCRIPCION</span>
+          <span style="width:55px;text-align:right;">SUBTOTAL</span>
+        </div>
         <div class="items">
-          ${ticket.items.map(item => `<div class="item-row"><span>${item.quantity}x ${item.product_name}</span><span>S/${item.total.toFixed(2)}</span></div>`).join('')}
+          ${ticket.items.map(item => `<div style="display:flex;margin-bottom:1px;font-size:11px;"><span style="width:30px;">${item.quantity}</span><span style="flex:1;">${item.product_name}</span><span style="width:55px;text-align:right;">S/${item.total.toFixed(2)}</span></div>`).join('')}
         </div>
         <div class="separator"></div>
-        <div class="item-row total"><span>TOTAL:</span><span>S/${ticket.total.toFixed(2)}</span></div>
-        <div class="item-row"><span>Pago:</span><span>${getPaymentMethodLabel(ticket.payment_method)}</span></div>
+        <div class="item-row total"><span>TOTAL S/.</span><span>S/${ticket.total.toFixed(2)}</span></div>
+        <div class="item-row" style="font-size:11px;"><span>Pago:</span><span>${getPaymentMethodLabel(ticket.payment_method)}</span></div>
         ${promoHtml}
         <div class="footer">
           <p>${settings.ticketFooterText || '¡Gracias por su preferencia!'}</p>
@@ -119,12 +129,36 @@ export default function TicketsPage() {
   const { settings } = useBusinessSettings();
 
   const handlePrintTicket = (ticket: Ticket) => {
-    const printWindow = window.open('', '_blank', 'width=320,height=600');
-    if (printWindow) {
-      printWindow.document.write(buildPrintHtml(ticket, settings));
-      printWindow.document.close();
-      printWindow.print();
+    const html = buildPrintHtml(ticket, settings);
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.top = '-10000px';
+    iframe.style.left = '-10000px';
+    iframe.style.width = '80mm';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      document.body.removeChild(iframe);
+      return;
     }
+
+    iframeDoc.open();
+    iframeDoc.write(html);
+    iframeDoc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.print();
+      } catch (e) {
+        console.error('Error al imprimir:', e);
+      }
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 250);
     toast.success('Enviado a impresora');
   };
 

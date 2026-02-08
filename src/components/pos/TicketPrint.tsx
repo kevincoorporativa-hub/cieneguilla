@@ -69,6 +69,7 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
           fontFamily: "'Lucida Console', 'Consolas', 'Courier New', monospace",
           fontSize: '11px',
           lineHeight: '1.5',
+          fontWeight: 'bold',
         }}
       >
         {/* Header with logo */}
@@ -242,7 +243,7 @@ export function printTicket(element: HTMLElement, copies: number = 2) {
         margin: 0;
         padding: 0;
         font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace;
-
+        font-weight: bold;
       }
       .ticket-print {
         page-break-after: always;
