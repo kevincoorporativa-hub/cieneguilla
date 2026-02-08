@@ -66,9 +66,10 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
           backgroundColor: 'white',
           color: 'black',
           padding: '8px',
-          fontFamily: "'Courier New', Courier, monospace",
+          fontFamily: "'Arial Black', 'Helvetica Neue', Arial, sans-serif",
           fontSize: '12px',
           lineHeight: '1.4',
+          fontWeight: 'bold',
         }}
       >
         {/* Header with logo */}
@@ -80,9 +81,9 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
               style={{ width: '60px', height: '60px', margin: '0 auto 8px', objectFit: 'contain' }}
             />
           )}
-          <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>{config.businessName}</div>
-          <div style={{ fontSize: '10px', marginBottom: '2px' }}>{config.businessAddress}</div>
-          <div style={{ fontSize: '10px', marginBottom: '2px' }}>Tel: {config.businessPhone}</div>
+          <div style={{ fontSize: '16px', fontWeight: '900', marginBottom: '4px' }}>{config.businessName}</div>
+          <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '2px' }}>{config.businessAddress}</div>
+          <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '2px' }}>Tel: {config.businessPhone}</div>
           {config.businessRuc && (
             <div style={{ fontSize: '10px' }}>RUC: {config.businessRuc}</div>
           )}
@@ -121,21 +122,21 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
         <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
 
         {/* Items header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: 'bold', fontSize: '11px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: '900', fontSize: '11px' }}>
           <span style={{ flex: 1 }}>PRODUCTO</span>
           <span style={{ width: '60px', textAlign: 'right' }}>PRECIO</span>
         </div>
 
         {/* Items */}
-        <div style={{ marginBottom: '12px' }}>
+        <div style={{ marginBottom: '12px', fontFamily: "'Arial', 'Helvetica Neue', sans-serif" }}>
           {items.map((item, idx) => (
             <div key={idx} style={{ marginBottom: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                 <span style={{ flex: 1 }}>{item.cantidad}x {item.nombre}</span>
                 <span style={{ width: '60px', textAlign: 'right' }}>S/{item.subtotal.toFixed(2)}</span>
               </div>
               {item.cantidad > 1 && (
-                <div style={{ fontSize: '10px', color: '#666', marginLeft: '16px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#444', marginLeft: '16px' }}>
                   (S/{item.precioUnitario.toFixed(2)} c/u)
                 </div>
               )}
@@ -219,11 +220,21 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
 
 TicketPrint.displayName = 'TicketPrint';
 
-// Función para imprimir el ticket
+// Función para imprimir el ticket directamente usando iframe oculto
 export function printTicket(element: HTMLElement, copies: number = 2) {
-  const printWindow = window.open('', '_blank', 'width=320,height=600');
-  if (!printWindow) {
-    console.error('No se pudo abrir la ventana de impresión');
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '-10000px';
+  iframe.style.left = '-10000px';
+  iframe.style.width = '80mm';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  document.body.appendChild(iframe);
+
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc) {
+    console.error('No se pudo acceder al iframe de impresión');
+    document.body.removeChild(iframe);
     return;
   }
 
@@ -236,7 +247,8 @@ export function printTicket(element: HTMLElement, copies: number = 2) {
       body {
         margin: 0;
         padding: 0;
-        font-family: 'Courier New', monospace;
+        font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+        font-weight: bold;
       }
       .ticket-print {
         page-break-after: always;
@@ -258,7 +270,8 @@ export function printTicket(element: HTMLElement, copies: number = 2) {
     `;
   }
 
-  printWindow.document.write(`
+  iframeDoc.open();
+  iframeDoc.write(`
     <!DOCTYPE html>
     <html>
       <head>
@@ -267,16 +280,21 @@ export function printTicket(element: HTMLElement, copies: number = 2) {
       </head>
       <body>
         ${ticketContent}
-        <script>
-          window.onload = function() {
-            window.print();
-            window.onafterprint = function() {
-              window.close();
-            };
-          };
-        </script>
       </body>
     </html>
   `);
-  printWindow.document.close();
+  iframeDoc.close();
+
+  // Esperar a que cargue el contenido y luego imprimir directamente
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.print();
+    } catch (e) {
+      console.error('Error al imprimir:', e);
+    }
+    // Limpiar el iframe después de imprimir
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 1000);
+  }, 250);
 }

@@ -25,6 +25,9 @@ export function useSwipeGesture(config: SwipeConfig): SwipeHandlers {
   const onTouchStart = useCallback((e: TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;
     touchStartY.current = e.targetTouches[0].clientY;
+    // Reset end values to match start — prevents stale deltas from previous touches
+    touchEndX.current = e.targetTouches[0].clientX;
+    touchEndY.current = e.targetTouches[0].clientY;
   }, []);
 
   const onTouchMove = useCallback((e: TouchEvent) => {
