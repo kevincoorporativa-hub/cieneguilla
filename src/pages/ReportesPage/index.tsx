@@ -12,8 +12,9 @@
    Download,
    FileSpreadsheet,
    FileDown,
-   Clock,
-   Image,
+    Clock,
+    Image,
+    ChefHat,
  } from 'lucide-react';
  import { MainLayout } from '@/components/layout/MainLayout';
  import { Button } from '@/components/ui/button';
@@ -59,8 +60,10 @@ import { DateRange as DateRangeType } from 'react-day-picker';
  import { CombosReport } from './CombosReport';
  import { DeliveryReport } from './DeliveryReport';
  import { MetodosPagoReport } from './MetodosPagoReport';
+ import { RecetasReport } from './RecetasReport';
+ import { useRecipeCostReport, useIngredientConsumption } from '@/hooks/useRecipeCostReport';
  
- type ReportType = 'ventas' | 'productos' | 'categorias' | 'combos' | 'delivery' | 'metodos';
+ type ReportType = 'ventas' | 'productos' | 'categorias' | 'combos' | 'delivery' | 'metodos' | 'recetas';
 type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
  
  export default function ReportesPage() {
@@ -134,10 +137,13 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
   // Hourly sales always shows TODAY's data (current local date)
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const { data: hourlySales = [], isLoading: loadingHourly } = useHourlySales(todayStr);
-   const { data: paymentMethods = [], isLoading: loadingPayments } = usePaymentMethodsSummary(dateRanges.start, dateRanges.end);
+    const { data: paymentMethods = [], isLoading: loadingPayments } = usePaymentMethodsSummary(dateRanges.start, dateRanges.end);
+    const { data: recipeCosts = [], isLoading: loadingRecipeCosts } = useRecipeCostReport();
+    const { data: ingredientConsumption = [], isLoading: loadingConsumption } = useIngredientConsumption(dateRanges.start, dateRanges.end);
  
-   const isLoading = loadingSales || loadingProducts || loadingCategories || loadingSummary || 
-                     loadingCombos || loadingDelivery || loadingHourly || loadingPayments;
+    const isLoading = loadingSales || loadingProducts || loadingCategories || loadingSummary || 
+                      loadingCombos || loadingDelivery || loadingHourly || loadingPayments || 
+                      loadingRecipeCosts || loadingConsumption;
  
    const totalVentas = summary?.totalSales || 0;
  
@@ -205,18 +211,32 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
            ]
          };
        case 'metodos':
-         return {
-           title: 'Reporte por Método de Pago',
-           subtitle: `Período: ${dateLabel}`,
-           headers: ['Método', 'Transacciones', 'Total (S/)'],
-           rows: paymentMethods.map(m => [
-             m.method, 
-             m.payment_count, 
-             Number(m.total_amount).toFixed(2)
-           ])
-         };
-       default:
-         return { title: 'Reporte', headers: [], rows: [] };
+          return {
+            title: 'Reporte por Método de Pago',
+            subtitle: `Período: ${dateLabel}`,
+            headers: ['Método', 'Transacciones', 'Total (S/)'],
+            rows: paymentMethods.map(m => [
+              m.method, 
+              m.payment_count, 
+              Number(m.total_amount).toFixed(2)
+            ])
+          };
+        case 'recetas':
+          return {
+            title: 'Rentabilidad por Receta',
+            subtitle: 'Análisis de costos de insumos por producto',
+            headers: ['Producto', 'Precio Venta (S/)', 'Costo Receta (S/)', 'Ganancia (S/)', 'Margen %', 'Insumos'],
+            rows: recipeCosts.map(rc => [
+              rc.product_name,
+              Number(rc.base_price).toFixed(2),
+              Number(rc.recipe_cost).toFixed(2),
+              Number(rc.profit).toFixed(2),
+              `${Number(rc.margin_percent).toFixed(1)}%`,
+              rc.ingredient_count
+            ])
+          };
+        default:
+          return { title: 'Reporte', headers: [], rows: [] };
      }
    };
  
@@ -233,14 +253,15 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
   const handleExportChartsPDF = async () => {
     toast.loading('Generando PDF de gráficos...', { id: 'export-charts' });
     try {
-      const reportTitles: Record<ReportType, string> = {
-        ventas: 'Reporte de Ventas',
-        productos: 'Productos Más Vendidos',
-        categorias: 'Ventas por Categoría',
-        combos: 'Combos Más Vendidos',
-        delivery: 'Reporte de Delivery',
-        metodos: 'Métodos de Pago',
-      };
+       const reportTitles: Record<ReportType, string> = {
+         ventas: 'Reporte de Ventas',
+         productos: 'Productos Más Vendidos',
+         categorias: 'Ventas por Categoría',
+         combos: 'Combos Más Vendidos',
+         delivery: 'Reporte de Delivery',
+         metodos: 'Métodos de Pago',
+         recetas: 'Rentabilidad por Receta',
+       };
       
       await exportChartsToPDF(
         '#report-charts-container',
@@ -254,14 +275,15 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
     }
   };
  
-   const reportTabs = [
-     { id: 'ventas', label: 'Ventas', icon: DollarSign },
-     { id: 'productos', label: 'Productos', icon: Package },
-     { id: 'categorias', label: 'Categorías', icon: PieChart },
-     { id: 'combos', label: 'Combos', icon: Gift },
-     { id: 'delivery', label: 'Delivery', icon: Truck },
-     { id: 'metodos', label: 'Pagos', icon: CreditCard },
-   ];
+    const reportTabs = [
+      { id: 'ventas', label: 'Ventas', icon: DollarSign },
+      { id: 'productos', label: 'Productos', icon: Package },
+      { id: 'categorias', label: 'Categorías', icon: PieChart },
+      { id: 'combos', label: 'Combos', icon: Gift },
+      { id: 'delivery', label: 'Delivery', icon: Truck },
+      { id: 'metodos', label: 'Pagos', icon: CreditCard },
+      { id: 'recetas', label: 'Recetas', icon: ChefHat },
+    ];
  
    return (
      <MainLayout>
@@ -359,7 +381,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
          </div>
  
          {/* Report Type Selector */}
-         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-4">
+         <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-4">
            {reportTabs.map((report) => (
              <Button
                key={report.id}
@@ -422,8 +444,16 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
              paymentMethods={paymentMethods}
              isLoading={isLoading}
            />
-         )}
-         </div>
+          )}
+
+          {selectedReport === 'recetas' && (
+            <RecetasReport
+              recipeCosts={recipeCosts}
+              ingredientConsumption={ingredientConsumption}
+              isLoading={isLoading}
+            />
+          )}
+          </div>
        </div>
      </MainLayout>
    );
