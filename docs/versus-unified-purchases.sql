@@ -1,20 +1,31 @@
 -- =====================================================
--- SCRIPT: Versus - Compras Unificadas (Insumos + Productos)
+-- SCRIPT COMPLETO: Versus - Compras Unificadas + Rentabilidad
 -- Fecha: 2026-02-08
 -- =====================================================
--- Este script asegura que tanto los ingresos de INSUMOS (stock_moves)
--- como los ingresos de PRODUCTOS (product_stock_moves) se consideren
--- compras y se puedan consultar en el módulo Versus de Reportes.
+-- Copiar y pegar TODO este script en Supabase → SQL Editor → Run
 -- =====================================================
 
 -- =====================================================
--- 1. Vista unificada de compras: v_all_purchases
--- Combina compras de insumos y productos en una sola vista
+-- 1. Asegurar columna cost_price en products
+-- =====================================================
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'products' AND column_name = 'cost_price'
+  ) THEN
+    ALTER TABLE products ADD COLUMN cost_price numeric DEFAULT 0;
+  END IF;
+END $$;
+
+-- =====================================================
+-- 2. Vista unificada de compras: v_all_purchases
+-- Combina compras de insumos (stock_moves) + productos (product_stock_moves)
 -- =====================================================
 DROP VIEW IF EXISTS v_all_purchases;
 
 CREATE VIEW v_all_purchases AS
-  -- Compras de INSUMOS (stock_moves)
+  -- Compras de INSUMOS
   SELECT
     sm.id,
     'insumo'::text AS source,
@@ -34,7 +45,7 @@ CREATE VIEW v_all_purchases AS
 
   UNION ALL
 
-  -- Compras de PRODUCTOS (product_stock_moves)
+  -- Compras de PRODUCTOS (gaseosas, cervezas, etc.)
   SELECT
     psm.id,
     'producto'::text AS source,
@@ -53,13 +64,12 @@ CREATE VIEW v_all_purchases AS
   WHERE psm.move_type = 'purchase';
 
 -- =====================================================
--- 2. Trigger para actualizar cost_price de productos
--- al registrar una compra (ya debería existir, se recrea por seguridad)
+-- 3. Trigger: actualizar cost_price del producto
+--    al registrar una compra con costo unitario
 -- =====================================================
 CREATE OR REPLACE FUNCTION fn_update_product_cost_price()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Solo actualizar cuando es una compra con costo unitario
   IF NEW.move_type = 'purchase' AND NEW.unit_cost IS NOT NULL AND NEW.unit_cost > 0 THEN
     UPDATE products
     SET cost_price = NEW.unit_cost
@@ -69,30 +79,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Eliminar trigger existente si hay
 DROP TRIGGER IF EXISTS trg_update_product_cost_price ON product_stock_moves;
 
--- Crear trigger
 CREATE TRIGGER trg_update_product_cost_price
   AFTER INSERT ON product_stock_moves
   FOR EACH ROW
   EXECUTE FUNCTION fn_update_product_cost_price();
 
 -- =====================================================
--- 3. Asegurar que la columna cost_price existe en products
--- =====================================================
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'products' AND column_name = 'cost_price'
-  ) THEN
-    ALTER TABLE products ADD COLUMN cost_price numeric DEFAULT 0;
-  END IF;
-END $$;
-
--- =====================================================
--- 4. Vista de rentabilidad unificada (recetas + cost_price)
+-- 4. Vista de rentabilidad unificada: v_product_recipe_cost
+--    Para productos CON receta: usa costo de ingredientes
+--    Para productos SIN receta: usa cost_price (último precio de compra)
 -- =====================================================
 DROP VIEW IF EXISTS v_product_recipe_cost;
 
@@ -128,14 +125,9 @@ GROUP BY p.id, p.name, p.base_price, p.category, p.cost_price;
 -- =====================================================
 -- FIN DEL SCRIPT
 -- =====================================================
--- Notas:
--- • El ingreso de insumos (stock_moves con move_type='purchase') 
---   se muestra como compra tipo "Insumo"
--- • El ingreso de productos (product_stock_moves con move_type='purchase')
---   se muestra como compra tipo "Producto"
--- • El trigger actualiza automáticamente el cost_price del producto
---   con el último precio de compra registrado
--- • La vista v_product_recipe_cost calcula rentabilidad para TODOS
---   los productos (con receta usa costo de ingredientes, sin receta
---   usa cost_price)
+-- Resumen:
+-- ✅ cost_price en products (para productos sin receta)
+-- ✅ v_all_purchases (compras de insumos + productos unificadas)
+-- ✅ trg_update_product_cost_price (auto-actualiza cost_price)
+-- ✅ v_product_recipe_cost (rentabilidad: recetas o cost_price)
 -- =====================================================
