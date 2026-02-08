@@ -35,7 +35,7 @@ export function ProductosReport({ topProducts, recipeCosts = [], isLoading }: Pr
     return map;
   }, [recipeCosts]);
 
-  const hasAnyRecipe = recipeCosts.length > 0;
+  const hasAnyCost = recipeCosts.length > 0;
 
   const productChartData = useMemo(() =>
     topProducts.map(p => ({
@@ -61,7 +61,7 @@ export function ProductosReport({ topProducts, recipeCosts = [], isLoading }: Pr
     }
     const totalProfit = totalSales - totalCost;
     const avgMargin = totalSales > 0 ? (totalProfit / totalSales) * 100 : 0;
-    return { totalSales, totalQty, totalCost, totalProfit, avgMargin, hasCosts: totalCost > 0 };
+    return { totalSales, totalQty, totalCost, totalProfit, avgMargin, hasCosts: totalCost > 0 || hasAnyCost };
   }, [topProducts, recipeCostMap]);
 
   return (
@@ -134,7 +134,7 @@ export function ProductosReport({ topProducts, recipeCosts = [], isLoading }: Pr
                     <TableHead>Producto</TableHead>
                     <TableHead>Cantidad</TableHead>
                     <TableHead>Total</TableHead>
-                    {hasAnyRecipe && (
+                    {hasAnyCost && (
                       <>
                         <TableHead className="text-right">Costo</TableHead>
                         <TableHead className="text-right">Ganancia</TableHead>
@@ -158,24 +158,26 @@ export function ProductosReport({ topProducts, recipeCosts = [], isLoading }: Pr
                         <TableCell className="font-bold text-primary">
                           S/ {Number(product.total_sales).toFixed(2)}
                         </TableCell>
-                        {hasAnyRecipe && (
+                        {hasAnyCost && (
                           <>
                             <TableCell className="text-right">
-                              {recipe ? (
+                              {recipe && Number(recipe.recipe_cost) > 0 ? (
                                 <span className="text-destructive font-medium">S/ {totalCost.toFixed(2)}</span>
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
                             <TableCell className="text-right">
-                              {recipe ? (
+                              {recipe && Number(recipe.recipe_cost) > 0 ? (
                                 <span className="text-success font-bold">S/ {profit.toFixed(2)}</span>
                               ) : (
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
                             <TableCell className="text-center">
-                              {recipe ? getMarginBadge(margin) : <span className="text-muted-foreground text-xs">Sin receta</span>}
+                              {recipe && Number(recipe.recipe_cost) > 0 ? getMarginBadge(margin) : (
+                                <span className="text-muted-foreground text-xs">Sin costo</span>
+                              )}
                             </TableCell>
                           </>
                         )}

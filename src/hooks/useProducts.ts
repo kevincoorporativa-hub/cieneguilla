@@ -25,6 +25,7 @@ export interface Product {
   expires?: boolean | null;
   expiration_date?: string | null;
   entry_date?: string | null;
+  cost_price?: number | null;
   created_at: string;
   updated_at?: string;
   category?: Category;
@@ -143,6 +144,7 @@ export function useCreateProduct() {
       expires?: boolean | null;
       expiration_date?: string | null;
       entry_date?: string | null;
+      cost_price?: number | null;
     }) => {
       const { data, error } = await supabase
         .from('products')
@@ -158,6 +160,7 @@ export function useCreateProduct() {
           expires: product.expires ?? false,
           expiration_date: product.expiration_date ?? null,
           entry_date: product.entry_date ?? null,
+          cost_price: product.cost_price ?? 0,
         })
         .select()
         .single();
@@ -189,6 +192,7 @@ export function useUpdateProduct() {
       expires?: boolean | null;
       expiration_date?: string | null;
       entry_date?: string | null;
+      cost_price?: number | null;
     }) => {
       const { data, error } = await supabase
         .from('products')

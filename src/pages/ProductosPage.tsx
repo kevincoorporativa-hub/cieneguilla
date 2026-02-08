@@ -79,6 +79,7 @@ export default function ProductosPage() {
   const [formExpirationDate, setFormExpirationDate] = useState('');
   const [formEntryDate, setFormEntryDate] = useState(new Date().toISOString().split('T')[0]);
   const [formMinStock, setFormMinStock] = useState('5');
+  const [formCostPrice, setFormCostPrice] = useState('');
 
   // Stock movement form
   const [stockMoveType, setStockMoveType] = useState<'purchase' | 'adjustment' | 'waste'>('purchase');
@@ -173,6 +174,7 @@ export default function ProductosPage() {
       setFormExpirationDate((product as any).expiration_date || '');
       setFormEntryDate((product as any).entry_date || new Date().toISOString().split('T')[0]);
       setFormMinStock(((product as any).min_stock || 5).toString());
+      setFormCostPrice((product as any).cost_price ? String((product as any).cost_price) : '');
     } else {
       setEditingProduct(null);
       setFormName('');
@@ -185,6 +187,7 @@ export default function ProductosPage() {
       setFormExpirationDate('');
       setFormEntryDate(new Date().toISOString().split('T')[0]);
       setFormMinStock('5');
+      setFormCostPrice('');
     }
     setIsProductModalOpen(true);
   };
@@ -245,6 +248,7 @@ export default function ProductosPage() {
         entry_date: formTrackStock ? (formEntryDate || null) : null,
         expires: formTrackStock ? formExpires : false,
         expiration_date: formTrackStock && formExpires ? (formExpirationDate || null) : null,
+        cost_price: formCostPrice ? parseFloat(formCostPrice) : 0,
       };
 
       if (editingProduct) {
@@ -1134,6 +1138,26 @@ export default function ProductosPage() {
                   step="0.01"
                   value={formPrice}
                   onChange={(e) => setFormPrice(e.target.value)}
+                  placeholder="0.00"
+                  className="pl-10 h-12"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Costo de Compra (opcional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Precio al que compras este producto para calcular rentabilidad
+              </p>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">
+                  S/
+                </span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={formCostPrice}
+                  onChange={(e) => setFormCostPrice(e.target.value)}
                   placeholder="0.00"
                   className="pl-10 h-12"
                 />
