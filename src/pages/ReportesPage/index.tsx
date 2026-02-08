@@ -165,20 +165,20 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
       case 'productos': {
          const recipeCostMapExport: Record<string, RecipeCostData> = {};
          for (const rc of recipeCosts) recipeCostMapExport[rc.product_id] = rc;
-         const hasRecipes = recipeCosts.length > 0;
+         const hasCosts = recipeCosts.length > 0;
          return {
            title: 'Reporte de Productos Más Vendidos',
            subtitle: `Período: ${dateLabel}`,
-           headers: hasRecipes
-             ? ['#', 'Producto', 'Cantidad', 'Total (S/)', 'Costo Insumos (S/)', 'Ganancia (S/)', 'Margen %']
+           headers: hasCosts
+             ? ['#', 'Producto', 'Cantidad', 'Total (S/)', 'Costo (S/)', 'Ganancia (S/)', 'Margen %']
              : ['#', 'Producto', 'Cantidad', 'Total (S/)'],
            rows: topProducts.map((p, i) => {
              const rc = recipeCostMapExport[p.product_id];
-             const cost = rc ? Number(rc.recipe_cost) * Number(p.total_quantity) : 0;
+             const cost = rc && Number(rc.recipe_cost) > 0 ? Number(rc.recipe_cost) * Number(p.total_quantity) : 0;
              const profit = Number(p.total_sales) - cost;
-             const margin = Number(p.total_sales) > 0 ? (profit / Number(p.total_sales) * 100) : 0;
-             return hasRecipes
-               ? [i + 1, p.product_name, p.total_quantity, Number(p.total_sales).toFixed(2), cost.toFixed(2), profit.toFixed(2), `${margin.toFixed(1)}%`]
+             const margin = Number(p.total_sales) > 0 && cost > 0 ? (profit / Number(p.total_sales) * 100) : 0;
+             return hasCosts
+               ? [i + 1, p.product_name, p.total_quantity, Number(p.total_sales).toFixed(2), cost > 0 ? cost.toFixed(2) : '—', cost > 0 ? profit.toFixed(2) : '—', cost > 0 ? `${margin.toFixed(1)}%` : '—']
                : [i + 1, p.product_name, p.total_quantity, Number(p.total_sales).toFixed(2)];
            })
          };

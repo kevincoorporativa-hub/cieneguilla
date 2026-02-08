@@ -22,7 +22,7 @@ export function useRecipeCostReport() {
       const { data, error } = await supabase
         .from('v_product_recipe_cost')
         .select('*')
-        .gt('ingredient_count', 0)
+        .or('ingredient_count.gt.0,recipe_cost.gt.0')
         .order('margin_percent', { ascending: true });
 
       if (error) throw error;
@@ -126,11 +126,11 @@ export function useRecipeProductSales(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['reports', 'recipe-product-sales', startDate, endDate],
     queryFn: async () => {
-      // 1. Get products with recipes (from the cost view)
+      // 1. Get products with recipes OR cost_price (from the cost view)
       const { data: recipeCosts } = await supabase
         .from('v_product_recipe_cost')
         .select('product_id, product_name, base_price, recipe_cost')
-        .gt('ingredient_count', 0);
+        .or('ingredient_count.gt.0,recipe_cost.gt.0');
 
       if (!recipeCosts || recipeCosts.length === 0) return [];
 
