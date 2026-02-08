@@ -66,7 +66,7 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
           backgroundColor: 'white',
           color: 'black',
           padding: '8px',
-          fontFamily: "'Arial Black', 'Helvetica Neue', Arial, sans-serif",
+          fontFamily: "'Courier New', Courier, monospace",
           fontSize: '12px',
           lineHeight: '1.4',
           fontWeight: 'bold',
@@ -128,7 +128,7 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
         </div>
 
         {/* Items */}
-        <div style={{ marginBottom: '12px', fontFamily: "'Arial', 'Helvetica Neue', sans-serif" }}>
+        <div style={{ marginBottom: '12px', fontFamily: "'Courier New', Courier, monospace" }}>
           {items.map((item, idx) => (
             <div key={idx} style={{ marginBottom: '6px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
@@ -247,7 +247,7 @@ export function printTicket(element: HTMLElement, copies: number = 2) {
       body {
         margin: 0;
         padding: 0;
-        font-family: 'Arial Black', 'Helvetica Neue', Arial, sans-serif;
+        font-family: 'Courier New', Courier, monospace;
         font-weight: bold;
       }
       .ticket-print {
