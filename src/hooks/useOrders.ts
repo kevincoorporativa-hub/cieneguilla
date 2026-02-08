@@ -278,6 +278,10 @@ export function useCreatePayment() {
       // Invalidar stock para que el POS se actualice inmediatamente
       queryClient.invalidateQueries({ queryKey: ['product-stock'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      // Invalidar stock de insumos (recetas descontaron ingredientes)
+      queryClient.invalidateQueries({ queryKey: ['recipe-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-moves'] });
       // Invalidar delivery orders para que aparezcan en la página de delivery
       queryClient.invalidateQueries({ queryKey: ['delivery-orders'] });
     },
