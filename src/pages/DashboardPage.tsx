@@ -7,10 +7,12 @@ import {
   Package,
   ArrowUpRight,
   ArrowDownRight,
+  ChefHat,
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { 
   BarChart, 
   Bar, 
@@ -31,6 +33,7 @@ import {
   useLowStockItems,
   useLowStockProducts,
 } from '@/hooks/useDashboard';
+import { useUnpreparableProducts } from '@/hooks/useUnpreparableProducts';
 
 interface StatCardProps {
   title: string;
@@ -83,6 +86,7 @@ export default function DashboardPage() {
   const { data: topProducts = [], isLoading: loadingProducts } = useTopProducts();
   const { data: lowStockItems = [], isLoading: loadingStock } = useLowStockItems();
   const { data: lowStockProducts = [], isLoading: loadingProductStock } = useLowStockProducts();
+  const { data: unpreparableProducts = [], isLoading: loadingUnpreparable } = useUnpreparableProducts();
 
   // Calculate percentage changes
   const salesChange = stats?.yesterdaySales 
@@ -228,8 +232,8 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Bottom Section - 3 columns */}
-        <div className="grid grid-cols-3 gap-6">
+        {/* Bottom Section - 2x2 grid */}
+        <div className="grid grid-cols-2 gap-6">
           {/* Top Products */}
           <Card className="border-2">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -262,6 +266,46 @@ export default function DashboardPage() {
                         <p className="text-sm text-muted-foreground">{product.quantity} unidades</p>
                       </div>
                       <span className="font-bold text-success">S/ {product.total.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recetas No Preparables */}
+          <Card className="border-2 border-destructive/50">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-pos-lg flex items-center gap-2 text-destructive">
+                <ChefHat className="h-5 w-5" />
+                Recetas Sin Insumos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingUnpreparable ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Skeleton key={i} className="h-16 w-full" />
+                  ))}
+                </div>
+              ) : unpreparableProducts.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  ✅ Todos los productos con receta se pueden preparar
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {unpreparableProducts.map((product) => (
+                    <div key={product.product_id} className="flex items-center justify-between p-3 bg-destructive/10 rounded-xl">
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm">{product.product_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Falta: <span className="font-medium">{product.limiting_ingredient}</span>
+                          {' '}({product.limiting_stock.toFixed(1)} disponible, necesita {product.limiting_needed.toFixed(1)})
+                        </p>
+                      </div>
+                      <Badge variant={product.available_servings === 0 ? 'destructive' : 'secondary'} className="ml-2">
+                        {product.available_servings === 0 ? 'No disponible' : `${product.available_servings} uds`}
+                      </Badge>
                     </div>
                   ))}
                 </div>
@@ -313,9 +357,9 @@ export default function DashboardPage() {
           </Card>
 
           {/* Low Stock Alert - Productos */}
-          <Card className="border-2 border-orange-500/50">
+          <Card className="border-2 border-warning/50">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-pos-lg flex items-center gap-2 text-orange-500">
+              <CardTitle className="text-pos-lg flex items-center gap-2 text-warning">
                 <Package className="h-5 w-5" />
                 Stock Bajo Productos
               </CardTitle>
@@ -334,7 +378,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {lowStockProducts.map((product) => (
-                    <div key={product.name} className="flex items-center justify-between p-3 bg-orange-500/10 rounded-xl">
+                    <div key={product.name} className="flex items-center justify-between p-3 bg-warning/10 rounded-xl">
                       <div>
                         <p className="font-semibold text-sm">{product.name}</p>
                         <p className="text-xs text-muted-foreground">
@@ -344,7 +388,7 @@ export default function DashboardPage() {
                       <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                         product.stock === 0 
                           ? 'bg-destructive text-destructive-foreground' 
-                          : 'bg-orange-500 text-white'
+                          : 'bg-warning text-warning-foreground'
                       }`}>
                         {product.stock === 0 ? 'Sin stock' : `${product.stock} uds`}
                       </span>
