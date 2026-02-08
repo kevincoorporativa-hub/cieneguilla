@@ -9,6 +9,7 @@ export interface Category {
   color: string;
   sort_order: number;
   active: boolean;
+  has_recipes: boolean;
 }
 
 export interface Product {
@@ -236,6 +237,7 @@ export function useCreateCategory() {
       color?: string;
       sort_order?: number;
       active?: boolean;
+      has_recipes?: boolean;
     }) => {
       const { data, error } = await supabase
         .from('categories')
@@ -246,6 +248,7 @@ export function useCreateCategory() {
           color: category.color || '#3b82f6',
           sort_order: category.sort_order || 0,
           active: category.active ?? true,
+          has_recipes: category.has_recipes ?? false,
         })
         .select()
         .single();
@@ -272,6 +275,7 @@ export function useUpdateCategory() {
       color?: string;
       sort_order?: number;
       active?: boolean;
+      has_recipes?: boolean;
     }) => {
       const { data, error } = await supabase
         .from('categories')

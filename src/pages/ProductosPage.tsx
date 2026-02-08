@@ -92,6 +92,7 @@ export default function ProductosPage() {
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryColor, setNewCategoryColor] = useState('#3b82f6');
   const [newCategoryIcon, setNewCategoryIcon] = useState('package');
+  const [newCategoryHasRecipes, setNewCategoryHasRecipes] = useState(false);
 
   // Fetch data
   const { data: categories = [], isLoading: loadingCategories } = useCategories(true);
@@ -335,11 +336,13 @@ export default function ProductosPage() {
       setNewCategoryName(category.name);
       setNewCategoryColor(category.color || '#3b82f6');
       setNewCategoryIcon(category.icon || 'package');
+      setNewCategoryHasRecipes(category.has_recipes ?? false);
     } else {
       setEditingCategory(null);
       setNewCategoryName('');
       setNewCategoryColor('#3b82f6');
       setNewCategoryIcon('package');
+      setNewCategoryHasRecipes(false);
     }
     setIsCategoryModalOpen(true);
   };
@@ -357,6 +360,7 @@ export default function ProductosPage() {
           name: newCategoryName,
           color: newCategoryColor,
           icon: newCategoryIcon,
+          has_recipes: newCategoryHasRecipes,
         });
         toast.success('Categoría actualizada');
       } else {
@@ -365,6 +369,7 @@ export default function ProductosPage() {
           color: newCategoryColor,
           icon: newCategoryIcon,
           sort_order: categories.length + 1,
+          has_recipes: newCategoryHasRecipes,
         });
         toast.success('Categoría creada');
       }
@@ -758,19 +763,23 @@ export default function ProductosPage() {
                               </span>
                             </TableCell>
                             <TableCell className="text-center">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-1"
-                                onClick={() => {
-                                  setRecipeProductId(product.id);
-                                  setRecipeProductName(product.name);
-                                  setRecipeProductPrice(Number(product.base_price));
-                                }}
-                              >
-                                <ChefHat className="h-4 w-4" />
-                                Receta
-                              </Button>
+                              {product.category?.has_recipes ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1"
+                                  onClick={() => {
+                                    setRecipeProductId(product.id);
+                                    setRecipeProductName(product.name);
+                                    setRecipeProductPrice(Number(product.base_price));
+                                  }}
+                                >
+                                  <ChefHat className="h-4 w-4" />
+                                  Receta
+                                </Button>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
@@ -1390,6 +1399,19 @@ export default function ProductosPage() {
                   />
                 ))}
               </div>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div>
+                <Label className="flex items-center gap-2">
+                  <ChefHat className="h-4 w-4" />
+                  Usa Recetas
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Los productos de esta categoría tienen receta con insumos
+                </p>
+              </div>
+              <Switch checked={newCategoryHasRecipes} onCheckedChange={setNewCategoryHasRecipes} />
             </div>
 
             <div className="flex gap-3 pt-4">
