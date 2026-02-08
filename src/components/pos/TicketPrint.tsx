@@ -65,153 +65,147 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
           width: '80mm',
           backgroundColor: 'white',
           color: 'black',
-          padding: '8px',
-          fontFamily: "'Courier New', Courier, monospace",
-          fontSize: '12px',
-          lineHeight: '1.4',
-          fontWeight: 'bold',
+          padding: '6px 8px',
+          fontFamily: "'Lucida Console', 'Consolas', 'Courier New', monospace",
+          fontSize: '11px',
+          lineHeight: '1.5',
         }}
       >
         {/* Header with logo */}
-        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
           {config.logoUrl && (
             <img 
               src={config.logoUrl} 
               alt="Logo" 
-              style={{ width: '60px', height: '60px', margin: '0 auto 8px', objectFit: 'contain' }}
+              style={{ width: '70px', height: '70px', margin: '0 auto 6px', objectFit: 'contain' }}
             />
           )}
-          <div style={{ fontSize: '16px', fontWeight: '900', marginBottom: '4px' }}>{config.businessName}</div>
-          <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '2px' }}>{config.businessAddress}</div>
-          <div style={{ fontSize: '10px', fontWeight: 'bold', marginBottom: '2px' }}>Tel: {config.businessPhone}</div>
+          <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '2px', textTransform: 'uppercase' }}>
+            {config.businessName}
+          </div>
           {config.businessRuc && (
-            <div style={{ fontSize: '10px' }}>RUC: {config.businessRuc}</div>
+            <div style={{ fontSize: '11px' }}>R.U.C. : {config.businessRuc}</div>
           )}
+          <div style={{ fontSize: '11px' }}>{config.businessAddress}</div>
+          <div style={{ fontSize: '11px' }}>Tel: {config.businessPhone}</div>
         </div>
 
-        {/* Separator */}
-        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
+        {/* Ticket de venta label */}
+        <div style={{ textAlign: 'center', margin: '8px 0', fontWeight: 'bold', fontSize: '12px' }}>
+          TICKET DE VENTA
+        </div>
+        <div style={{ textAlign: 'center', marginBottom: '6px', fontSize: '11px' }}>
+          {ticketNumber}
+        </div>
 
-        {/* Ticket info */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>Ticket:</span>
-            <span style={{ fontWeight: 'bold' }}>{ticketNumber}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>Fecha:</span>
-            <span>{date.toLocaleDateString('es-PE')}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>Hora:</span>
-            <span>{date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>Tipo:</span>
-            <span>{orderTypeLabels[orderType]}</span>
-          </div>
+        {/* Separator line */}
+        <div style={{ borderTop: '1px solid black', margin: '4px 0' }} />
+
+        {/* Ticket info - left aligned like reference */}
+        <div style={{ marginBottom: '4px', fontSize: '11px' }}>
+          <div>FECHA  : {date.toLocaleDateString('es-PE')} {date.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+        </div>
+
+        <div style={{ borderTop: '1px solid black', margin: '4px 0' }} />
+
+        <div style={{ marginBottom: '4px', fontSize: '11px' }}>
+          <div>TIPO     : {orderTypeLabels[orderType]}</div>
           {clientName && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Cliente:</span>
-              <span>{clientName}</span>
-            </div>
+            <div>CLIENTE  : {clientName}</div>
           )}
+          <div>PAGO     : {paymentLabels[paymentMethod]}</div>
         </div>
 
-        {/* Separator */}
-        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
+        <div style={{ borderTop: '1px solid black', margin: '4px 0' }} />
 
-        {/* Items header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontWeight: '900', fontSize: '11px' }}>
-          <span style={{ flex: 1 }}>PRODUCTO</span>
-          <span style={{ width: '60px', textAlign: 'right' }}>PRECIO</span>
+        {/* Items table header */}
+        <div style={{ display: 'flex', fontSize: '11px', fontWeight: 'bold', marginBottom: '2px' }}>
+          <span style={{ width: '30px' }}>CANT</span>
+          <span style={{ flex: 1 }}>DESCRIPCION</span>
+          <span style={{ width: '50px', textAlign: 'right' }}>PRECIO</span>
+          <span style={{ width: '55px', textAlign: 'right' }}>SUBTOTAL</span>
         </div>
 
         {/* Items */}
-        <div style={{ marginBottom: '12px', fontFamily: "'Courier New', Courier, monospace" }}>
+        <div style={{ marginBottom: '4px', fontSize: '11px' }}>
           {items.map((item, idx) => (
-            <div key={idx} style={{ marginBottom: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                <span style={{ flex: 1 }}>{item.cantidad}x {item.nombre}</span>
-                <span style={{ width: '60px', textAlign: 'right' }}>S/{item.subtotal.toFixed(2)}</span>
-              </div>
-              {item.cantidad > 1 && (
-                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#444', marginLeft: '16px' }}>
-                  (S/{item.precioUnitario.toFixed(2)} c/u)
-                </div>
-              )}
+            <div key={idx} style={{ display: 'flex', marginBottom: '1px' }}>
+              <span style={{ width: '30px' }}>{item.cantidad}</span>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.nombre}</span>
+              <span style={{ width: '50px', textAlign: 'right' }}>{item.precioUnitario.toFixed(2)}</span>
+              <span style={{ width: '55px', textAlign: 'right' }}>{item.subtotal.toFixed(2)}</span>
             </div>
           ))}
+          {extraCharge && extraCharge > 0 && (
+            <div style={{ display: 'flex', marginBottom: '1px' }}>
+              <span style={{ width: '30px' }}>1</span>
+              <span style={{ flex: 1 }}>RECARGO ADIC.</span>
+              <span style={{ width: '50px', textAlign: 'right' }}>{extraCharge.toFixed(2)}</span>
+              <span style={{ width: '55px', textAlign: 'right' }}>{extraCharge.toFixed(2)}</span>
+            </div>
+          )}
         </div>
 
         {/* Separator */}
-        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
+        <div style={{ borderTop: '1px solid black', margin: '4px 0' }} />
 
         {/* Totals */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>Subtotal:</span>
-            <span>S/{subtotal.toFixed(2)}</span>
-          </div>
+        <div style={{ fontSize: '11px', marginBottom: '4px' }}>
           {discount && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', marginBottom: '2px' }}>
-              <span>Descuento ({discount.tipo}):</span>
-              <span>-S/{discount.monto.toFixed(2)}</span>
-            </div>
-          )}
-          {extraCharge && extraCharge > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span>Recargo adicional:</span>
-              <span>+S/{extraCharge.toFixed(2)}</span>
+              <span>DESCUENTO ({discount.tipo}):</span>
+              <span>-{discount.monto.toFixed(2)}</span>
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '14px', marginTop: '4px' }}>
-            <span>TOTAL:</span>
-            <span>S/{total.toFixed(2)}</span>
-          </div>
         </div>
 
-        {/* Payment */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>Pago:</span>
-            <span>{paymentLabels[paymentMethod]}</span>
-          </div>
-          {paymentMethod === 'efectivo' && cashReceived !== undefined && (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-                <span>Recibido:</span>
-                <span>S/{cashReceived.toFixed(2)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
-                <span>Vuelto:</span>
-                <span>S/{(change || 0).toFixed(2)}</span>
-              </div>
-            </>
-          )}
+        {/* TOTAL grande como en la referencia */}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          fontWeight: 'bold', 
+          fontSize: '16px', 
+          borderTop: '2px solid black',
+          borderBottom: '1px solid black',
+          padding: '6px 0',
+          margin: '4px 0',
+        }}>
+          <span>TOTAL S/.</span>
+          <span>{total.toFixed(2)}</span>
         </div>
 
-        {/* Separator */}
-        <div style={{ borderTop: '1px dashed black', margin: '8px 0' }} />
+        {/* Payment details */}
+        {paymentMethod === 'efectivo' && cashReceived !== undefined && (
+          <div style={{ fontSize: '11px', marginBottom: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>RECIBIDO:</span>
+              <span>S/{cashReceived.toFixed(2)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+              <span>VUELTO:</span>
+              <span>S/{(change || 0).toFixed(2)}</span>
+            </div>
+          </div>
+        )}
 
         {/* Promo text */}
         {config.promoText && (
           <div style={{ 
             textAlign: 'center', 
-            margin: '12px 0', 
-            padding: '8px', 
+            margin: '8px 0', 
+            padding: '6px', 
             border: '1px dashed black',
-            borderRadius: '4px'
           }}>
-            <div style={{ fontSize: '10px', fontWeight: 'bold' }}>🎉 PROMOCIÓN 🎉</div>
+            <div style={{ fontSize: '10px', fontWeight: 'bold' }}>** PROMOCION **</div>
             <div style={{ fontSize: '10px' }}>{config.promoText}</div>
           </div>
         )}
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', fontSize: '10px', marginTop: '16px' }}>
-          <div>{config.footerText || '¡Gracias por su preferencia!'}</div>
-          <div style={{ marginTop: '4px' }}>Conserve este ticket</div>
+        <div style={{ textAlign: 'center', fontSize: '10px', marginTop: '10px' }}>
+          <div style={{ fontWeight: 'bold' }}>{config.footerText || 'Gracias por su preferencia!'}</div>
+          <div style={{ marginTop: '2px' }}>Conserve este ticket</div>
         </div>
       </div>
     );
@@ -247,8 +241,8 @@ export function printTicket(element: HTMLElement, copies: number = 2) {
       body {
         margin: 0;
         padding: 0;
-        font-family: 'Courier New', Courier, monospace;
-        font-weight: bold;
+        font-family: 'Lucida Console', 'Consolas', 'Courier New', monospace;
+
       }
       .ticket-print {
         page-break-after: always;
