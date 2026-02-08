@@ -61,7 +61,7 @@ import { DateRange as DateRangeType } from 'react-day-picker';
  import { DeliveryReport } from './DeliveryReport';
  import { MetodosPagoReport } from './MetodosPagoReport';
  import { RecetasReport } from './RecetasReport';
- import { useRecipeCostReport, useIngredientConsumption } from '@/hooks/useRecipeCostReport';
+ import { useRecipeCostReport, useIngredientConsumption, useRecipeProductSales } from '@/hooks/useRecipeCostReport';
  
  type ReportType = 'ventas' | 'productos' | 'categorias' | 'combos' | 'delivery' | 'metodos' | 'recetas';
 type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
@@ -140,10 +140,11 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
     const { data: paymentMethods = [], isLoading: loadingPayments } = usePaymentMethodsSummary(dateRanges.start, dateRanges.end);
     const { data: recipeCosts = [], isLoading: loadingRecipeCosts } = useRecipeCostReport();
     const { data: ingredientConsumption = [], isLoading: loadingConsumption } = useIngredientConsumption(dateRanges.start, dateRanges.end);
+    const { data: recipeProductSales = [], isLoading: loadingRecipeSales } = useRecipeProductSales(dateRanges.start, dateRanges.end);
  
     const isLoading = loadingSales || loadingProducts || loadingCategories || loadingSummary || 
                       loadingCombos || loadingDelivery || loadingHourly || loadingPayments || 
-                      loadingRecipeCosts || loadingConsumption;
+                      loadingRecipeCosts || loadingConsumption || loadingRecipeSales;
  
    const totalVentas = summary?.totalSales || 0;
  
@@ -223,17 +224,26 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
           };
         case 'recetas':
           return {
-            title: 'Rentabilidad por Receta',
-            subtitle: 'Análisis de costos de insumos por producto',
-            headers: ['Producto', 'Precio Venta (S/)', 'Costo Receta (S/)', 'Ganancia (S/)', 'Margen %', 'Insumos'],
-            rows: recipeCosts.map(rc => [
-              rc.product_name,
-              Number(rc.base_price).toFixed(2),
-              Number(rc.recipe_cost).toFixed(2),
-              Number(rc.profit).toFixed(2),
-              `${Number(rc.margin_percent).toFixed(1)}%`,
-              rc.ingredient_count
-            ])
+            title: 'Rentabilidad por Receta — Ventas Reales',
+            subtitle: `Período: ${dateLabel}`,
+            headers: ['Producto', 'Uds. Vendidas', 'Ingresos (S/)', 'Costo Insumos (S/)', 'Ganancia (S/)', 'Margen %'],
+            rows: recipeProductSales.length > 0
+              ? recipeProductSales.map(rs => [
+                  rs.product_name,
+                  rs.units_sold,
+                  rs.total_revenue.toFixed(2),
+                  rs.total_recipe_cost.toFixed(2),
+                  rs.total_profit.toFixed(2),
+                  `${rs.margin_percent.toFixed(1)}%`,
+                ])
+              : recipeCosts.map(rc => [
+                  rc.product_name,
+                  '-',
+                  Number(rc.base_price).toFixed(2),
+                  Number(rc.recipe_cost).toFixed(2),
+                  Number(rc.profit).toFixed(2),
+                  `${Number(rc.margin_percent).toFixed(1)}%`,
+                ])
           };
         default:
           return { title: 'Reporte', headers: [], rows: [] };
@@ -450,6 +460,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
             <RecetasReport
               recipeCosts={recipeCosts}
               ingredientConsumption={ingredientConsumption}
+              recipeProductSales={recipeProductSales}
               isLoading={isLoading}
             />
           )}
