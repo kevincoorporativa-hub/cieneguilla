@@ -80,7 +80,7 @@ export function useAllPurchases(startDate?: string, endDate?: string) {
       // 2. Product purchases from product_stock_moves
       let prodQuery = supabase
         .from('product_stock_moves')
-        .select('*, product:products(name, category)')
+        .select('*, product:products(name, category_id)')
         .eq('move_type', 'purchase')
         .order('created_at', { ascending: false });
 
@@ -90,19 +90,31 @@ export function useAllPurchases(startDate?: string, endDate?: string) {
       const { data: prodMoves, error: prodError } = await prodQuery;
       if (prodError) throw prodError;
 
-      const productPurchases: PurchaseItem[] = (prodMoves || []).map(move => ({
-        id: move.id,
-        source: 'producto' as const,
-        item_name: (move as any).product?.name || 'Desconocido',
-        category: (move as any).product?.category || 'general',
-        quantity: Number(move.quantity),
-        unit_cost: Number(move.unit_cost || 0),
-        total_cost: Number(move.unit_cost || 0) * Number(move.quantity),
-        supplier: null,
-        purchase_date: null,
-        created_at: move.created_at,
-        notes: move.notes,
-      }));
+      // Get category names for product purchases
+      const categoryIds = [...new Set(
+        (prodMoves || []).map(m => (m as any).product?.category_id).filter(Boolean)
+      )];
+      const { data: categories } = categoryIds.length > 0
+        ? await supabase.from('categories').select('id, name').in('id', categoryIds)
+        : { data: [] };
+
+      const productPurchases: PurchaseItem[] = (prodMoves || []).map(move => {
+        const catId = (move as any).product?.category_id;
+        const catName = categories?.find(c => c.id === catId)?.name || 'general';
+        return {
+          id: move.id,
+          source: 'producto' as const,
+          item_name: (move as any).product?.name || 'Desconocido',
+          category: catName,
+          quantity: Number(move.quantity),
+          unit_cost: Number(move.unit_cost || 0),
+          total_cost: Number(move.unit_cost || 0) * Number(move.quantity),
+          supplier: null,
+          purchase_date: null,
+          created_at: move.created_at,
+          notes: move.notes,
+        };
+      });
 
       // Combine and sort by date
       return [...insumoPurchases, ...productPurchases].sort(
