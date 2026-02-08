@@ -7,6 +7,9 @@ export interface Ingredient {
   unit: string;
   min_stock: number;
   cost_per_unit: number;
+  category: string;
+  supplier: string | null;
+  purchase_date: string | null;
   active: boolean;
   created_at: string;
   current_stock: number;
@@ -20,6 +23,8 @@ export interface StockMove {
   store_id: string;
   move_type: 'purchase' | 'sale' | 'adjustment' | 'waste';
   quantity: number;
+  unit_cost: number;
+  total_cost: number;
   reference_id: string | null;
   notes: string | null;
   user_id: string | null;
@@ -32,7 +37,6 @@ export function useIngredients() {
   return useQuery({
     queryKey: ['ingredients'],
     queryFn: async () => {
-      // Get ingredients
       const { data: ingredients, error: ingError } = await supabase
         .from('ingredients')
         .select('*')
@@ -41,18 +45,19 @@ export function useIngredients() {
 
       if (ingError) throw ingError;
 
-      // Get stock
       const { data: stocks, error: stockError } = await supabase
         .from('ingredient_stock')
         .select('ingredient_id, store_id, quantity');
 
       if (stockError) throw stockError;
 
-      // Merge stock into ingredients
       const ingredientsWithStock = ingredients?.map(ing => ({
         ...ing,
         min_stock: Number(ing.min_stock),
         cost_per_unit: Number(ing.cost_per_unit),
+        category: ing.category || 'general',
+        supplier: ing.supplier || null,
+        purchase_date: ing.purchase_date || null,
         current_stock: Number(stocks?.find(s => s.ingredient_id === ing.id)?.quantity || 0),
         store_id: stocks?.find(s => s.ingredient_id === ing.id)?.store_id,
       })) || [];
@@ -80,7 +85,6 @@ export function useStockMoves(ingredientId?: string) {
       const { data: moves, error } = await query;
       if (error) throw error;
 
-      // Get ingredient names
       const ingredientIds = [...new Set(moves?.map(m => m.ingredient_id) || [])];
       const { data: ingredients } = ingredientIds.length > 0
         ? await supabase
@@ -89,7 +93,6 @@ export function useStockMoves(ingredientId?: string) {
             .in('id', ingredientIds)
         : { data: [] };
 
-      // Get user names
       const userIds = [...new Set(moves?.filter(m => m.user_id).map(m => m.user_id) || [])];
       const { data: employees } = userIds.length > 0
         ? await supabase
@@ -101,6 +104,8 @@ export function useStockMoves(ingredientId?: string) {
       const movesWithNames = moves?.map(move => ({
         ...move,
         quantity: Number(move.quantity),
+        unit_cost: Number(move.unit_cost || 0),
+        total_cost: Number(move.total_cost || 0),
         ingredient_name: ingredients?.find(i => i.id === move.ingredient_id)?.name,
         user_name: employees?.find(e => e.user_id === move.user_id)
           ? `${employees.find(e => e.user_id === move.user_id)?.first_name} ${employees.find(e => e.user_id === move.user_id)?.last_name}`
@@ -122,6 +127,9 @@ export function useCreateIngredient() {
       unit: string;
       min_stock?: number;
       cost_per_unit?: number;
+      category?: string;
+      supplier?: string;
+      purchase_date?: string;
     }) => {
       const { data: ingredient, error } = await supabase
         .from('ingredients')
@@ -130,6 +138,9 @@ export function useCreateIngredient() {
           unit: data.unit,
           min_stock: data.min_stock || 0,
           cost_per_unit: data.cost_per_unit || 0,
+          category: data.category || 'general',
+          supplier: data.supplier || null,
+          purchase_date: data.purchase_date || null,
           active: true,
         })
         .select()
@@ -144,7 +155,7 @@ export function useCreateIngredient() {
   });
 }
 
-// Create stock movement
+// Create stock movement with cost tracking
 export function useCreateStockMove() {
   const queryClient = useQueryClient();
 
@@ -155,10 +166,12 @@ export function useCreateStockMove() {
       move_type: 'purchase' | 'sale' | 'adjustment' | 'waste';
       quantity: number;
       notes?: string;
+      unit_cost?: number;
     }) => {
-      // Create the movement
       const { data: session } = await supabase.auth.getSession();
       const userId = session?.session?.user?.id;
+
+      const totalCost = (data.unit_cost || 0) * Math.abs(data.quantity);
 
       const { data: move, error: moveError } = await supabase
         .from('stock_moves')
@@ -169,6 +182,8 @@ export function useCreateStockMove() {
           quantity: data.quantity,
           notes: data.notes,
           user_id: userId,
+          unit_cost: data.unit_cost || 0,
+          total_cost: totalCost,
         })
         .select()
         .single();
@@ -209,6 +224,7 @@ export function useCreateStockMove() {
       queryClient.invalidateQueries({ queryKey: ['ingredients'] });
       queryClient.invalidateQueries({ queryKey: ['stock-moves'] });
       queryClient.invalidateQueries({ queryKey: ['reports', 'current-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['cuadre'] });
     },
   });
 }
@@ -227,6 +243,9 @@ export function useUpdateIngredient() {
       unit?: string;
       min_stock?: number;
       cost_per_unit?: number;
+      category?: string;
+      supplier?: string;
+      purchase_date?: string;
       active?: boolean;
     }) => {
       const { data: ingredient, error } = await supabase
