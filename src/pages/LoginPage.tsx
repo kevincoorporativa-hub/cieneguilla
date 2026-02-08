@@ -7,8 +7,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
 import { toast } from 'sonner';
-import { LicenseSidebarBadge } from '@/components/license/LicenseSidebarBadge';
-import { StorageBar } from '@/components/pos/StorageBar';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -105,11 +103,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* License & Storage info */}
-          <div className="mt-6 space-y-2">
-            <LicenseSidebarBadge collapsed={false} />
-            <StorageBar />
-          </div>
         </CardContent>
       </Card>
     </div>
