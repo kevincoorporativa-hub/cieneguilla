@@ -13,7 +13,6 @@ import {
   Boxes,
   Layers,
   X,
-  Scale
 } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -36,7 +35,6 @@ const navItems = [
   { to: '/caja', icon: Receipt, label: 'Caja', adminOnly: false },
   { to: '/tickets', icon: FileText, label: 'Tickets', adminOnly: false },
   { to: '/reportes', icon: FileText, label: 'Reportes', adminOnly: false },
-  { to: '/cuadre', icon: Scale, label: 'Cuadre', adminOnly: false },
   { to: '/ajustes', icon: Settings, label: 'Ajustes', adminOnly: false },
   { to: '/usuarios', icon: Users, label: 'Usuarios', adminOnly: true },
   { to: '/configuracion', icon: Settings, label: 'Configuración', adminOnly: true },

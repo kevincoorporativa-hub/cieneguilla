@@ -64,7 +64,7 @@ import { MetodosPagoReport } from './MetodosPagoReport';
 import { RecetasReport } from './RecetasReport';
 import { VersusReport } from './VersusReport';
 import { useRecipeCostReport, useIngredientConsumption, useRecipeProductSales, type RecipeCostData } from '@/hooks/useRecipeCostReport';
-import { useSales } from '@/hooks/useCuadre';
+import { useSales, useAllPurchases } from '@/hooks/useCuadre';
  
  type ReportType = 'ventas' | 'productos' | 'categorias' | 'combos' | 'delivery' | 'metodos' | 'recetas' | 'versus';
 type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
@@ -145,6 +145,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
     const { data: ingredientConsumption = [], isLoading: loadingConsumption } = useIngredientConsumption(dateRanges.start, dateRanges.end);
     const { data: recipeProductSales = [], isLoading: loadingRecipeSales } = useRecipeProductSales(dateRanges.start, dateRanges.end);
     const { data: versusSales = [], isLoading: loadingVersusSales } = useSales(dateRanges.start, dateRanges.end);
+    const { data: versusPurchases = [], isLoading: loadingVersusPurchases } = useAllPurchases(dateRanges.start, dateRanges.end);
  
     const isLoading = loadingSales || loadingProducts || loadingCategories || loadingSummary || 
                       loadingCombos || loadingDelivery || loadingHourly || loadingPayments || 
@@ -258,19 +259,35 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
                   `${Number(rc.margin_percent).toFixed(1)}%`,
                 ])
           };
-        case 'versus':
+        case 'versus': {
+          const totalCompras = versusPurchases.reduce((sum, p) => sum + p.total_cost, 0);
+          const totalVentas2 = versusSales.reduce((sum, s) => sum + s.total, 0);
           return {
-            title: 'Detalle de Ventas (Versus)',
+            title: 'Versus — Compras vs Ventas',
             subtitle: `Período: ${dateLabel}`,
-            headers: ['Fecha', 'N° Orden', 'Tipo', 'Items', 'Total (S/)'],
-            rows: versusSales.map(s => [
-              new Date(s.created_at).toLocaleDateString('es-PE'),
-              `#${s.order_number}`,
-              s.order_type === 'local' ? 'Local' : s.order_type === 'delivery' ? 'Delivery' : 'Para llevar',
-              s.items_count,
-              s.total.toFixed(2),
-            ])
+            headers: ['Sección', 'Fecha', 'Detalle', 'Tipo', 'Cantidad/Items', 'Total (S/)'],
+            rows: [
+              ['--- COMPRAS ---', '', '', '', '', `S/ ${totalCompras.toFixed(2)}`],
+              ...versusPurchases.map(p => [
+                'Compra',
+                new Date(p.created_at).toLocaleDateString('es-PE'),
+                p.item_name,
+                p.source === 'insumo' ? 'Insumo' : 'Producto',
+                p.quantity,
+                p.total_cost.toFixed(2),
+              ]),
+              ['--- VENTAS ---', '', '', '', '', `S/ ${totalVentas2.toFixed(2)}`],
+              ...versusSales.map(s => [
+                'Venta',
+                new Date(s.created_at).toLocaleDateString('es-PE'),
+                `#${s.order_number}`,
+                s.order_type === 'local' ? 'Local' : s.order_type === 'delivery' ? 'Delivery' : 'Para llevar',
+                s.items_count,
+                s.total.toFixed(2),
+              ]),
+            ]
           };
+        }
         default:
           return { title: 'Reporte', headers: [], rows: [] };
      }
@@ -496,8 +513,10 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
 
           {selectedReport === 'versus' && (
             <VersusReport
+              purchases={versusPurchases}
               sales={versusSales}
-              isLoading={loadingVersusSales}
+              isLoadingPurchases={loadingVersusPurchases}
+              isLoadingSales={loadingVersusSales}
             />
           )}
           </div>
