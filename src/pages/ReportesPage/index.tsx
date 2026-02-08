@@ -1,5 +1,5 @@
  import { useState, useMemo } from 'react';
- import { 
+import { 
    Calendar, 
   CalendarRange,
    DollarSign, 
@@ -15,6 +15,7 @@
     Clock,
     Image,
     ChefHat,
+    ShoppingCart,
  } from 'lucide-react';
  import { MainLayout } from '@/components/layout/MainLayout';
  import { Button } from '@/components/ui/button';
@@ -54,16 +55,18 @@ import { format, startOfWeek, startOfMonth, endOfWeek, endOfMonth } from 'date-f
 import { cn } from '@/lib/utils';
 import { DateRange as DateRangeType } from 'react-day-picker';
  
- import { VentasReport } from './VentasReport';
- import { ProductosReport } from './ProductosReport';
- import { CategoriasReport } from './CategoriasReport';
- import { CombosReport } from './CombosReport';
- import { DeliveryReport } from './DeliveryReport';
- import { MetodosPagoReport } from './MetodosPagoReport';
- import { RecetasReport } from './RecetasReport';
- import { useRecipeCostReport, useIngredientConsumption, useRecipeProductSales, type RecipeCostData } from '@/hooks/useRecipeCostReport';
+import { VentasReport } from './VentasReport';
+import { ProductosReport } from './ProductosReport';
+import { CategoriasReport } from './CategoriasReport';
+import { CombosReport } from './CombosReport';
+import { DeliveryReport } from './DeliveryReport';
+import { MetodosPagoReport } from './MetodosPagoReport';
+import { RecetasReport } from './RecetasReport';
+import { VersusReport } from './VersusReport';
+import { useRecipeCostReport, useIngredientConsumption, useRecipeProductSales, type RecipeCostData } from '@/hooks/useRecipeCostReport';
+import { useSales } from '@/hooks/useCuadre';
  
- type ReportType = 'ventas' | 'productos' | 'categorias' | 'combos' | 'delivery' | 'metodos' | 'recetas';
+ type ReportType = 'ventas' | 'productos' | 'categorias' | 'combos' | 'delivery' | 'metodos' | 'recetas' | 'versus';
 type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
  
  export default function ReportesPage() {
@@ -141,6 +144,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
     const { data: recipeCosts = [], isLoading: loadingRecipeCosts } = useRecipeCostReport();
     const { data: ingredientConsumption = [], isLoading: loadingConsumption } = useIngredientConsumption(dateRanges.start, dateRanges.end);
     const { data: recipeProductSales = [], isLoading: loadingRecipeSales } = useRecipeProductSales(dateRanges.start, dateRanges.end);
+    const { data: versusSales = [], isLoading: loadingVersusSales } = useSales(dateRanges.start, dateRanges.end);
  
     const isLoading = loadingSales || loadingProducts || loadingCategories || loadingSummary || 
                       loadingCombos || loadingDelivery || loadingHourly || loadingPayments || 
@@ -254,6 +258,19 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
                   `${Number(rc.margin_percent).toFixed(1)}%`,
                 ])
           };
+        case 'versus':
+          return {
+            title: 'Detalle de Ventas (Versus)',
+            subtitle: `Período: ${dateLabel}`,
+            headers: ['Fecha', 'N° Orden', 'Tipo', 'Items', 'Total (S/)'],
+            rows: versusSales.map(s => [
+              new Date(s.created_at).toLocaleDateString('es-PE'),
+              `#${s.order_number}`,
+              s.order_type === 'local' ? 'Local' : s.order_type === 'delivery' ? 'Delivery' : 'Para llevar',
+              s.items_count,
+              s.total.toFixed(2),
+            ])
+          };
         default:
           return { title: 'Reporte', headers: [], rows: [] };
      }
@@ -280,6 +297,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
          delivery: 'Reporte de Delivery',
          metodos: 'Métodos de Pago',
          recetas: 'Rentabilidad por Receta',
+         versus: 'Detalle de Ventas (Versus)',
        };
       
       await exportChartsToPDF(
@@ -302,6 +320,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
       { id: 'delivery', label: 'Delivery', icon: Truck },
       { id: 'metodos', label: 'Pagos', icon: CreditCard },
       { id: 'recetas', label: 'Recetas', icon: ChefHat },
+      { id: 'versus', label: 'Versus', icon: ShoppingCart },
     ];
  
    return (
@@ -400,7 +419,7 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
          </div>
  
          {/* Report Type Selector */}
-         <div className="grid grid-cols-4 sm:grid-cols-7 gap-2 sm:gap-4">
+         <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-4">
            {reportTabs.map((report) => (
              <Button
                key={report.id}
@@ -472,6 +491,13 @@ type DateRangeOption = 'today' | 'week' | 'month' | 'custom';
               ingredientConsumption={ingredientConsumption}
               recipeProductSales={recipeProductSales}
               isLoading={isLoading}
+            />
+          )}
+
+          {selectedReport === 'versus' && (
+            <VersusReport
+              sales={versusSales}
+              isLoading={loadingVersusSales}
             />
           )}
           </div>
