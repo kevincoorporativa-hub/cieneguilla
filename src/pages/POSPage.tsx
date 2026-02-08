@@ -27,6 +27,7 @@ import { useCombos } from '@/hooks/useCombos';
 import { useCreateOrder, useCreatePayment } from '@/hooks/useOrders';
 import { useCurrentCashSession } from '@/hooks/useCashSession';
 import { useProductStock } from '@/hooks/useProductStock';
+import { useRecipeStock } from '@/hooks/useRecipeStock';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLicenseStatus } from '@/hooks/useLicense';
 import { useBusinessSettings } from '@/hooks/useBusinessSettings';
@@ -44,11 +45,25 @@ function getCategoryIcon(cat: Category) {
 }
 
 // Transform DB product to POS product - stock will be added separately
-function transformProduct(dbProduct: any, stockData?: { current_stock: number; track_stock: boolean }): POSProduct {
-  // Si el producto trackea stock y aún no hay data de stock, ser conservador (0)
-  const stock = dbProduct.track_stock
-    ? Number(stockData?.current_stock ?? 0)
-    : 999;
+function transformProduct(
+  dbProduct: any,
+  stockData?: { current_stock: number; track_stock: boolean },
+  recipeServings?: number | null
+): POSProduct {
+  // Si el producto tiene receta, usar las porciones disponibles basadas en insumos
+  // Si no, usar stock directo del producto
+  let stock: number;
+  if (recipeServings !== null && recipeServings !== undefined && recipeServings >= 0) {
+    stock = recipeServings;
+  } else if (dbProduct.track_stock) {
+    stock = Number(stockData?.current_stock ?? 0);
+  } else {
+    stock = 999;
+  }
+
+  // Productos con receta siempre "requieren stock" (validación por insumos)
+  const hasRecipe = recipeServings !== null && recipeServings !== undefined && recipeServings >= 0;
+
   return {
     id: dbProduct.id,
     nombre: dbProduct.name,
@@ -56,7 +71,7 @@ function transformProduct(dbProduct: any, stockData?: { current_stock: number; t
     precio: Number(dbProduct.base_price),
     stock: stock,
     stockMinimo: Number(dbProduct.min_stock || 5),
-    requiereStock: dbProduct.track_stock,
+    requiereStock: hasRecipe || dbProduct.track_stock,
     productoVence: false,
     activo: dbProduct.active,
     createdAt: new Date(dbProduct.created_at),
@@ -106,17 +121,29 @@ export default function POSPage() {
 
   const { data: productStockData = [] } = useProductStock(storeId);
 
+  // Identify products with recipe-based categories
+  const recipeProductIds = useMemo(() => {
+    const recipeCategoryIds = new Set(categories.filter(c => c.has_recipes).map(c => c.id));
+    return dbProducts
+      .filter(p => p.category_id && recipeCategoryIds.has(p.category_id))
+      .map(p => p.id);
+  }, [dbProducts, categories]);
+
+  const { data: recipeStockData = [] } = useRecipeStock(storeId, recipeProductIds);
+
   // Mutations
   const createOrder = useCreateOrder();
   const createPayment = useCreatePayment();
 
-  // Transform products with stock data
+  // Transform products with stock data (merging recipe stock where applicable)
   const products = useMemo(() => 
     dbProducts.map(dbProduct => {
       const stockInfo = productStockData.find(s => s.product_id === dbProduct.id);
-      return transformProduct(dbProduct, stockInfo);
+      const recipeInfo = recipeStockData.find(r => r.product_id === dbProduct.id);
+      const recipeServings = recipeInfo?.has_recipe ? recipeInfo.available_servings : null;
+      return transformProduct(dbProduct, stockInfo, recipeServings);
     }), 
-    [dbProducts, productStockData]
+    [dbProducts, productStockData, recipeStockData]
   );
 
   // Set first category as selected when categories load

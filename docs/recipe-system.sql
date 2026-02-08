@@ -1,12 +1,24 @@
 -- =====================================================
--- SCRIPT: SISTEMA DE RECETAS - PIZZERÍA
--- Cada producto tiene una receta con insumos y cantidades.
--- Al vender, se descuentan automáticamente los insumos.
--- Copiar y ejecutar en Supabase SQL Editor
+-- SCRIPT COMPLETO: SISTEMA DE RECETAS PARA PIZZERÍA
+-- Ejecutar en Supabase SQL Editor (una sola vez)
+-- =====================================================
+-- Este script:
+--   1. Crea la tabla product_recipes
+--   2. Agrega has_recipes a categories
+--   3. Crea función auxiliar para descontar insumos
+--   4. Actualiza el trigger de pago para usar recetas
+--   5. Crea vista de costo de receta por producto
 -- =====================================================
 
 -- =====================================================
--- 1. TABLA DE RECETAS (Producto → Insumos)
+-- 1. COLUMNA has_recipes EN CATEGORÍAS
+-- =====================================================
+
+ALTER TABLE public.categories 
+  ADD COLUMN IF NOT EXISTS has_recipes BOOLEAN DEFAULT false;
+
+-- =====================================================
+-- 2. TABLA DE RECETAS (Producto → Insumos)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS public.product_recipes (
@@ -18,135 +30,41 @@ CREATE TABLE IF NOT EXISTS public.product_recipes (
     UNIQUE(product_id, ingredient_id)
 );
 
--- Índices para búsquedas rápidas
 CREATE INDEX IF NOT EXISTS idx_product_recipes_product ON public.product_recipes(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_recipes_ingredient ON public.product_recipes(ingredient_id);
 
 -- RLS
 ALTER TABLE public.product_recipes ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Authenticated users can read recipes"
-    ON public.product_recipes FOR SELECT
-    TO authenticated
-    USING (true);
+DO $$ BEGIN
+    CREATE POLICY "auth_select_recipes" ON public.product_recipes
+        FOR SELECT TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Authenticated users can insert recipes"
-    ON public.product_recipes FOR INSERT
-    TO authenticated
-    WITH CHECK (true);
+DO $$ BEGIN
+    CREATE POLICY "auth_insert_recipes" ON public.product_recipes
+        FOR INSERT TO authenticated WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Authenticated users can update recipes"
-    ON public.product_recipes FOR UPDATE
-    TO authenticated
-    USING (true);
+DO $$ BEGIN
+    CREATE POLICY "auth_update_recipes" ON public.product_recipes
+        FOR UPDATE TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Authenticated users can delete recipes"
-    ON public.product_recipes FOR DELETE
-    TO authenticated
-    USING (true);
-
--- =====================================================
--- 2. TRIGGER MEJORADO: DESCONTAR INSUMOS AL PAGAR
--- Ahora revisa si el producto tiene receta y descuenta
--- los insumos correspondientes de ingredient_stock.
--- Si no tiene receta, descuenta de product_stock (legacy).
--- =====================================================
-
--- Primero eliminar el trigger existente
-DROP TRIGGER IF EXISTS trg_deduct_product_stock_on_payment ON public.payments;
-
--- Función mejorada
-CREATE OR REPLACE FUNCTION public.deduct_product_stock_on_payment()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_order RECORD;
-    v_item RECORD;
-    v_recipe RECORD;
-    v_combo_component RECORD;
-    v_store_id UUID;
-BEGIN
-    -- Obtener la orden
-    SELECT * INTO v_order FROM public.orders WHERE id = NEW.order_id;
-    
-    -- Obtener store_id del terminal si no está en la orden
-    IF v_order.store_id IS NULL AND v_order.terminal_id IS NOT NULL THEN
-        SELECT store_id INTO v_store_id 
-        FROM public.terminals 
-        WHERE id = v_order.terminal_id;
-    ELSE
-        v_store_id := v_order.store_id;
-    END IF;
-
-    -- Si no hay store_id, usar la primera tienda activa
-    IF v_store_id IS NULL THEN
-        SELECT id INTO v_store_id FROM public.stores WHERE active = true LIMIT 1;
-    END IF;
-    
-    -- Solo descontar si la orden aún no estaba pagada
-    IF v_order.status != 'paid' THEN
-        -- Actualizar estado de la orden
-        UPDATE public.orders 
-        SET status = 'paid', updated_at = now() 
-        WHERE id = NEW.order_id;
-        
-        -- Iterar por cada item de la orden
-        FOR v_item IN 
-            SELECT oi.*, p.track_stock, p.name as product_name
-            FROM public.order_items oi
-            LEFT JOIN public.products p ON p.id = oi.product_id
-            WHERE oi.order_id = NEW.order_id
-        LOOP
-            -- ============================================
-            -- CASO 1: Item es un COMBO → descontar insumos de cada componente
-            -- ============================================
-            IF v_item.combo_id IS NOT NULL THEN
-                FOR v_combo_component IN
-                    SELECT ci.product_id, ci.quantity, p.name as product_name, p.track_stock
-                    FROM public.combo_items ci
-                    JOIN public.products p ON p.id = ci.product_id
-                    WHERE ci.combo_id = v_item.combo_id
-                LOOP
-                    -- Para cada componente del combo, descontar insumos por receta
-                    PERFORM deduct_ingredients_for_product(
-                        v_combo_component.product_id,
-                        v_combo_component.quantity * v_item.quantity,
-                        v_store_id,
-                        NEW.order_id,
-                        v_order.order_number,
-                        v_combo_component.product_name,
-                        v_combo_component.track_stock,
-                        NEW.user_id
-                    );
-                END LOOP;
-            
-            -- ============================================
-            -- CASO 2: Item es un PRODUCTO normal
-            -- ============================================
-            ELSIF v_item.product_id IS NOT NULL THEN
-                PERFORM deduct_ingredients_for_product(
-                    v_item.product_id,
-                    v_item.quantity,
-                    v_store_id,
-                    NEW.order_id,
-                    v_order.order_number,
-                    v_item.product_name,
-                    v_item.track_stock,
-                    NEW.user_id
-                );
-            END IF;
-        END LOOP;
-    END IF;
-    
-    RETURN NEW;
-END;
-$$;
+DO $$ BEGIN
+    CREATE POLICY "auth_delete_recipes" ON public.product_recipes
+        FOR DELETE TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- =====================================================
 -- 3. FUNCIÓN AUXILIAR: Descontar insumos por receta
 -- =====================================================
+
+DROP FUNCTION IF EXISTS public.deduct_ingredients_for_product(UUID, INT, UUID, UUID, INT, TEXT, BOOLEAN, UUID);
 
 CREATE OR REPLACE FUNCTION public.deduct_ingredients_for_product(
     p_product_id UUID,
@@ -167,7 +85,7 @@ DECLARE
     v_has_recipe BOOLEAN;
     v_ingredient_qty DECIMAL;
 BEGIN
-    -- Verificar si el producto tiene receta
+    -- ¿Tiene receta este producto?
     SELECT EXISTS(
         SELECT 1 FROM public.product_recipes WHERE product_id = p_product_id
     ) INTO v_has_recipe;
@@ -182,7 +100,7 @@ BEGIN
         LOOP
             v_ingredient_qty := v_recipe.quantity_needed * p_quantity;
 
-            -- Actualizar stock de insumo
+            -- Actualizar stock del insumo
             IF EXISTS (
                 SELECT 1 FROM public.ingredient_stock 
                 WHERE ingredient_id = v_recipe.ingredient_id 
@@ -207,7 +125,7 @@ BEGIN
                 'sale',
                 -v_ingredient_qty,
                 p_order_id,
-                format('Venta orden #%s - %s x%s (receta: %s)', 
+                format('Venta #%s — %s x%s (insumo: %s)', 
                     p_order_number, p_product_name, p_quantity, v_recipe.ingredient_name),
                 p_user_id,
                 0, 0
@@ -215,7 +133,7 @@ BEGIN
         END LOOP;
 
     ELSIF p_track_stock = true THEN
-        -- ========== DESCONTAR STOCK DIRECTO (productos sin receta) ==========
+        -- ========== DESCONTAR STOCK DIRECTO (productos sin receta, ej: bebidas) ==========
         IF EXISTS (
             SELECT 1 FROM public.product_stock 
             WHERE product_id = p_product_id 
@@ -231,7 +149,6 @@ BEGIN
             VALUES (p_product_id, p_store_id, 0);
         END IF;
         
-        -- Registrar en kardex de productos
         INSERT INTO public.product_stock_moves 
             (product_id, store_id, move_type, quantity, reference_id, notes, user_id)
         VALUES (
@@ -240,7 +157,7 @@ BEGIN
             'sale',
             -p_quantity,
             p_order_id,
-            format('Venta orden #%s - %s x%s', p_order_number, p_product_name, p_quantity),
+            format('Venta #%s — %s x%s', p_order_number, p_product_name, p_quantity),
             p_user_id
         );
     END IF;
@@ -248,8 +165,76 @@ END;
 $$;
 
 -- =====================================================
--- 4. RECREAR EL TRIGGER
+-- 4. TRIGGER MEJORADO: DESCONTAR AL PAGAR
 -- =====================================================
+
+DROP TRIGGER IF EXISTS trg_deduct_product_stock_on_payment ON public.payments;
+
+CREATE OR REPLACE FUNCTION public.deduct_product_stock_on_payment()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_order RECORD;
+    v_item RECORD;
+    v_combo_component RECORD;
+    v_store_id UUID;
+BEGIN
+    SELECT * INTO v_order FROM public.orders WHERE id = NEW.order_id;
+    
+    IF v_order.store_id IS NULL AND v_order.terminal_id IS NOT NULL THEN
+        SELECT store_id INTO v_store_id 
+        FROM public.terminals WHERE id = v_order.terminal_id;
+    ELSE
+        v_store_id := v_order.store_id;
+    END IF;
+
+    IF v_store_id IS NULL THEN
+        SELECT id INTO v_store_id FROM public.stores WHERE active = true LIMIT 1;
+    END IF;
+    
+    IF v_order.status != 'paid' THEN
+        UPDATE public.orders 
+        SET status = 'paid', updated_at = now() 
+        WHERE id = NEW.order_id;
+        
+        FOR v_item IN 
+            SELECT oi.*, p.track_stock, p.name as product_name
+            FROM public.order_items oi
+            LEFT JOIN public.products p ON p.id = oi.product_id
+            WHERE oi.order_id = NEW.order_id
+        LOOP
+            -- COMBO: descontar insumos de cada componente
+            IF v_item.combo_id IS NOT NULL THEN
+                FOR v_combo_component IN
+                    SELECT ci.product_id, ci.quantity, p.name as product_name, p.track_stock
+                    FROM public.combo_items ci
+                    JOIN public.products p ON p.id = ci.product_id
+                    WHERE ci.combo_id = v_item.combo_id
+                LOOP
+                    PERFORM deduct_ingredients_for_product(
+                        v_combo_component.product_id,
+                        v_combo_component.quantity * v_item.quantity,
+                        v_store_id, NEW.order_id, v_order.order_number,
+                        v_combo_component.product_name, v_combo_component.track_stock, NEW.user_id
+                    );
+                END LOOP;
+            
+            -- PRODUCTO INDIVIDUAL
+            ELSIF v_item.product_id IS NOT NULL THEN
+                PERFORM deduct_ingredients_for_product(
+                    v_item.product_id, v_item.quantity,
+                    v_store_id, NEW.order_id, v_order.order_number,
+                    v_item.product_name, v_item.track_stock, NEW.user_id
+                );
+            END IF;
+        END LOOP;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
 
 CREATE TRIGGER trg_deduct_product_stock_on_payment
 AFTER INSERT ON public.payments
@@ -279,8 +264,69 @@ LEFT JOIN public.ingredients i ON i.id = pr.ingredient_id
 WHERE p.active = true
 GROUP BY p.id, p.name, p.base_price;
 
--- Permisos
 GRANT SELECT ON public.v_product_recipe_cost TO authenticated;
+
+-- =====================================================
+-- 6. FUNCIÓN: Porciones disponibles por receta
+-- Calcula cuántas unidades se pueden preparar de un
+-- producto basándose en el stock de sus insumos.
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION public.get_recipe_available_servings(
+    p_product_id UUID,
+    p_store_id UUID
+)
+RETURNS INT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_recipe RECORD;
+    v_min_servings INT := 999999;
+    v_ingredient_stock DECIMAL;
+    v_possible INT;
+    v_has_recipe BOOLEAN;
+BEGIN
+    SELECT EXISTS(
+        SELECT 1 FROM public.product_recipes WHERE product_id = p_product_id
+    ) INTO v_has_recipe;
+
+    IF NOT v_has_recipe THEN
+        RETURN -1; -- No tiene receta, usar stock directo
+    END IF;
+
+    FOR v_recipe IN
+        SELECT pr.ingredient_id, pr.quantity_needed
+        FROM public.product_recipes pr
+        WHERE pr.product_id = p_product_id
+          AND pr.quantity_needed > 0
+    LOOP
+        SELECT COALESCE(quantity, 0) INTO v_ingredient_stock
+        FROM public.ingredient_stock
+        WHERE ingredient_id = v_recipe.ingredient_id
+          AND store_id = p_store_id;
+
+        IF v_ingredient_stock IS NULL THEN
+            v_ingredient_stock := 0;
+        END IF;
+
+        v_possible := FLOOR(v_ingredient_stock / v_recipe.quantity_needed);
+        
+        IF v_possible < v_min_servings THEN
+            v_min_servings := v_possible;
+        END IF;
+    END LOOP;
+
+    IF v_min_servings = 999999 THEN
+        RETURN 0;
+    END IF;
+
+    RETURN v_min_servings;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_recipe_available_servings TO authenticated;
 
 -- =====================================================
 -- FIN DEL SCRIPT
