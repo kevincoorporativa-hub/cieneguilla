@@ -8,6 +8,8 @@ export interface PurchaseItem {
   quantity: number;
   unit_cost: number;
   total_cost: number;
+  supplier: string | null;
+  purchase_date: string | null;
   created_at: string;
   notes: string | null;
 }
@@ -73,6 +75,8 @@ export function usePurchases(startDate?: string, endDate?: string) {
           quantity: Number(move.quantity),
           unit_cost: Number(move.unit_cost || 0),
           total_cost: Number(move.total_cost || 0),
+          supplier: move.supplier || null,
+          purchase_date: move.purchase_date || null,
           created_at: move.created_at,
           notes: move.notes,
         };
