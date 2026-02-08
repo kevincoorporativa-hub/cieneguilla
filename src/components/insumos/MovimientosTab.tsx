@@ -5,6 +5,8 @@ import {
   RefreshCw,
   Search,
   Package,
+  Truck,
+  CalendarIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,13 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Ingredient, useCreateStockMove } from '@/hooks/useIngredients';
 import { useStores } from '@/hooks/useStores';
@@ -42,6 +37,8 @@ export function MovimientosTab({ ingredients }: Props) {
   const [quantity, setQuantity] = useState('');
   const [unitCost, setUnitCost] = useState('');
   const [reason, setReason] = useState('');
+  const [supplier, setSupplier] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState('');
 
   const { data: stores = [] } = useStores();
   const createStockMove = useCreateStockMove();
@@ -56,12 +53,19 @@ export function MovimientosTab({ ingredients }: Props) {
     setQuantity('');
     setUnitCost('');
     setReason('');
+    setSupplier(item.supplier || '');
+    setPurchaseDate(new Date().toISOString().split('T')[0]);
     setIsModalOpen(true);
   };
 
   const handleSave = async () => {
     if (!selectedItem || !quantity || !reason) {
-      toast.error('Complete todos los campos');
+      toast.error('Complete todos los campos obligatorios');
+      return;
+    }
+
+    if (movementType === 'purchase' && !unitCost) {
+      toast.error('El costo unitario es obligatorio para ingresos');
       return;
     }
 
@@ -86,6 +90,8 @@ export function MovimientosTab({ ingredients }: Props) {
         quantity: qty,
         notes: reason,
         unit_cost: cost,
+        supplier: movementType === 'purchase' ? supplier : undefined,
+        purchase_date: movementType === 'purchase' ? purchaseDate : undefined,
       });
 
       toast.success('Movimiento registrado correctamente');
@@ -94,6 +100,10 @@ export function MovimientosTab({ ingredients }: Props) {
       toast.error('Error al registrar movimiento', { description: error.message });
     }
   };
+
+  const totalCost = quantity && unitCost
+    ? (parseFloat(quantity) * parseFloat(unitCost)).toFixed(2)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -157,6 +167,7 @@ export function MovimientosTab({ ingredients }: Props) {
                     <p className="font-semibold text-pos-base truncate">{item.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {item.category} · {item.unit} · Mín: {item.min_stock}
+                      {item.supplier && ` · ${item.supplier}`}
                     </p>
                   </div>
                   <div className="flex-shrink-0">
@@ -219,6 +230,7 @@ export function MovimientosTab({ ingredients }: Props) {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Current info */}
             <div className="p-4 bg-muted rounded-xl">
               <p className="font-semibold text-pos-lg">{selectedItem?.name}</p>
               <p className="text-muted-foreground">
@@ -226,9 +238,10 @@ export function MovimientosTab({ ingredients }: Props) {
               </p>
             </div>
 
+            {/* Quantity */}
             <div className="space-y-2">
               <label className="text-pos-base font-semibold">
-                {movementType === 'adjustment' ? 'Cantidad (+ agregar, - restar)' : 'Cantidad'}
+                {movementType === 'adjustment' ? 'Cantidad (+ agregar, - restar)' : 'Cantidad'} *
               </label>
               <Input
                 type="number"
@@ -239,36 +252,78 @@ export function MovimientosTab({ ingredients }: Props) {
               />
             </div>
 
+            {/* Purchase-specific fields */}
             {movementType === 'purchase' && (
-              <div className="space-y-2">
-                <label className="text-pos-base font-semibold">Costo Unitario (S/)</label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={unitCost}
-                  onChange={(e) => setUnitCost(e.target.value)}
-                  placeholder="0.00"
-                  className="h-12 text-pos-base rounded-xl"
-                />
-                {quantity && unitCost && (
-                  <p className="text-sm text-muted-foreground">
-                    Total: S/ {(parseFloat(quantity) * parseFloat(unitCost)).toFixed(2)}
-                  </p>
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-pos-base font-semibold">Costo Unitario (S/) *</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={unitCost}
+                      onChange={(e) => setUnitCost(e.target.value)}
+                      placeholder="0.00"
+                      className="h-12 text-pos-base rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-pos-base font-semibold">Fecha de Compra</label>
+                    <div className="relative">
+                      <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="date"
+                        value={purchaseDate}
+                        onChange={(e) => setPurchaseDate(e.target.value)}
+                        className="h-12 text-pos-base rounded-xl pl-10"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-pos-base font-semibold flex items-center gap-2">
+                    <Truck className="h-4 w-4" />
+                    Proveedor
+                  </label>
+                  <Input
+                    value={supplier}
+                    onChange={(e) => setSupplier(e.target.value)}
+                    placeholder="Nombre del proveedor"
+                    className="h-12 text-pos-base rounded-xl"
+                  />
+                </div>
+
+                {/* Total calculation */}
+                {totalCost && (
+                  <div className="p-4 bg-success/10 border-2 border-success/30 rounded-xl">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-semibold text-muted-foreground">
+                        {quantity} × S/ {parseFloat(unitCost).toFixed(2)}
+                      </span>
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">Total de compra</p>
+                        <p className="text-xl font-bold text-success">S/ {totalCost}</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </div>
+              </>
             )}
 
+            {/* Reason */}
             <div className="space-y-2">
-              <label className="text-pos-base font-semibold">Motivo / Descripción</label>
+              <label className="text-pos-base font-semibold">Motivo / Descripción *</label>
               <Textarea
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder="Describe el motivo del movimiento..."
-                className="min-h-24 text-pos-base rounded-xl"
+                className="min-h-20 text-pos-base rounded-xl"
               />
             </div>
 
-            <div className="flex gap-3 pt-4">
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
               <Button
                 variant="outline"
                 className="flex-1 h-12 rounded-xl"

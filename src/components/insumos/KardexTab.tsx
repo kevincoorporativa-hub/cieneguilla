@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, Calendar, User, Search, Filter, DollarSign } from 'lucide-react';
+import { History, Calendar, User, Search, Filter, DollarSign, Truck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import {
@@ -40,7 +40,7 @@ export function KardexTab({ movements, isLoading }: Props) {
     .reduce((sum, m) => sum + m.total_cost, 0);
 
   const getExportData = () => ({
-    headers: ['Fecha', 'Insumo', 'Tipo', 'Cantidad', 'Costo Unit.', 'Costo Total', 'Motivo', 'Usuario'],
+    headers: ['Fecha', 'Insumo', 'Tipo', 'Cantidad', 'Costo Unit.', 'Costo Total', 'Proveedor', 'F. Compra', 'Motivo', 'Usuario'],
     rows: filtered.map((m) => [
       new Date(m.created_at).toLocaleDateString('es-PE'),
       m.ingredient_name || '—',
@@ -48,6 +48,8 @@ export function KardexTab({ movements, isLoading }: Props) {
       `${m.quantity >= 0 ? '+' : ''}${m.quantity}`,
       `S/ ${m.unit_cost.toFixed(2)}`,
       `S/ ${m.total_cost.toFixed(2)}`,
+      m.supplier || '—',
+      m.purchase_date ? new Date(m.purchase_date + 'T00:00:00').toLocaleDateString('es-PE') : '—',
       m.notes || '—',
       m.user_name || '—',
     ]),
@@ -159,6 +161,8 @@ export function KardexTab({ movements, isLoading }: Props) {
                   <TableHead className="text-pos-base font-bold">Cantidad</TableHead>
                   <TableHead className="text-pos-base font-bold">Costo Unit.</TableHead>
                   <TableHead className="text-pos-base font-bold">Costo Total</TableHead>
+                  <TableHead className="text-pos-base font-bold">Proveedor</TableHead>
+                  <TableHead className="text-pos-base font-bold">F. Compra</TableHead>
                   <TableHead className="text-pos-base font-bold">Motivo</TableHead>
                   <TableHead className="text-pos-base font-bold">Usuario</TableHead>
                 </TableRow>
@@ -194,6 +198,19 @@ export function KardexTab({ movements, isLoading }: Props) {
                       S/ {move.total_cost.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-muted-foreground max-w-xs truncate">
+                      {move.supplier ? (
+                        <span className="flex items-center gap-1">
+                          <Truck className="h-3.5 w-3.5" />
+                          {move.supplier}
+                        </span>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {move.purchase_date
+                        ? new Date(move.purchase_date + 'T00:00:00').toLocaleDateString('es-PE')
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground max-w-xs truncate">
                       {move.notes || '—'}
                     </TableCell>
                     <TableCell>
@@ -206,7 +223,7 @@ export function KardexTab({ movements, isLoading }: Props) {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       No hay movimientos registrados
                     </TableCell>
                   </TableRow>

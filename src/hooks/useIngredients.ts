@@ -27,6 +27,8 @@ export interface StockMove {
   total_cost: number;
   reference_id: string | null;
   notes: string | null;
+  supplier: string | null;
+  purchase_date: string | null;
   user_id: string | null;
   user_name?: string;
   created_at: string;
@@ -106,6 +108,8 @@ export function useStockMoves(ingredientId?: string) {
         quantity: Number(move.quantity),
         unit_cost: Number(move.unit_cost || 0),
         total_cost: Number(move.total_cost || 0),
+        supplier: move.supplier || null,
+        purchase_date: move.purchase_date || null,
         ingredient_name: ingredients?.find(i => i.id === move.ingredient_id)?.name,
         user_name: employees?.find(e => e.user_id === move.user_id)
           ? `${employees.find(e => e.user_id === move.user_id)?.first_name} ${employees.find(e => e.user_id === move.user_id)?.last_name}`
@@ -167,6 +171,8 @@ export function useCreateStockMove() {
       quantity: number;
       notes?: string;
       unit_cost?: number;
+      supplier?: string;
+      purchase_date?: string;
     }) => {
       const { data: session } = await supabase.auth.getSession();
       const userId = session?.session?.user?.id;
@@ -184,6 +190,8 @@ export function useCreateStockMove() {
           user_id: userId,
           unit_cost: data.unit_cost || 0,
           total_cost: totalCost,
+          supplier: data.supplier || null,
+          purchase_date: data.purchase_date || null,
         })
         .select()
         .single();
