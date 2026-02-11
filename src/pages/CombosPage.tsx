@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Search, Edit, Trash2, Package, Eye, EyeOff, X, Layers, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ import {
 import { useProducts } from '@/hooks/useProducts';
 
 export default function CombosPage() {
+  const { isAdmin } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCombo, setEditingCombo] = useState<ComboCompleto | null>(null);
@@ -376,15 +378,17 @@ export default function CombosPage() {
                             >
                               {combo.activo ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-10 w-10 text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDelete(combo)}
-                              disabled={deleteCombo.isPending}
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </Button>
+                            {isAdmin && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-10 w-10 text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDelete(combo)}
+                                disabled={deleteCombo.isPending}
+                              >
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

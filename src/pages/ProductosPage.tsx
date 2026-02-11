@@ -53,7 +53,7 @@ import { RecipeEditor } from '@/components/productos/RecipeEditor';
 import { useProductRecipe } from '@/hooks/useRecipes';
 
 export default function ProductosPage() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('products');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -806,13 +806,15 @@ export default function ProductosPage() {
                                 >
                                   <Edit className="h-5 w-5 text-primary" />
                                 </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteProduct(product)}
-                                >
-                                  <Trash2 className="h-5 w-5 text-destructive" />
-                                </Button>
+                                {isAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteProduct(product)}
+                                  >
+                                    <Trash2 className="h-5 w-5 text-destructive" />
+                                  </Button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
