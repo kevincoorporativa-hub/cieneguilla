@@ -9,7 +9,7 @@ import {
   Truck,
   MapPin,
   User,
-  Phone,
+  FileText,
   Printer,
   Plus
 } from 'lucide-react';
@@ -41,7 +41,7 @@ interface CheckoutData {
   orderType: OrderType;
   payments: { method: PaymentMethod; amount: number }[];
   clientName?: string;
-  clientPhone?: string;
+  clientDni?: string;
   clientAddress?: string;
   change: number;
   stockDeductions: { productId: string; quantity: number }[];
@@ -74,7 +74,7 @@ export function CheckoutModal({
   const [cashReceived, setCashReceived] = useState('');
   const [useGenericClient, setUseGenericClient] = useState(true);
   const [clientName, setClientName] = useState('Cliente Genérico');
-  const [clientPhone, setClientPhone] = useState('');
+  const [clientDni, setClientDni] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [showTicketPreview, setShowTicketPreview] = useState(false);
   const [ticketNumber, setTicketNumber] = useState('');
@@ -90,6 +90,7 @@ export function CheckoutModal({
     change?: number;
     orderType: OrderType;
     clientName: string;
+    clientDni?: string;
     extraCharge?: number;
   } | null>(null);
   
@@ -146,7 +147,7 @@ export function CheckoutModal({
         orderType,
         payments: [{ method: selectedPayment, amount: finalTotal }],
         clientName: finalClientName || 'Cliente Genérico',
-        clientPhone: clientPhone || undefined,
+        clientDni: clientDni || undefined,
         clientAddress: orderType === 'delivery' ? clientAddress : undefined,
         change,
         stockDeductions,
@@ -169,6 +170,7 @@ export function CheckoutModal({
         change: selectedPayment === 'efectivo' ? change : undefined,
         orderType,
         clientName: (finalClientName || 'Cliente Genérico'),
+        clientDni: clientDni || undefined,
         extraCharge: extraChargeAmount > 0 ? extraChargeAmount : undefined,
       });
 
@@ -220,6 +222,7 @@ export function CheckoutModal({
               change={snap?.change}
               orderType={snap?.orderType ?? orderType}
               clientName={snap?.clientName ?? (useGenericClient ? 'Cliente Genérico' : (clientName || 'Cliente Genérico'))}
+              clientDni={snap?.clientDni}
               config={ticketConfig}
               date={new Date()}
               extraCharge={snap?.extraCharge}
@@ -302,14 +305,15 @@ export function CheckoutModal({
                       className="h-12 rounded-xl"
                     />
                   </div>
-                  <div className="space-y-2">
+                   <div className="space-y-2">
                     <label className="text-sm font-medium flex items-center gap-2">
-                      <Phone className="h-4 w-4" /> Teléfono
+                      <FileText className="h-4 w-4" /> DNI
                     </label>
                     <Input
-                      value={clientPhone}
-                      onChange={(e) => setClientPhone(e.target.value)}
-                      placeholder="987654321"
+                      value={clientDni}
+                      onChange={(e) => setClientDni(e.target.value)}
+                      placeholder="12345678"
+                      maxLength={8}
                       className="h-12 rounded-xl"
                     />
                   </div>
