@@ -95,6 +95,7 @@ const buildPrintHtml = (ticket: Ticket, settings: { businessName: string; busine
         <div class="separator"></div>
         <div style="margin-bottom:4px;font-size:11px;">
           ${ticket.customer_name ? `<div>CLIENTE : ${ticket.customer_name}</div>` : ''}
+          ${ticket.customer_dni ? `<div>DNI     : ${ticket.customer_dni}</div>` : ''}
           <div>PAGO    : ${getPaymentMethodLabel(ticket.payment_method)}</div>
         </div>
         <div class="separator"></div>
@@ -594,6 +595,7 @@ export default function TicketsPage() {
                   <div className="flex justify-between"><span>Fecha:</span><span>{new Date(selectedTicket.created_at).toLocaleDateString('es-PE')}</span></div>
                   <div className="flex justify-between"><span>Hora:</span><span>{new Date(selectedTicket.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span></div>
                   {selectedTicket.customer_name && <div className="flex justify-between"><span>Cliente:</span><span>{selectedTicket.customer_name}</span></div>}
+                  {selectedTicket.customer_dni && <div className="flex justify-between"><span>DNI:</span><span>{selectedTicket.customer_dni}</span></div>}
                 </div>
 
                 <div className="border-t border-dashed border-border pt-2 space-y-2">

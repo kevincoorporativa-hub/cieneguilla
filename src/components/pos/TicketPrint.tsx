@@ -22,6 +22,7 @@ interface TicketPrintProps {
   change?: number;
   orderType: OrderType;
   clientName?: string;
+  clientDni?: string;
   config: TicketConfig;
   date: Date;
   extraCharge?: number;
@@ -39,6 +40,7 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
     change, 
     orderType, 
     clientName,
+    clientDni,
     config, 
     date,
     extraCharge
@@ -113,6 +115,9 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
           <div>TIPO     : {orderTypeLabels[orderType]}</div>
           {clientName && (
             <div>CLIENTE  : {clientName}</div>
+          )}
+          {clientDni && (
+            <div>DNI      : {clientDni}</div>
           )}
           <div>PAGO     : {paymentLabels[paymentMethod]}</div>
         </div>

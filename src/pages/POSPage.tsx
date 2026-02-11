@@ -483,7 +483,7 @@ export default function POSPage() {
         } else {
           const { data: newCustomer } = await supabase
             .from('customers')
-            .insert({ name: clientName, phone: data.clientPhone || null })
+            .insert({ name: clientName, dni: data.clientDni || null })
             .select('id')
             .single();
           if (newCustomer) customerId = newCustomer.id;

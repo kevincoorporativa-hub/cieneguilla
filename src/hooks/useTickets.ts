@@ -15,6 +15,7 @@ export interface Ticket {
   order_number: number;
   created_at: string;
   customer_name: string | null;
+  customer_dni: string | null;
   total: number;
   payment_method: string | null;
   user_email: string | null;
@@ -71,7 +72,7 @@ export function useTickets(startDate?: string, endDate?: string) {
       const { data: customers } = customerIds.length > 0
         ? await supabase
             .from('customers')
-            .select('id, name')
+            .select('id, name, dni')
             .in('id', customerIds)
         : { data: [] };
 
@@ -102,6 +103,7 @@ export function useTickets(startDate?: string, endDate?: string) {
           order_number: order.order_number,
           created_at: order.created_at,
           customer_name: customer?.name || null,
+          customer_dni: customer?.dni || null,
           total: Number(order.total),
           payment_method: payment?.method || null,
           user_email: employee ? `${employee.first_name} ${employee.last_name}` : null,
