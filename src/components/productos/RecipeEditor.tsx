@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatCost } from '@/utils/formatDecimals';
 import { Plus, Trash2, ChefHat, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -135,12 +136,12 @@ export function RecipeEditor({ isOpen, onClose, productId, productName, productP
             </div>
             <div className="p-3 bg-destructive/10 rounded-xl text-center">
               <p className="text-sm text-muted-foreground">Costo Receta</p>
-              <p className="text-lg font-bold text-destructive">S/ {recipeCost.toFixed(2)}</p>
+              <p className="text-lg font-bold text-destructive">S/ {formatCost(recipeCost)}</p>
             </div>
             <div className={`p-3 rounded-xl text-center ${profit >= 0 ? 'bg-success/10' : 'bg-destructive/10'}`}>
               <p className="text-sm text-muted-foreground">Ganancia ({marginPercent}%)</p>
               <p className={`text-lg font-bold ${profit >= 0 ? 'text-success' : 'text-destructive'}`}>
-                S/ {profit.toFixed(2)}
+                S/ {formatCost(profit)}
               </p>
             </div>
           </div>
@@ -190,7 +191,7 @@ export function RecipeEditor({ isOpen, onClose, productId, productName, productP
                   <div className="relative">
                     <Input
                       type="number"
-                      step="0.01"
+                      step="any"
                       min="0"
                       value={row.quantity_needed}
                       onChange={(e) => updateRow(index, 'quantity_needed', e.target.value)}
@@ -205,7 +206,7 @@ export function RecipeEditor({ isOpen, onClose, productId, productName, productP
                   </div>
 
                   <span className="text-sm font-medium text-center">
-                    S/ {lineCost.toFixed(2)}
+                    S/ {formatCost(lineCost)}
                   </span>
 
                   <Button

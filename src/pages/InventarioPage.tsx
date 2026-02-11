@@ -227,7 +227,7 @@ export default function InventarioPage() {
                   <label className="text-pos-base font-semibold">Costo Unitario (S/)</label>
                   <Input
                     type="number"
-                    step="0.01"
+                    step="any"
                     value={newItemForm.costoUnitario}
                     onChange={(e) => setNewItemForm({ ...newItemForm, costoUnitario: e.target.value })}
                     placeholder="0.00"

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatCost, formatTotal, formatQuantity } from '@/utils/formatDecimals';
 import { History, Calendar, User, Search, Filter, DollarSign, Truck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -46,8 +47,8 @@ export function KardexTab({ movements, isLoading }: Props) {
       m.ingredient_name || '—',
       getMovementLabel(m.move_type),
       `${m.quantity >= 0 ? '+' : ''}${m.quantity}`,
-      `S/ ${m.unit_cost.toFixed(2)}`,
-      `S/ ${m.total_cost.toFixed(2)}`,
+      `S/ ${formatCost(m.unit_cost)}`,
+      `S/ ${formatTotal(m.total_cost)}`,
       m.supplier || '—',
       m.purchase_date ? new Date(m.purchase_date + 'T00:00:00').toLocaleDateString('es-PE') : '—',
       m.notes || '—',
@@ -94,7 +95,7 @@ export function KardexTab({ movements, isLoading }: Props) {
             <DollarSign className="h-6 w-6 text-primary" />
             <div>
               <p className="text-sm text-muted-foreground">Inversión total en compras</p>
-              <p className="text-xl font-bold text-primary">S/ {totalCostoPurchase.toFixed(2)}</p>
+              <p className="text-xl font-bold text-primary">S/ {formatTotal(totalCostoPurchase)}</p>
             </div>
           </CardContent>
         </Card>
@@ -192,10 +193,10 @@ export function KardexTab({ movements, isLoading }: Props) {
                       {move.quantity}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      S/ {move.unit_cost.toFixed(2)}
+                      S/ {formatCost(move.unit_cost)}
                     </TableCell>
                     <TableCell className="font-semibold">
-                      S/ {move.total_cost.toFixed(2)}
+                      S/ {formatTotal(move.total_cost)}
                     </TableCell>
                     <TableCell className="text-muted-foreground max-w-xs truncate">
                       {move.supplier ? (
