@@ -166,17 +166,21 @@ export function useTopProducts(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['reports', 'top-products', startDate, endDate],
     queryFn: async () => {
-      // Get paid orders in date range
+      // Get paid orders in date range – use local boundaries to avoid UTC off-by-one
       let ordersQuery = supabase
         .from('orders')
         .select('id')
         .eq('status', 'paid');
 
       if (startDate) {
-        ordersQuery = ordersQuery.gte('created_at', `${startDate}T00:00:00`);
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+        ordersQuery = ordersQuery.gte('created_at', startLocal.toISOString());
       }
       if (endDate) {
-        ordersQuery = ordersQuery.lte('created_at', `${endDate}T23:59:59`);
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endLocalExclusive = new Date(y, (m || 1) - 1, (d || 1) + 1, 0, 0, 0, 0);
+        ordersQuery = ordersQuery.lt('created_at', endLocalExclusive.toISOString());
       }
 
       const { data: orders, error: ordersError } = await ordersQuery;
@@ -229,17 +233,21 @@ export function useSalesByCategory(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['reports', 'sales-by-category', startDate, endDate],
     queryFn: async () => {
-      // Get paid orders in date range
+      // Get paid orders in date range – use local boundaries to avoid UTC off-by-one
       let ordersQuery = supabase
         .from('orders')
         .select('id')
         .eq('status', 'paid');
 
       if (startDate) {
-        ordersQuery = ordersQuery.gte('created_at', `${startDate}T00:00:00`);
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+        ordersQuery = ordersQuery.gte('created_at', startLocal.toISOString());
       }
       if (endDate) {
-        ordersQuery = ordersQuery.lte('created_at', `${endDate}T23:59:59`);
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endLocalExclusive = new Date(y, (m || 1) - 1, (d || 1) + 1, 0, 0, 0, 0);
+        ordersQuery = ordersQuery.lt('created_at', endLocalExclusive.toISOString());
       }
 
       const { data: orders, error: ordersError } = await ordersQuery;
@@ -329,17 +337,21 @@ export function useTopCombos(startDate?: string, endDate?: string) {
   return useQuery({
     queryKey: ['reports', 'top-combos', startDate, endDate],
     queryFn: async () => {
-      // Get paid orders in date range
+      // Get paid orders in date range – use local boundaries to avoid UTC off-by-one
       let ordersQuery = supabase
         .from('orders')
         .select('id')
         .eq('status', 'paid');
 
       if (startDate) {
-        ordersQuery = ordersQuery.gte('created_at', `${startDate}T00:00:00`);
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startLocal = new Date(y, (m || 1) - 1, d || 1, 0, 0, 0, 0);
+        ordersQuery = ordersQuery.gte('created_at', startLocal.toISOString());
       }
       if (endDate) {
-        ordersQuery = ordersQuery.lte('created_at', `${endDate}T23:59:59`);
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endLocalExclusive = new Date(y, (m || 1) - 1, (d || 1) + 1, 0, 0, 0, 0);
+        ordersQuery = ordersQuery.lt('created_at', endLocalExclusive.toISOString());
       }
 
       const { data: orders, error: ordersError } = await ordersQuery;
