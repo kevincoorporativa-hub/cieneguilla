@@ -25,6 +25,7 @@ import { getStockBadge } from './InsumoHelpers';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   ingredients: Ingredient[];
@@ -39,6 +40,7 @@ export function InsumoListTab({ ingredients, isLoading, onNewItem }: Props) {
   const [editForm, setEditForm] = useState({ name: '', unit: '', min_stock: '', cost_per_unit: '', category: '', supplier: '' });
   const updateIngredient = useUpdateIngredient();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
 
   const filtered = ingredients.filter((item) =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -214,9 +216,11 @@ export function InsumoListTab({ ingredients, isLoading, onNewItem }: Props) {
                         <Button variant="ghost" size="icon" className="text-primary hover:text-primary/80" onClick={() => handleEdit(item)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => setDeleteItem(item)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive/80" onClick={() => setDeleteItem(item)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
