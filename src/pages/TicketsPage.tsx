@@ -254,6 +254,55 @@ export default function TicketsPage() {
     toast.success('Exportado a PDF');
   };
 
+  const handlePrintReport = () => {
+    const rows = filteredTickets.map(t => {
+      const f = new Date(t.created_at);
+      return `<tr>
+        <td>T-${t.order_number}</td>
+        <td>${f.toLocaleDateString('es-PE')}</td>
+        <td>${f.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</td>
+        <td>${t.customer_name || '-'}</td>
+        <td>${t.order_type === 'local' ? 'Local' : t.order_type === 'delivery' ? 'Delivery' : 'Para llevar'}</td>
+        <td>${getPaymentMethodLabel(t.payment_method)}</td>
+        <td style="text-align:right;">S/${t.total.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<html><head><title>Reporte Tickets</title>
+      <style>
+        @page { size: 80mm auto; margin: 0; }
+        body { font-family: 'Lucida Console','Consolas','Courier New',monospace; padding: 6px; font-size: 9px; font-weight: bold; }
+        .header { text-align: center; border-bottom: 1px dashed #000; padding-bottom: 6px; margin-bottom: 6px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 2px 1px; text-align: left; font-size: 9px; }
+        th { border-bottom: 1px solid #000; }
+        .total-row { border-top: 2px solid #000; font-size: 11px; margin-top: 6px; padding-top: 4px; text-align: right; }
+      </style></head><body>
+      <div class="header">
+        <div style="font-size:12px;font-weight:900;">${settings.businessName}</div>
+        <div>REPORTE DE TICKETS</div>
+        <div>${getPeriodLabel()}</div>
+      </div>
+      <table>
+        <thead><tr><th>Ticket</th><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Tipo</th><th>Pago</th><th style="text-align:right;">Total</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="total-row"><strong>TOTAL: S/${totalVentas.toFixed(2)} (${filteredTickets.length} tickets)</strong></div>
+    </body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-10000px;left:-10000px;width:80mm;height:0;border:none;';
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) { document.body.removeChild(iframe); return; }
+    doc.open(); doc.write(html); doc.close();
+    setTimeout(() => {
+      try { iframe.contentWindow?.print(); } catch (e) { console.error(e); }
+      setTimeout(() => document.body.removeChild(iframe), 1000);
+    }, 250);
+    toast.success('Enviado a impresora');
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -264,6 +313,10 @@ export default function TicketsPage() {
             <p className="text-muted-foreground">Historial de ventas y reimpresión</p>
           </div>
           <div className="flex gap-3">
+            <Button variant="outline" className="btn-pos" onClick={handlePrintReport}>
+              <Printer className="h-5 w-5 mr-2" />
+              IMP-Ticket
+            </Button>
             <Button variant="outline" className="btn-pos" onClick={handleExportExcel}>
               <FileSpreadsheet className="h-5 w-5 mr-2" />
               Excel
