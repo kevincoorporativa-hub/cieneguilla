@@ -92,7 +92,7 @@ export function InsumoListTab({ ingredients, isLoading, onNewItem }: Props) {
 
   const formatPrecioTotal = (stock: number, costPerUnit: number) => {
     const total = stock * costPerUnit;
-    return total.toFixed(2);
+    return formatCost(total, 6);
   };
 
   const getExportData = () => ({
