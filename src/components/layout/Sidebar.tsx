@@ -28,12 +28,12 @@ import { toast } from 'sonner';
 const navItems = [
   { to: '/', icon: ShoppingCart, label: 'Punto de Venta', adminOnly: false },
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', adminOnly: false },
+  { to: '/tickets', icon: FileText, label: 'Tickets', adminOnly: false },
   { to: '/productos', icon: Package, label: 'Productos', adminOnly: false },
   { to: '/combos', icon: Layers, label: 'Combos', adminOnly: false },
   { to: '/inventario', icon: Boxes, label: 'Insumo', adminOnly: false },
   { to: '/delivery', icon: Truck, label: 'Delivery', adminOnly: false },
   { to: '/caja', icon: Receipt, label: 'Caja', adminOnly: false },
-  { to: '/tickets', icon: FileText, label: 'Tickets', adminOnly: false },
   { to: '/reportes', icon: FileText, label: 'Reportes', adminOnly: false },
   { to: '/ajustes', icon: Settings, label: 'Ajustes', adminOnly: false },
   { to: '/usuarios', icon: Users, label: 'Usuarios', adminOnly: true },
