@@ -132,7 +132,7 @@ export const TicketPrint = forwardRef<HTMLDivElement, TicketPrintProps>(
           {items.map((item, idx) => (
             <div key={idx} style={{ display: 'flex', marginBottom: '1px' }}>
               <span style={{ width: '30px' }}>{item.cantidad}</span>
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.nombre}</span>
+              <span style={{ flex: 1, wordBreak: 'break-word', whiteSpace: 'normal' }}>{item.nombre}</span>
               <span style={{ width: '50px', textAlign: 'right' }}>{item.precioUnitario.toFixed(2)}</span>
               <span style={{ width: '55px', textAlign: 'right' }}>{item.subtotal.toFixed(2)}</span>
             </div>
