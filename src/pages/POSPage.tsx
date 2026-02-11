@@ -6,7 +6,9 @@ import {
   Layers,
   ShoppingCart,
   Maximize,
-  Minimize
+  Minimize,
+  Search,
+  X
 } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { CategoryButton } from '@/components/pos/CategoryButton';
@@ -105,6 +107,8 @@ export default function POSPage() {
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
   const [isKioskMode, setIsKioskMode] = useState(false);
   const [isSessionReady, setIsSessionReady] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sizeFilter, setSizeFilter] = useState<string | null>(null);
   // Hooks
   const { lightTap, successFeedback, errorFeedback } = useHapticFeedback();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -155,13 +159,37 @@ export default function POSPage() {
   }, [categories, selectedCategoryId, showCombos]);
 
 
-  // Filter products by selected category
+  // Filter products by selected category, search term, and size filter
   const filteredProducts = useMemo(() => {
     if (!selectedCategoryId || showCombos) return [];
-    return products.filter(p => {
+    let filtered = products.filter(p => {
       const dbProduct = dbProducts.find(dp => dp.id === p.id);
       return dbProduct?.category_id === selectedCategoryId;
     });
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(p => p.nombre.toLowerCase().includes(term));
+    }
+    // Apply size filter
+    if (sizeFilter) {
+      const size = sizeFilter.toLowerCase();
+      filtered = filtered.filter(p => p.nombre.toLowerCase().includes(size));
+    }
+    return filtered;
+  }, [products, dbProducts, selectedCategoryId, showCombos, searchTerm, sizeFilter]);
+
+  // Detect available sizes in current category products
+  const availableSizes = useMemo(() => {
+    if (!selectedCategoryId || showCombos) return [];
+    const categoryProducts = products.filter(p => {
+      const dbProduct = dbProducts.find(dp => dp.id === p.id);
+      return dbProduct?.category_id === selectedCategoryId;
+    });
+    const sizes = ['Personal', 'Mediana', 'Familiar'];
+    return sizes.filter(size => 
+      categoryProducts.some(p => p.nombre.toLowerCase().includes(size.toLowerCase()))
+    );
   }, [products, dbProducts, selectedCategoryId, showCombos]);
 
   // Filter combos by type
@@ -174,11 +202,15 @@ export default function POSPage() {
   const handleSelectCategory = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setShowCombos(false);
+    setSearchTerm('');
+    setSizeFilter(null);
   };
 
   const handleSelectCombos = () => {
     setShowCombos(true);
     setSelectedCategoryId(null);
+    setSearchTerm('');
+    setSizeFilter(null);
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -676,6 +708,65 @@ export default function POSPage() {
                 </div>
               )}
             </>
+          )}
+
+          {/* Search bar + size filters (only for product categories, not combos) */}
+          {!showCombos && !isLoading && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Search input */}
+              <div className="relative flex-1 min-w-[180px] max-w-[300px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar producto..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-10 lg:h-11 pl-9 pr-8 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
+                  >
+                    <X className="h-3.5 w-3.5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+
+              {/* Size filter buttons */}
+              {availableSizes.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setSizeFilter(null)}
+                    className={cn(
+                      'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                      !sizeFilter
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    )}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    Todos
+                  </button>
+                  {availableSizes.map(size => (
+                    <button
+                      key={size}
+                      onClick={() => setSizeFilter(sizeFilter === size ? null : size)}
+                      className={cn(
+                        'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                        sizeFilter === size
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                      )}
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </>
+              )}
+            </div>
           )}
 
           {/* Products/Combos grid */}
