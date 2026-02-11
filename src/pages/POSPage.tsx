@@ -109,6 +109,7 @@ export default function POSPage() {
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sizeFilter, setSizeFilter] = useState<string | null>(null);
+  const [comboSearchTerm, setComboSearchTerm] = useState('');
   // Hooks
   const { lightTap, successFeedback, errorFeedback } = useHapticFeedback();
   const { isFullscreen, toggleFullscreen } = useFullscreen();
@@ -192,18 +193,45 @@ export default function POSPage() {
     );
   }, [products, dbProducts, selectedCategoryId, showCombos]);
 
-  // Filter combos by type
+  // Helper: match name against size (full word or abbreviation)
+  const nameMatchesSize = useCallback((name: string, size: string) => {
+    const lower = name.toLowerCase();
+    const s = size.toLowerCase();
+    if (lower.includes(s)) return true;
+    if (s === 'familiar' && lower.includes('fam')) return true;
+    if (s === 'personal' && lower.includes('per')) return true;
+    if (s === 'mediana' && lower.includes('med')) return true;
+    return false;
+  }, []);
+
+  // Filter combos by type, search and size
   const filteredCombos = useMemo(() => {
-    if (comboFilter === 'all') return combos;
-    if (comboFilter === 'permanent') return combos.filter(c => !c.temporal);
-    return combos.filter(c => c.temporal);
-  }, [combos, comboFilter]);
+    let filtered = combos;
+    if (comboFilter === 'permanent') filtered = filtered.filter(c => !c.temporal);
+    else if (comboFilter === 'temporary') filtered = filtered.filter(c => c.temporal);
+    if (comboSearchTerm.trim()) {
+      const term = comboSearchTerm.toLowerCase().trim();
+      filtered = filtered.filter(c => c.nombre.toLowerCase().includes(term));
+    }
+    if (sizeFilter) {
+      filtered = filtered.filter(c => nameMatchesSize(c.nombre, sizeFilter));
+    }
+    return filtered;
+  }, [combos, comboFilter, comboSearchTerm, sizeFilter, nameMatchesSize]);
+
+  // Detect available sizes in combos
+  const comboAvailableSizes = useMemo(() => {
+    if (!showCombos) return [];
+    const sizes = ['Personal', 'Mediana', 'Familiar'];
+    return sizes.filter(size => combos.some(c => nameMatchesSize(c.nombre, size)));
+  }, [combos, showCombos, nameMatchesSize]);
 
   const handleSelectCategory = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setShowCombos(false);
     setSearchTerm('');
     setSizeFilter(null);
+    setComboSearchTerm('');
   };
 
   const handleSelectCombos = () => {
@@ -211,6 +239,7 @@ export default function POSPage() {
     setSelectedCategoryId(null);
     setSearchTerm('');
     setSizeFilter(null);
+    setComboSearchTerm('');
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
@@ -568,6 +597,60 @@ export default function POSPage() {
             )}
           </div>
 
+          {/* Kiosk: Search bar + size filters */}
+          <div className="flex items-center gap-2 flex-wrap mb-4">
+            <div className="relative flex-1 min-w-[200px] max-w-[350px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={showCombos ? "Buscar combo..." : "Buscar producto..."}
+                value={showCombos ? comboSearchTerm : searchTerm}
+                onChange={(e) => showCombos ? setComboSearchTerm(e.target.value) : setSearchTerm(e.target.value)}
+                className="w-full h-11 lg:h-12 pl-9 pr-8 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              />
+              {(showCombos ? comboSearchTerm : searchTerm) && (
+                <button
+                  onClick={() => showCombos ? setComboSearchTerm('') : setSearchTerm('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
+                >
+                  <X className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+            {(showCombos ? comboAvailableSizes : availableSizes).length > 0 && (
+              <>
+                <button
+                  onClick={() => setSizeFilter(null)}
+                  className={cn(
+                    'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all touch-action-manipulation select-none',
+                    !sizeFilter
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  )}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  Todos
+                </button>
+                {(showCombos ? comboAvailableSizes : availableSizes).map(size => (
+                  <button
+                    key={size}
+                    onClick={() => setSizeFilter(sizeFilter === size ? null : size)}
+                    className={cn(
+                      'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all touch-action-manipulation select-none',
+                      sizeFilter === size
+                        ? 'bg-primary text-primary-foreground shadow-md'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    )}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+
           {/* Products Grid - Larger cards for touch */}
           <ScrollArea className="flex-1">
             {showCombos ? (
@@ -780,7 +863,61 @@ export default function POSPage() {
             ) : showCombos ? (
               /* Combos section with filter */
               <div className="space-y-3 lg:space-y-4">
-                {/* Combo filter buttons */}
+                {/* Combo search + size filters */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="relative flex-1 min-w-[180px] max-w-[300px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Buscar combo..."
+                      value={comboSearchTerm}
+                      onChange={(e) => setComboSearchTerm(e.target.value)}
+                      className="w-full h-10 lg:h-11 pl-9 pr-8 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    />
+                    {comboSearchTerm && (
+                      <button
+                        onClick={() => setComboSearchTerm('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
+                      >
+                        <X className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                  {comboAvailableSizes.length > 0 && (
+                    <>
+                      <button
+                        onClick={() => setSizeFilter(null)}
+                        className={cn(
+                          'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                          !sizeFilter
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                        )}
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
+                      >
+                        Todos
+                      </button>
+                      {comboAvailableSizes.map(size => (
+                        <button
+                          key={size}
+                          onClick={() => setSizeFilter(sizeFilter === size ? null : size)}
+                          className={cn(
+                            'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                            sizeFilter === size
+                              ? 'bg-primary text-primary-foreground shadow-md'
+                              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                          )}
+                          style={{ WebkitTapHighlightColor: 'transparent' }}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+
+                {/* Combo type filter buttons */}
                 <div className="flex gap-2 flex-wrap">
                   <button
                     onClick={() => setComboFilter('all')}
