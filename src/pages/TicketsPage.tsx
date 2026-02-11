@@ -268,6 +268,10 @@ export default function TicketsPage() {
       </tr>`;
     }).join('');
 
+    const logoHtml = settings.ticketLogoUrl 
+      ? `<img src="${settings.ticketLogoUrl}" alt="Logo" style="width:50px;height:50px;object-fit:contain;margin:0 auto 4px;display:block;" />`
+      : '';
+
     const html = `<html><head><title>Reporte Tickets</title>
       <style>
         @page { size: 80mm auto; margin: 0; }
@@ -279,6 +283,7 @@ export default function TicketsPage() {
         .total-row { border-top: 2px solid #000; font-size: 11px; margin-top: 6px; padding-top: 4px; text-align: right; }
       </style></head><body>
       <div class="header">
+        ${logoHtml}
         <div style="font-size:12px;font-weight:900;">${settings.businessName}</div>
         <div>REPORTE DE TICKETS</div>
         <div>${getPeriodLabel()}</div>
