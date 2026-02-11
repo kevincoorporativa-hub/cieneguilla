@@ -38,6 +38,7 @@ import { useHapticFeedback } from '@/hooks/useHapticFeedback';
 import { useFullscreen } from '@/hooks/useFullscreen';
 import { cn } from '@/lib/utils';
 import { mapPaymentMethodToDb, mapOrderTypeToDb } from '@/utils/paymentMethodMapper';
+import { supabase } from '@/integrations/supabase/client';
 
 // Get category icon from DB or fallback to name-based guess
 function getCategoryIcon(cat: Category) {
@@ -405,12 +406,36 @@ export default function POSPage() {
       // Map order type to database format
       const dbOrderType = mapOrderTypeToDb(data.orderType || 'local');
 
+      // Upsert customer if name provided and not generic
+      let customerId: string | null = null;
+      const clientName = data.clientName || 'Cliente Genérico';
+      if (clientName && clientName !== 'Cliente Genérico') {
+        // Try to find existing customer by name
+        const { data: existingCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('name', clientName)
+          .maybeSingle();
+
+        if (existingCustomer) {
+          customerId = existingCustomer.id;
+        } else {
+          const { data: newCustomer } = await supabase
+            .from('customers')
+            .insert({ name: clientName, phone: data.clientPhone || null })
+            .select('id')
+            .single();
+          if (newCustomer) customerId = newCustomer.id;
+        }
+      }
+
       const newOrder = await createOrder.mutateAsync({
         order: {
           store_id: storeId,
           terminal_id: cashSession.terminal_id,
           cash_session_id: cashSession.id,
           user_id: user?.id || null,
+          customer_id: customerId,
           order_type: dbOrderType,
           status: 'open',
           subtotal: subtotal + extraChargeAmount,

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, FileText, Printer, Eye, RefreshCw, Calendar, Download, Filter, FileSpreadsheet } from 'lucide-react';
+import { Search, FileText, Printer, Eye, RefreshCw, Calendar, Download, Filter, FileSpreadsheet, Banknote, Smartphone, CreditCard, Building } from 'lucide-react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -211,6 +211,33 @@ export default function TicketsPage() {
 
   const totalVentas = filteredTickets.reduce((sum, t) => sum + t.total, 0);
 
+  // Payment method summary
+  const paymentSummary = useMemo(() => {
+    const summary: Record<string, { total: number; count: number }> = {};
+    filteredTickets.forEach(t => {
+      const method = t.payment_method || 'unknown';
+      if (!summary[method]) summary[method] = { total: 0, count: 0 };
+      summary[method].total += t.total;
+      summary[method].count += 1;
+    });
+    return Object.entries(summary).map(([method, data]) => ({
+      method,
+      label: getPaymentMethodLabel(method),
+      ...data,
+      percentage: totalVentas > 0 ? ((data.total / totalVentas) * 100).toFixed(1) : '0',
+    }));
+  }, [filteredTickets, totalVentas]);
+
+  const getPaymentIcon = (method: string) => {
+    switch (method) {
+      case 'cash': return <Banknote className="h-5 w-5 text-green-600" />;
+      case 'yape': case 'plin': return <Smartphone className="h-5 w-5 text-purple-600" />;
+      case 'pos': case 'card': return <CreditCard className="h-5 w-5 text-blue-600" />;
+      case 'transfer': return <Building className="h-5 w-5 text-orange-600" />;
+      default: return <Banknote className="h-5 w-5 text-muted-foreground" />;
+    }
+  };
+
   const getPeriodLabel = () => {
     return {
       today: 'Hoy',
@@ -293,6 +320,9 @@ export default function TicketsPage() {
         <tbody>${rows}</tbody>
       </table>
       <div class="total-row"><strong>TOTAL: S/${totalVentas.toFixed(2)} (${filteredTickets.length} tickets)</strong></div>
+      <div class="separator" style="border-top:1px dashed #000;margin:8px 0;"></div>
+      <div style="font-size:10px;font-weight:900;margin-bottom:4px;">DETALLE POR MÉTODO DE PAGO:</div>
+      ${paymentSummary.map(ps => `<div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:2px;"><span>${ps.label} (${ps.count})</span><span>S/${ps.total.toFixed(2)} (${ps.percentage}%)</span></div>`).join('')}
     </body></html>`;
 
     const iframe = document.createElement('iframe');
@@ -418,6 +448,30 @@ export default function TicketsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Payment Method Summary */}
+        {paymentSummary.length > 0 && (
+          <Card className="border-2">
+            <CardContent className="p-4">
+              <h3 className="font-semibold mb-3">Detalle por Método de Pago</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                {paymentSummary.map(ps => (
+                  <div key={ps.method} className="flex items-center gap-3 p-3 rounded-xl border-2 bg-card">
+                    {getPaymentIcon(ps.method)}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm">{ps.label}</p>
+                      <p className="text-xs text-muted-foreground">{ps.count} transacciones</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-primary">S/ {ps.total.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">{ps.percentage}%</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Search */}
         <Card className="border-2">
