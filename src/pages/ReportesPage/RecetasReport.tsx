@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { formatCost } from '@/utils/formatDecimals';
 import { ChefHat, TrendingUp, Package, DollarSign, ShoppingCart, Gift } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -167,7 +168,7 @@ export function RecetasReport({ recipeCosts, ingredientConsumption, recipeProduc
                         </div>
                       </TableCell>
                       <TableCell className="text-right">S/ {sale.total_revenue.toFixed(2)}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">S/ {sale.unit_recipe_cost.toFixed(2)}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">S/ {formatCost(sale.unit_recipe_cost)}</TableCell>
                       <TableCell className="text-right text-destructive font-medium">S/ {sale.total_recipe_cost.toFixed(2)}</TableCell>
                       <TableCell className="text-right text-success font-bold">S/ {sale.total_profit.toFixed(2)}</TableCell>
                       <TableCell className="text-center">{getMarginBadge(sale.margin_percent)}</TableCell>
@@ -290,7 +291,7 @@ export function RecetasReport({ recipeCosts, ingredientConsumption, recipeProduc
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '0.75rem' }}
                   formatter={(value: number, _name: string, props: any) => [
                     `${value}%`,
-                    `${props.payload.fullName} — Costo: S/${props.payload.costo.toFixed(2)} | Precio: S/${props.payload.precio.toFixed(2)}`
+                    `${props.payload.fullName} — Costo: S/${formatCost(props.payload.costo)} | Precio: S/${props.payload.precio.toFixed(2)}`
                   ]}
                   labelFormatter={() => ''}
                 />
@@ -334,8 +335,8 @@ export function RecetasReport({ recipeCosts, ingredientConsumption, recipeProduc
                   <TableRow key={rc.product_id}>
                     <TableCell className="font-semibold">{rc.product_name}</TableCell>
                     <TableCell className="text-right">S/ {Number(rc.base_price).toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-destructive font-medium">S/ {Number(rc.recipe_cost).toFixed(2)}</TableCell>
-                    <TableCell className="text-right text-success font-bold">S/ {Number(rc.profit).toFixed(2)}</TableCell>
+                    <TableCell className="text-right text-destructive font-medium">S/ {formatCost(Number(rc.recipe_cost))}</TableCell>
+                    <TableCell className="text-right text-success font-bold">S/ {formatCost(Number(rc.profit))}</TableCell>
                     <TableCell className="text-right font-bold">{Number(rc.margin_percent).toFixed(1)}%</TableCell>
                     <TableCell className="text-center">{rc.ingredient_count}</TableCell>
                     <TableCell className="text-center">{getMarginBadge(Number(rc.margin_percent))}</TableCell>

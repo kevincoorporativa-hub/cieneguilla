@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Search, Package, Plus, Pencil } from 'lucide-react';
+import { formatCost, formatTotal, formatQuantity } from '@/utils/formatDecimals';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,8 +38,8 @@ export function InsumoListTab({ ingredients, isLoading, onNewItem }: Props) {
       i.current_stock,
       i.unit,
       i.min_stock,
-      `S/ ${i.cost_per_unit.toFixed(2)}`,
-      `S/ ${(i.current_stock * i.cost_per_unit).toFixed(2)}`,
+      `S/ ${formatCost(i.cost_per_unit)}`,
+      `S/ ${formatTotal(i.current_stock * i.cost_per_unit)}`,
       i.supplier || '—',
     ]),
     title: 'Lista de Insumos',
@@ -139,8 +140,8 @@ export function InsumoListTab({ ingredients, isLoading, onNewItem }: Props) {
                     <TableCell>{getStockBadge(item.current_stock, item.min_stock)}</TableCell>
                     <TableCell>{item.unit}</TableCell>
                     <TableCell className="text-muted-foreground">{item.min_stock}</TableCell>
-                    <TableCell className="text-muted-foreground">S/ {item.cost_per_unit.toFixed(2)}</TableCell>
-                    <TableCell className="font-semibold">S/ {(item.current_stock * item.cost_per_unit).toFixed(2)}</TableCell>
+                    <TableCell className="text-muted-foreground">S/ {formatCost(item.cost_per_unit)}</TableCell>
+                    <TableCell className="font-semibold">S/ {formatTotal(item.current_stock * item.cost_per_unit)}</TableCell>
                     <TableCell className="text-muted-foreground">{item.supplier || '—'}</TableCell>
                   </TableRow>
                 ))}

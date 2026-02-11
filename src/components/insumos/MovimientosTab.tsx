@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { formatCost } from '@/utils/formatDecimals';
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -108,9 +109,10 @@ export function MovimientosTab({ ingredients }: Props) {
     }
   };
 
-  const totalCost = quantity && unitCost
-    ? (parseFloat(quantity) * parseFloat(unitCost)).toFixed(2)
+  const totalCostValue = quantity && unitCost
+    ? parseFloat(quantity) * parseFloat(unitCost)
     : null;
+  const totalCost = totalCostValue !== null ? formatCost(totalCostValue, 4) : null;
 
   return (
     <div className="space-y-6">
@@ -300,7 +302,7 @@ export function MovimientosTab({ ingredients }: Props) {
                     <label className="text-pos-base font-semibold">Costo Unitario (S/) *</label>
                     <Input
                       type="number"
-                      step="0.01"
+                      step="any"
                       value={unitCost}
                       onChange={(e) => setUnitCost(e.target.value)}
                       placeholder="0.00"
@@ -338,8 +340,8 @@ export function MovimientosTab({ ingredients }: Props) {
                 {totalCost && (
                   <div className="p-4 bg-success/10 border-2 border-success/30 rounded-xl">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-semibold text-muted-foreground">
-                        {quantity} × S/ {parseFloat(unitCost).toFixed(2)}
+                       <span className="text-sm font-semibold text-muted-foreground">
+                        {quantity} × S/ {formatCost(parseFloat(unitCost))}
                       </span>
                       <div className="text-right">
                         <p className="text-xs text-muted-foreground">Total de compra</p>
