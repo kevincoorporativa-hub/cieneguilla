@@ -180,9 +180,11 @@ export function CheckoutModal({
     }
   };
 
+  const configuredCopies = parseInt(localStorage.getItem('printCopies') || '2', 10);
+
   const handlePrintAndClose = () => {
     if (ticketRef.current) {
-      printTicket(ticketRef.current, 2); // Imprimir 2 copias
+      printTicket(ticketRef.current, configuredCopies);
     }
     setShowTicketPreview(false);
     onClose();
@@ -235,7 +237,7 @@ export function CheckoutModal({
             </Button>
             <Button className="flex-1 bg-primary" onClick={handlePrintAndClose}>
               <Printer className="h-5 w-5 mr-2" />
-              Imprimir 2 copias
+              Imprimir {configuredCopies} {configuredCopies === 1 ? 'copia' : 'copias'}
             </Button>
           </div>
         </DialogContent>

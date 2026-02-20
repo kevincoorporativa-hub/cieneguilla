@@ -57,7 +57,14 @@ export default function ConfiguracionPage() {
   const [printerEnabled, setPrinterEnabled] = useState(true);
   const [printerName, setPrinterName] = useState('Ticketera-80mm');
   const [autoPrint, setAutoPrint] = useState(true);
-  const [printCopies, setPrintCopies] = useState('2');
+  const [printCopies, setPrintCopies] = useState(() => localStorage.getItem('printCopies') || '2');
+
+  const handlePrintCopiesChange = (value: string) => {
+    const num = Math.max(1, Math.min(10, parseInt(value) || 1));
+    const val = String(num);
+    setPrintCopies(val);
+    localStorage.setItem('printCopies', val);
+  };
   
   const [notifyLowStock, setNotifyLowStock] = useState(true);
   const [notifyLicenseExpiry, setNotifyLicenseExpiry] = useState(true);
@@ -662,9 +669,9 @@ export default function ConfiguracionPage() {
                   <Input
                     type="number"
                     value={printCopies}
-                    onChange={(e) => setPrintCopies(e.target.value)}
+                    onChange={(e) => handlePrintCopiesChange(e.target.value)}
                     min="1"
-                    max="5"
+                    max="10"
                     className="h-12 text-pos-base rounded-xl w-32"
                     disabled={!printerEnabled}
                   />
