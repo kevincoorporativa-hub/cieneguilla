@@ -129,8 +129,41 @@ export default function TicketsPage() {
 
   const { settings } = useBusinessSettings();
 
+  const configuredCopies = parseInt(localStorage.getItem('printCopies') || '2', 10);
+
   const handlePrintTicket = (ticket: Ticket) => {
-    const html = buildPrintHtml(ticket, settings);
+    const singleHtml = buildPrintHtml(ticket, settings);
+    // Extract body content for duplication
+    const bodyMatch = singleHtml.match(/<body[^>]*>([\s\S]*)<\/body>/);
+    const headMatch = singleHtml.match(/<head[^>]*>([\s\S]*)<\/head>/);
+    
+    if (!bodyMatch || !headMatch) {
+      // Fallback: print single copy
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '-10000px';
+      iframe.style.left = '-10000px';
+      iframe.style.width = '80mm';
+      iframe.style.height = '0';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) { document.body.removeChild(iframe); return; }
+      iframeDoc.open();
+      iframeDoc.write(singleHtml);
+      iframeDoc.close();
+      setTimeout(() => { iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 1000); }, 250);
+      return;
+    }
+
+    const bodyContent = bodyMatch[1];
+    let copiesHtml = '';
+    for (let i = 0; i < configuredCopies; i++) {
+      copiesHtml += `<div class="ticket-copy" style="${i < configuredCopies - 1 ? 'page-break-after:always;' : ''}">${bodyContent}</div>`;
+    }
+
+    const fullHtml = `<html><head>${headMatch[1]}<style>.ticket-copy { page-break-after: always; } .ticket-copy:last-child { page-break-after: auto; }</style></head><body>${copiesHtml}</body></html>`;
+
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.top = '-10000px';
@@ -147,7 +180,7 @@ export default function TicketsPage() {
     }
 
     iframeDoc.open();
-    iframeDoc.write(html);
+    iframeDoc.write(fullHtml);
     iframeDoc.close();
 
     setTimeout(() => {
@@ -160,7 +193,7 @@ export default function TicketsPage() {
         document.body.removeChild(iframe);
       }, 1000);
     }, 250);
-    toast.success('Enviado a impresora');
+    toast.success(`Enviado a impresora (${configuredCopies} copias)`);
   };
 
   // Calculate date range based on filter period
