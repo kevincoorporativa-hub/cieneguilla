@@ -109,6 +109,7 @@ export default function POSPage() {
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sizeFilter, setSizeFilter] = useState<string | null>(null);
+  const [flavorFilter, setFlavorFilter] = useState<string | null>(null);
   const [comboSearchTerm, setComboSearchTerm] = useState('');
   // Hooks
   const { lightTap, successFeedback, errorFeedback } = useHapticFeedback();
@@ -177,8 +178,13 @@ export default function POSPage() {
       const size = sizeFilter.toLowerCase();
       filtered = filtered.filter(p => p.nombre.toLowerCase().includes(size));
     }
+    // Apply flavor filter
+    if (flavorFilter) {
+      const flavor = flavorFilter.toLowerCase();
+      filtered = filtered.filter(p => p.nombre.toLowerCase().includes(flavor));
+    }
     return filtered;
-  }, [products, dbProducts, selectedCategoryId, showCombos, searchTerm, sizeFilter]);
+  }, [products, dbProducts, selectedCategoryId, showCombos, searchTerm, sizeFilter, flavorFilter]);
 
   // Detect available sizes in current category products
   const availableSizes = useMemo(() => {
@@ -190,6 +196,19 @@ export default function POSPage() {
     const sizes = ['Personal', 'Mediana', 'Familiar'];
     return sizes.filter(size => 
       categoryProducts.some(p => p.nombre.toLowerCase().includes(size.toLowerCase()))
+    );
+  }, [products, dbProducts, selectedCategoryId, showCombos]);
+
+  // Detect available flavors in current category products
+  const availableFlavors = useMemo(() => {
+    if (!selectedCategoryId || showCombos) return [];
+    const categoryProducts = products.filter(p => {
+      const dbProduct = dbProducts.find(dp => dp.id === p.id);
+      return dbProduct?.category_id === selectedCategoryId;
+    });
+    const flavors = ['Americana', 'Pepperoni', 'Hawaiana', 'Italiana', 'Vegetariana', 'Cabanossi', 'Salchipizza', 'Africana', 'Alemana', 'Consentida', 'La Brava', '4 Estaciones'];
+    return flavors.filter(flavor => 
+      categoryProducts.some(p => p.nombre.toLowerCase().includes(flavor.toLowerCase()))
     );
   }, [products, dbProducts, selectedCategoryId, showCombos]);
 
@@ -231,6 +250,7 @@ export default function POSPage() {
     setShowCombos(false);
     setSearchTerm('');
     setSizeFilter(null);
+    setFlavorFilter(null);
     setComboSearchTerm('');
   };
 
@@ -239,6 +259,7 @@ export default function POSPage() {
     setSelectedCategoryId(null);
     setSearchTerm('');
     setSizeFilter(null);
+    setFlavorFilter(null);
     setComboSearchTerm('');
   };
 
@@ -795,36 +816,72 @@ export default function POSPage() {
 
           {/* Search bar + size filters (only for product categories, not combos) */}
           {!showCombos && !isLoading && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Search input */}
-              <div className="relative flex-1 min-w-[180px] max-w-[300px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Buscar producto..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full h-10 lg:h-11 pl-9 pr-8 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
-                  >
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Search input */}
+                <div className="relative flex-1 min-w-[180px] max-w-[300px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar producto..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full h-10 lg:h-11 pl-9 pr-8 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted"
+                    >
+                      <X className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Size filter buttons */}
+                {availableSizes.length > 0 && (
+                  <>
+                    <button
+                      onClick={() => setSizeFilter(null)}
+                      className={cn(
+                        'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                        !sizeFilter
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                      )}
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      Todos
+                    </button>
+                    {availableSizes.map(size => (
+                      <button
+                        key={size}
+                        onClick={() => setSizeFilter(sizeFilter === size ? null : size)}
+                        className={cn(
+                          'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                          sizeFilter === size
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                        )}
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </>
                 )}
               </div>
 
-              {/* Size filter buttons */}
-              {availableSizes.length > 0 && (
-                <>
+              {/* Flavor filter buttons */}
+              {availableFlavors.length > 0 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs text-muted-foreground font-medium">Sabor:</span>
                   <button
-                    onClick={() => setSizeFilter(null)}
+                    onClick={() => setFlavorFilter(null)}
                     className={cn(
-                      'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
-                      !sizeFilter
+                      'px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                      !flavorFilter
                         ? 'bg-primary text-primary-foreground shadow-md'
                         : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                     )}
@@ -832,22 +889,22 @@ export default function POSPage() {
                   >
                     Todos
                   </button>
-                  {availableSizes.map(size => (
+                  {availableFlavors.map(flavor => (
                     <button
-                      key={size}
-                      onClick={() => setSizeFilter(sizeFilter === size ? null : size)}
+                      key={flavor}
+                      onClick={() => setFlavorFilter(flavorFilter === flavor ? null : flavor)}
                       className={cn(
-                        'px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
-                        sizeFilter === size
+                        'px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                        flavorFilter === flavor
                           ? 'bg-primary text-primary-foreground shadow-md'
                           : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                       )}
                       style={{ WebkitTapHighlightColor: 'transparent' }}
                     >
-                      {size}
+                      {flavor}
                     </button>
                   ))}
-                </>
+                </div>
               )}
             </div>
           )}
