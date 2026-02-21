@@ -199,19 +199,6 @@ export default function POSPage() {
     );
   }, [products, dbProducts, selectedCategoryId, showCombos]);
 
-  // Detect available flavors in current category products
-  const availableFlavors = useMemo(() => {
-    if (!selectedCategoryId || showCombos) return [];
-    const categoryProducts = products.filter(p => {
-      const dbProduct = dbProducts.find(dp => dp.id === p.id);
-      return dbProduct?.category_id === selectedCategoryId;
-    });
-    const flavors = ['Americana', 'Pepperoni', 'Hawaiana', 'Italiana', 'Vegetariana', 'Cabanossi', 'Salchipizza', 'Africana', 'Alemana', 'Consentida', 'La Brava', '4 Estaciones'];
-    return flavors.filter(flavor => 
-      categoryProducts.some(p => p.nombre.toLowerCase().includes(flavor.toLowerCase()))
-    );
-  }, [products, dbProducts, selectedCategoryId, showCombos]);
-
   // Helper: match name against size (full word or abbreviation)
   const nameMatchesSize = useCallback((name: string, size: string) => {
     const lower = name.toLowerCase();
@@ -222,6 +209,23 @@ export default function POSPage() {
     if (s === 'mediana' && lower.includes('med')) return true;
     return false;
   }, []);
+
+  // Detect available flavors in current category products (filtered by current size)
+  const availableFlavors = useMemo(() => {
+    if (!selectedCategoryId || showCombos) return [];
+    let categoryProducts = products.filter(p => {
+      const dbProduct = dbProducts.find(dp => dp.id === p.id);
+      return dbProduct?.category_id === selectedCategoryId;
+    });
+    if (sizeFilter) {
+      categoryProducts = categoryProducts.filter(p => nameMatchesSize(p.nombre, sizeFilter));
+    }
+    const flavors = ['Americana', 'Pepperoni', 'Hawaiana', 'Italiana', 'Vegetariana', 'Cabanossi', 'Salchipizza', 'Africana', 'Alemana', 'Consentida', 'La Brava', '4 Estaciones'];
+    return flavors.filter(flavor => 
+      categoryProducts.some(p => p.nombre.toLowerCase().includes(flavor.toLowerCase()))
+    );
+  }, [products, dbProducts, selectedCategoryId, showCombos, sizeFilter, nameMatchesSize]);
+
 
   // Filter combos by type, search and size
   const filteredCombos = useMemo(() => {
@@ -249,14 +253,24 @@ export default function POSPage() {
     return sizes.filter(size => combos.some(c => nameMatchesSize(c.nombre, size)));
   }, [combos, showCombos, nameMatchesSize]);
 
-  // Detect available flavors in combos
+  // Detect available flavors in combos (filtered by current size)
   const comboAvailableFlavors = useMemo(() => {
     if (!showCombos) return [];
+    let pool = combos;
+    if (sizeFilter) {
+      pool = pool.filter(c => nameMatchesSize(c.nombre, sizeFilter));
+    }
     const flavors = ['Americana', 'Pepperoni', 'Hawaiana', 'Italiana', 'Vegetariana', 'Cabanossi', 'Salchipizza', 'Africana', 'Alemana', 'Consentida', 'La Brava', '4 Estaciones'];
     return flavors.filter(flavor => 
-      combos.some(c => c.nombre.toLowerCase().includes(flavor.toLowerCase()))
+      pool.some(c => c.nombre.toLowerCase().includes(flavor.toLowerCase()))
     );
-  }, [combos, showCombos]);
+  }, [combos, showCombos, sizeFilter, nameMatchesSize]);
+
+  // Reset flavor filter when it's no longer available (e.g. size changed)
+  const currentFlavors = showCombos ? comboAvailableFlavors : availableFlavors;
+  if (flavorFilter && currentFlavors.length > 0 && !currentFlavors.includes(flavorFilter)) {
+    setTimeout(() => setFlavorFilter(null), 0);
+  }
 
   const handleSelectCategory = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
