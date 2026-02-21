@@ -235,8 +235,12 @@ export default function POSPage() {
     if (sizeFilter) {
       filtered = filtered.filter(c => nameMatchesSize(c.nombre, sizeFilter));
     }
+    if (flavorFilter) {
+      const flavor = flavorFilter.toLowerCase();
+      filtered = filtered.filter(c => c.nombre.toLowerCase().includes(flavor));
+    }
     return filtered;
-  }, [combos, comboFilter, comboSearchTerm, sizeFilter, nameMatchesSize]);
+  }, [combos, comboFilter, comboSearchTerm, sizeFilter, flavorFilter, nameMatchesSize]);
 
   // Detect available sizes in combos
   const comboAvailableSizes = useMemo(() => {
@@ -244,6 +248,15 @@ export default function POSPage() {
     const sizes = ['Personal', 'Mediana', 'Familiar'];
     return sizes.filter(size => combos.some(c => nameMatchesSize(c.nombre, size)));
   }, [combos, showCombos, nameMatchesSize]);
+
+  // Detect available flavors in combos
+  const comboAvailableFlavors = useMemo(() => {
+    if (!showCombos) return [];
+    const flavors = ['Americana', 'Pepperoni', 'Hawaiana', 'Italiana', 'Vegetariana', 'Cabanossi', 'Salchipizza', 'Africana', 'Alemana', 'Consentida', 'La Brava', '4 Estaciones'];
+    return flavors.filter(flavor => 
+      combos.some(c => c.nombre.toLowerCase().includes(flavor.toLowerCase()))
+    );
+  }, [combos, showCombos]);
 
   const handleSelectCategory = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
@@ -973,6 +986,40 @@ export default function POSPage() {
                     </>
                   )}
                 </div>
+
+                {/* Combo flavor filter buttons */}
+                {comboAvailableFlavors.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-muted-foreground font-medium">Sabor:</span>
+                    <button
+                      onClick={() => setFlavorFilter(null)}
+                      className={cn(
+                        'px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                        !flavorFilter
+                          ? 'bg-primary text-primary-foreground shadow-md'
+                          : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                      )}
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      Todos
+                    </button>
+                    {comboAvailableFlavors.map(flavor => (
+                      <button
+                        key={flavor}
+                        onClick={() => setFlavorFilter(flavorFilter === flavor ? null : flavor)}
+                        className={cn(
+                          'px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold transition-all touch-action-manipulation select-none',
+                          flavorFilter === flavor
+                            ? 'bg-primary text-primary-foreground shadow-md'
+                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                        )}
+                        style={{ WebkitTapHighlightColor: 'transparent' }}
+                      >
+                        {flavor}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {/* Combo type filter buttons */}
                 <div className="flex gap-2 flex-wrap">
