@@ -193,9 +193,9 @@ export default function POSPage() {
       const dbProduct = dbProducts.find(dp => dp.id === p.id);
       return dbProduct?.category_id === selectedCategoryId;
     });
-    const sizes = ['Personal', 'Mediana', 'Familiar', 'Especial'];
+    const sizes = ['Personal', 'Mediana', 'Familiar', 'Personal Especial', 'Mediana Especial', 'Familiar Especial'];
     return sizes.filter(size => 
-      categoryProducts.some(p => p.nombre.toLowerCase().includes(size.toLowerCase()))
+      categoryProducts.some(p => nameMatchesSize(p.nombre, size))
     );
   }, [products, dbProducts, selectedCategoryId, showCombos]);
 
@@ -203,11 +203,15 @@ export default function POSPage() {
   const nameMatchesSize = useCallback((name: string, size: string) => {
     const lower = name.toLowerCase();
     const s = size.toLowerCase();
+    // Compound sizes like "Personal Especial" must match both words
+    if (s === 'personal especial') return lower.includes('personal') && lower.includes('especial');
+    if (s === 'mediana especial') return lower.includes('mediana') && lower.includes('especial');
+    if (s === 'familiar especial') return lower.includes('familiar') && lower.includes('especial');
+    // Simple sizes must match but NOT if "especial" is also present
+    if (s === 'personal') return lower.includes('personal') && !lower.includes('especial');
+    if (s === 'mediana') return lower.includes('mediana') && !lower.includes('especial');
+    if (s === 'familiar') return (lower.includes('familiar') || lower.includes('fam')) && !lower.includes('especial');
     if (lower.includes(s)) return true;
-    if (s === 'familiar' && lower.includes('fam')) return true;
-    if (s === 'personal' && lower.includes('per')) return true;
-    if (s === 'mediana' && lower.includes('med')) return true;
-    if (s === 'especial' && lower.includes('esp')) return true;
     return false;
   }, []);
 
@@ -250,7 +254,7 @@ export default function POSPage() {
   // Detect available sizes in combos
   const comboAvailableSizes = useMemo(() => {
     if (!showCombos) return [];
-    const sizes = ['Personal', 'Mediana', 'Familiar', 'Especial'];
+    const sizes = ['Personal', 'Mediana', 'Familiar', 'Personal Especial', 'Mediana Especial', 'Familiar Especial'];
     return sizes.filter(size => combos.some(c => nameMatchesSize(c.nombre, size)));
   }, [combos, showCombos, nameMatchesSize]);
 
