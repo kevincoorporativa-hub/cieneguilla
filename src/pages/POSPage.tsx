@@ -193,7 +193,7 @@ export default function POSPage() {
       const dbProduct = dbProducts.find(dp => dp.id === p.id);
       return dbProduct?.category_id === selectedCategoryId;
     });
-    const sizes = ['Personal', 'Mediana', 'Familiar'];
+    const sizes = ['Personal', 'Mediana', 'Familiar', 'Especial'];
     return sizes.filter(size => 
       categoryProducts.some(p => p.nombre.toLowerCase().includes(size.toLowerCase()))
     );
@@ -207,6 +207,7 @@ export default function POSPage() {
     if (s === 'familiar' && lower.includes('fam')) return true;
     if (s === 'personal' && lower.includes('per')) return true;
     if (s === 'mediana' && lower.includes('med')) return true;
+    if (s === 'especial' && lower.includes('esp')) return true;
     return false;
   }, []);
 
@@ -249,7 +250,7 @@ export default function POSPage() {
   // Detect available sizes in combos
   const comboAvailableSizes = useMemo(() => {
     if (!showCombos) return [];
-    const sizes = ['Personal', 'Mediana', 'Familiar'];
+    const sizes = ['Personal', 'Mediana', 'Familiar', 'Especial'];
     return sizes.filter(size => combos.some(c => nameMatchesSize(c.nombre, size)));
   }, [combos, showCombos, nameMatchesSize]);
 
