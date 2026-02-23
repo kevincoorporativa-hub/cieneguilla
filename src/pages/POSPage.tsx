@@ -1036,38 +1036,6 @@ export default function POSPage() {
                 )}
 
                 {/* Combo type filter buttons */}
-                <div className="flex gap-2 flex-wrap">
-                  <button
-                    onClick={() => setComboFilter('all')}
-                    className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl text-xs lg:text-sm font-semibold transition-all ${
-                      comboFilter === 'all'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    Todos ({combos.length})
-                  </button>
-                  <button
-                    onClick={() => setComboFilter('permanent')}
-                    className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl text-xs lg:text-sm font-semibold transition-all ${
-                      comboFilter === 'permanent'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    Permanentes ({combos.filter(c => !c.temporal).length})
-                  </button>
-                  <button
-                    onClick={() => setComboFilter('temporary')}
-                    className={`px-3 lg:px-4 py-1.5 lg:py-2 rounded-lg lg:rounded-xl text-xs lg:text-sm font-semibold transition-all ${
-                      comboFilter === 'temporary'
-                        ? 'bg-warning text-warning-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    Temporales ({combos.filter(c => c.temporal).length})
-                  </button>
-                </div>
                 
                 {/* Combos grid */}
                 <div className="grid grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-3 xl:gap-4 pb-4">
