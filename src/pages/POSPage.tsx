@@ -699,6 +699,40 @@ export default function POSPage() {
             )}
           </div>
 
+          {/* Kiosk: Flavor filters */}
+          {(showCombos ? comboAvailableFlavors : availableFlavors).length > 0 && (
+            <div className="flex items-center gap-2 flex-wrap mb-4">
+              <span className="text-sm font-medium text-muted-foreground">Sabor:</span>
+              <button
+                onClick={() => setFlavorFilter(null)}
+                className={cn(
+                  'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all touch-action-manipulation select-none',
+                  !flavorFilter
+                    ? 'bg-primary text-primary-foreground shadow-md'
+                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                )}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                Todos
+              </button>
+              {(showCombos ? comboAvailableFlavors : availableFlavors).map(flavor => (
+                <button
+                  key={flavor}
+                  onClick={() => setFlavorFilter(flavorFilter === flavor ? null : flavor)}
+                  className={cn(
+                    'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all touch-action-manipulation select-none',
+                    flavorFilter === flavor
+                      ? 'bg-primary text-primary-foreground shadow-md'
+                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                  )}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                >
+                  {flavor}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Products Grid - Larger cards for touch */}
           <ScrollArea className="flex-1">
             {showCombos ? (
