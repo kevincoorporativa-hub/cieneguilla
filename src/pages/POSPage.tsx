@@ -193,9 +193,9 @@ export default function POSPage() {
       const dbProduct = dbProducts.find(dp => dp.id === p.id);
       return dbProduct?.category_id === selectedCategoryId;
     });
-    const sizes = ['Personal', 'Mediana', 'Familiar', 'Personal Especial', 'Mediana Especial', 'Familiar Especial'];
+    const sizes = ['Personal', 'Mediana', 'Familiar'];
     return sizes.filter(size => 
-      categoryProducts.some(p => nameMatchesSize(p.nombre, size))
+      categoryProducts.some(p => p.nombre.toLowerCase().includes(size.toLowerCase()))
     );
   }, [products, dbProducts, selectedCategoryId, showCombos]);
 
@@ -203,15 +203,10 @@ export default function POSPage() {
   const nameMatchesSize = useCallback((name: string, size: string) => {
     const lower = name.toLowerCase();
     const s = size.toLowerCase();
-    // Compound sizes like "Personal Especial" must match both words
-    if (s === 'personal especial') return lower.includes('personal') && lower.includes('especial');
-    if (s === 'mediana especial') return lower.includes('mediana') && lower.includes('especial');
-    if (s === 'familiar especial') return lower.includes('familiar') && lower.includes('especial');
-    // Simple sizes must match but NOT if "especial" is also present
-    if (s === 'personal') return lower.includes('personal') && !lower.includes('especial');
-    if (s === 'mediana') return lower.includes('mediana') && !lower.includes('especial');
-    if (s === 'familiar') return (lower.includes('familiar') || lower.includes('fam')) && !lower.includes('especial');
     if (lower.includes(s)) return true;
+    if (s === 'familiar' && lower.includes('fam')) return true;
+    if (s === 'personal' && lower.includes('per')) return true;
+    if (s === 'mediana' && lower.includes('med')) return true;
     return false;
   }, []);
 
@@ -254,7 +249,7 @@ export default function POSPage() {
   // Detect available sizes in combos
   const comboAvailableSizes = useMemo(() => {
     if (!showCombos) return [];
-    const sizes = ['Personal', 'Mediana', 'Familiar', 'Personal Especial', 'Mediana Especial', 'Familiar Especial'];
+    const sizes = ['Personal', 'Mediana', 'Familiar'];
     return sizes.filter(size => combos.some(c => nameMatchesSize(c.nombre, size)));
   }, [combos, showCombos, nameMatchesSize]);
 
@@ -703,40 +698,6 @@ export default function POSPage() {
               </>
             )}
           </div>
-
-          {/* Kiosk: Flavor filters */}
-          {(showCombos ? comboAvailableFlavors : availableFlavors).length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              <span className="text-sm font-medium text-muted-foreground">Sabor:</span>
-              <button
-                onClick={() => setFlavorFilter(null)}
-                className={cn(
-                  'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all touch-action-manipulation select-none',
-                  !flavorFilter
-                    ? 'bg-primary text-primary-foreground shadow-md'
-                    : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                )}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                Todos
-              </button>
-              {(showCombos ? comboAvailableFlavors : availableFlavors).map(flavor => (
-                <button
-                  key={flavor}
-                  onClick={() => setFlavorFilter(flavorFilter === flavor ? null : flavor)}
-                  className={cn(
-                    'px-4 py-2.5 rounded-xl text-sm font-semibold transition-all touch-action-manipulation select-none',
-                    flavorFilter === flavor
-                      ? 'bg-primary text-primary-foreground shadow-md'
-                      : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                  )}
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                  {flavor}
-                </button>
-              ))}
-            </div>
-          )}
 
           {/* Products Grid - Larger cards for touch */}
           <ScrollArea className="flex-1">
