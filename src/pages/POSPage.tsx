@@ -249,7 +249,7 @@ export default function POSPage() {
   // Detect available sizes in combos
   const comboAvailableSizes = useMemo(() => {
     if (!showCombos) return [];
-    const sizes = ['Personal', 'Mediana', 'Familiar'];
+    const sizes = ['Personal', 'Mediana', 'Familiar', 'Personal Especial', 'Mediana Especial', 'Familiar Especial'];
     return sizes.filter(size => combos.some(c => nameMatchesSize(c.nombre, size)));
   }, [combos, showCombos, nameMatchesSize]);
 
